@@ -1,0 +1,56 @@
+{
+  "name": "@kaperkunde/auth",
+  "version": "0.0.0",
+  "description": "Better Auth as the OAuth 2.1 server for an MCP connector: the preset, discovery routes, scope and consent checks, challenges, opaque tokens, and the auth forms' rules and messages.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/auth"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./preset": {
+      "types": "./dist/preset.d.mts",
+      "import": "./dist/preset.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts src/preset.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@better-auth/cimd": "^1.7.7",
+    "@better-auth/mcp": "^1.7.7",
+    "better-auth": "^1.7.7"
+  },
+  "peerDependenciesMeta": {
+    "@better-auth/cimd": {
+      "optional": true
+    },
+    "@better-auth/mcp": {
+      "optional": true
+    },
+    "better-auth": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@better-auth/cimd": "1.7.7",
+    "@better-auth/mcp": "1.7.7",
+    "@better-auth/oauth-provider": "1.7.7",
+    "better-auth": "1.7.7"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
