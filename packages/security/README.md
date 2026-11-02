@@ -15,7 +15,7 @@ strongest of the copies it replaced.
 | `createSecretBox`, `redact`, `lastFour`     | AES-256-GCM under an env key, `v1:` versioned, label as AAD                           | lorespawner                    |
 | `runBootChecks`, `secretProblem`            | Refuse to start in production on any problem; warn in development                     | plekje + studyguild            |
 
-Pure Node: nothing here imports Next, so route handlers, server actions,
+Pure Node: nothing here imports Next (`/net` uses undici), so route handlers, server actions,
 plain Node services and tests all use it the same way.
 
 ```ts

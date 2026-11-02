@@ -1,7 +1,7 @@
 {
   "name": "@kaperkunde/security",
   "version": "0.0.0",
-  "description": "Rate limits, client addresses, safe redirects, same-origin checks, constant-time compares, signed link tokens, the admin check, a secret box and boot checks for Kaperkunde's apps.",
+  "description": "Rate limits, client addresses, safe redirects, same-origin checks, constant-time compares, signed link tokens, the admin check, a secret box boot checks, and fetches that only reach public addresses for Kaperkunde's apps.",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -20,14 +20,21 @@
     ".": {
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
+    },
+    "./net": {
+      "types": "./dist/net.d.mts",
+      "import": "./dist/net.mjs"
     }
   },
   "scripts": {
-    "build": "tsdown src/index.ts --format esm --dts --clean",
+    "build": "tsdown src/index.ts src/net.ts --format esm --dts --clean",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "dependencies": {
+    "undici": "^7.29.0"
   }
 }
