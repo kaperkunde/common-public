@@ -1,0 +1,44 @@
+{
+  "name": "@kaperkunde/mail",
+  "version": "0.0.0",
+  "description": "One themed email template, SMTP under an app's own settings, and Mailpit helpers for tests.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/mail"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./template": {
+      "types": "./dist/template.d.mts",
+      "import": "./dist/template.mjs"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.mts",
+      "import": "./dist/testing.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts src/template.ts src/testing.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "nodemailer": ">=10.0.0"
+  },
+  "devDependencies": {
+    "nodemailer": "10.3.1"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
