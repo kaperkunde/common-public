@@ -1,0 +1,36 @@
+{
+  "name": "@kaperkunde/stripe",
+  "version": "0.0.0",
+  "description": "The checked Stripe webhook: signature, fetch-back by id, a shared account's app marker, and live keys refused on development.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/stripe"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "stripe": ">=22.0.0"
+  },
+  "devDependencies": {
+    "stripe": "23.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
