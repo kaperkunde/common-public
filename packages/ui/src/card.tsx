@@ -6,7 +6,10 @@ import { cn } from "./cn"
  * A panel on the page: content that is not a list of rows (a form, a block
  * of text, a code sample). Rows go in a List (`@kaperkunde/ui/list`).
  * Padding is the theme's `--spacing-card` (`size="sm"`: `--spacing-card-sm`),
- * the edge its `--card-shadow`.
+ * the edge its `--card-shadow`. Who pads the sides is the theme's
+ * `--card-slots`: 0 (PCP's), the card pads whatever it holds; 1 (shadcn's),
+ * the card pads only top and bottom and its header, content and footer pad
+ * their own sides, so anything else inside runs edge to edge.
  */
 function Card({
   className,
@@ -18,7 +21,7 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-4 rounded-card bg-card p-(--card-pad) text-sm text-card-foreground shadow-card [--card-pad:var(--spacing-card)] data-[size=sm]:gap-3 data-[size=sm]:[--card-pad:var(--spacing-card-sm)]",
+        "group/card flex flex-col gap-4 rounded-card bg-card px-(--card-px) py-(--card-pad) text-sm text-card-foreground shadow-card [--card-pad:var(--spacing-card)] [--card-px:calc(var(--card-pad)*(1_-_var(--card-slots,0)))] [--card-slot-px:calc(var(--card-pad)*var(--card-slots,0))] data-[size=sm]:gap-3 data-[size=sm]:[--card-pad:var(--spacing-card-sm)]",
         className,
       )}
       {...props}
@@ -32,7 +35,7 @@ function CardHeader({ className, ...props }: ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "grid auto-rows-min items-start gap-1 has-data-[slot=card-action]:grid-cols-[1fr_auto]",
+        "grid auto-rows-min items-start gap-1 px-(--card-slot-px) has-data-[slot=card-action]:grid-cols-[1fr_auto]",
         className,
       )}
       {...props}
@@ -88,7 +91,7 @@ function CardContent({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
-      className={cn("flex flex-col gap-4", className)}
+      className={cn("flex flex-col gap-4 px-(--card-slot-px)", className)}
       {...props}
     />
   )
@@ -100,7 +103,7 @@ function CardFooter({ className, ...props }: ComponentProps<"div">) {
     <div
       data-slot="card-footer"
       className={cn(
-        "-mx-(--card-pad) mt-auto -mb-(--card-pad) flex items-center rounded-b-card border-t bg-muted/50 p-(--card-pad)",
+        "-mx-(--card-px) mt-auto -mb-(--card-pad) flex items-center rounded-b-card border-t bg-muted/50 p-(--card-pad)",
         className,
       )}
       {...props}

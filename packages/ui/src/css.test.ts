@@ -94,9 +94,18 @@ describe("Tailwind", () => {
       ".focus-ring",
       ".h-field",
       ".text-card-title",
+      ".font-control",
+      ".font-control-primary",
+      ".font-badge",
+      ".text-badge",
+      ".px-badge-x",
+      ".font-segment",
+      ".px-\\(--card-px\\)",
+      ".px-\\(--card-slot-px\\)",
+      ".border-\\[length\\:var\\(--segment-border-width\\,0px\\)\\]",
     ]) {
-      expect(css, rule).toMatch(
-        new RegExp(`${rule.replace(/[.\\:]/g, "\\$&")}[ :]`),
+      expect(css.includes(`${rule} {`) || css.includes(`${rule}:`), rule).toBe(
+        true,
       )
     }
     expect(css).toContain("@media (max-width: 560px)")
@@ -107,6 +116,14 @@ describe("Tailwind", () => {
   it("lets a theme reshape the controls and the radius scale", async () => {
     const { css } = await build("plekje", ["rounded-xl"])
     expect(css).toContain("--spacing-control-md: 2rem;")
+    expect(css).toContain("--card-slots: 1;")
+    expect(css).toContain("--font-weight-control-primary: 500;")
+    expect(css).toContain("--badge-destructive-tint: 10%;")
+    expect(css).toContain("--segment-border-width: 1px;")
+    expect(css).toContain("font-weight: var(--font-weight-control-primary)")
+    expect(css).toContain(
+      "--card-px: calc(var(--card-pad) * (1 - var(--card-slots,0)))",
+    )
     expect(css).toContain("border-radius: calc(var(--radius) * 1.4)")
     const pcp = (await build("pcp", ["rounded-xl"])).css
     expect(pcp).toContain("border-radius: calc(var(--radius) * 1.33)")

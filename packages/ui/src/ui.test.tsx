@@ -77,6 +77,9 @@ describe("Button", () => {
     expect(button).toContain("text-control-md")
     expect(button).toContain("rounded-control-md")
     expect(button).toContain("focus-ring")
+    expect(button).toContain("font-control-primary")
+    expect(button).not.toContain("font-control ")
+    expect(buttonVariants({ variant: "secondary" })).toContain("font-control")
   })
 
   it("has every variant and size the apps draw", () => {
@@ -132,7 +135,13 @@ describe("Badge", () => {
   it("draws its corner from the badge radius token", () => {
     const badge = tagOf(html(<Badge>Read-only</Badge>), "span")
     expect(badge).toContain("rounded-badge")
+    expect(badge).toContain("px-badge-x")
+    expect(badge).toContain("text-badge")
+    expect(badge).toContain("font-badge")
     expect(badge).toContain("bg-accent")
+    expect(html(<Badge variant="destructive">No</Badge>)).toContain(
+      "var(--badge-destructive-tint,15%)",
+    )
   })
 
   it("has the solid and outlined variants", () => {
@@ -173,7 +182,13 @@ describe("Card", () => {
     expect(card).toContain("[--card-pad:var(--spacing-card)]")
     expect(markup).toContain("<h2")
     expect(markup).toContain("text-card-title")
-    expect(markup).toContain("-mx-(--card-pad)")
+    expect(card).toContain("px-(--card-px)")
+    expect(card).toContain("var(--card-slots,0)")
+    expect(tagOf(markup, "div", "card-header")).toContain("px-(--card-slot-px)")
+    expect(tagOf(markup, "div", "card-content")).toContain(
+      "px-(--card-slot-px)",
+    )
+    expect(tagOf(markup, "div", "card-footer")).toContain("-mx-(--card-px)")
   })
 
   it("lets the title be another element", () => {
@@ -255,6 +270,10 @@ describe("SegmentedControl", () => {
     expect(markup).toContain("peer-checked:bg-segment-allow")
     expect(markup).toContain("peer-checked:bg-segment-block")
     expect(markup).toContain("peer-checked:bg-segment-active")
+    expect(tagOf(markup, "fieldset")).toContain(
+      "border-[length:var(--segment-border-width,0px)]",
+    )
+    expect(markup).toContain("font-segment")
   })
 
   it("groups its radios under a generated name when it has none", () => {

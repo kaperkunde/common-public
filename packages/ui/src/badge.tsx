@@ -7,16 +7,20 @@ import { cn } from "./cn"
  * A short label beside a name: a state ("Read-only"), a hint ("Changes
  * data"). The tinted variants stay quiet; the `solid` ones stand out, and
  * `solid-warning` is for what needs the reader now ("Sign in again"). The
- * corner is the theme's `--radius-badge` (a pill on plek.je and pcp.gg).
+ * corner, side padding, type size and weight are the theme's
+ * (`--radius-badge`, `--spacing-badge-x`, `--text-badge`,
+ * `--font-weight-badge`: a pill in medium 12px on plek.je and pcp.gg), and so
+ * is the destructive tint's strength (`--badge-destructive-tint`).
  */
 const badgeVariants = cva(
-  "inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 rounded-badge border border-transparent px-1.5 text-[11px] font-semibold whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3",
+  "inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 rounded-badge border border-transparent px-badge-x text-badge font-badge whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
         default: "bg-accent text-accent-foreground",
         secondary: "bg-muted text-muted-foreground",
-        destructive: "bg-destructive/15 text-destructive",
+        destructive:
+          "bg-[color-mix(in_oklab,var(--destructive)_var(--badge-destructive-tint,15%),transparent)] text-destructive",
         warning: "bg-warning/15 text-warning",
         solid: "bg-primary text-primary-foreground",
         "solid-secondary": "bg-secondary text-secondary-foreground",

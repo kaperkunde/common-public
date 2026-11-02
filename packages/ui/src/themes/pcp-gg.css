@@ -70,4 +70,17 @@
   --card-shadow: 0 0 0 1px
     color-mix(in oklab, var(--foreground) 10%, transparent);
   --heading-weight: 500;
+
+  /* The filled primary button stays medium; badges are medium 12px. */
+  --font-weight-control-primary: 500;
+  --spacing-badge-x: 0.5rem;
+  --text-badge: 0.75rem;
+  --font-weight-badge: 500;
+  --badge-destructive-tint: 10%;
+
+  /*
+   * A card pads only top and bottom; its header, content and footer pad
+   * their own sides.
+   */
+  --card-slots: 1;
 }

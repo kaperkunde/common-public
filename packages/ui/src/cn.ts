@@ -23,6 +23,7 @@ const twMerge = extendTailwindMerge({
         "field-x",
         "card",
         "card-sm",
+        "badge-x",
       ],
       text: [
         "control-xs",
@@ -30,7 +31,9 @@ const twMerge = extendTailwindMerge({
         "control-md",
         "control-lg",
         "card-title",
+        "badge",
       ],
+      "font-weight": ["control", "control-primary", "badge", "segment"],
       radius: [
         "control-xs",
         "control-sm",

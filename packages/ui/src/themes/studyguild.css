@@ -8,7 +8,8 @@
  * One name collides: Study Guild's `muted` is a text colour (#5e5850), where
  * the token set's `muted` is a background. Study Guild's own wins here, so
  * its pages are unchanged; a shared component's `bg-muted` draws in that
- * grey until Study Guild's `text-muted` is renamed `text-muted-foreground`.
+ * grey. Once the app's `text-muted` is renamed `text-muted-foreground`, drop
+ * the `--color-muted` line below.
  */
 
 @theme {

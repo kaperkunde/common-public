@@ -17,6 +17,10 @@ export type SegmentedOption<T extends string> = {
  * submits with a form and the arrow keys move between options as on any
  * radio group. Controlled with `value` and `onValueChange`, or left to the
  * form with `defaultValue`. Over four choices, use a Select.
+ *
+ * A theme may ring it (`--segment-border-width`, in the input colour) and
+ * size it (`--segment-pad`, `--segment-height`, `--segment-text`,
+ * `--segment-active-shadow` under the chosen option, `--font-weight-segment`).
  */
 function SegmentedControl<T extends string>({
   name,
@@ -50,7 +54,7 @@ function SegmentedControl<T extends string>({
       data-slot="segmented-control"
       disabled={disabled}
       className={cn(
-        "m-0 inline-flex min-w-0 flex-wrap gap-0.5 rounded-lg border-0 bg-muted p-0.5 disabled:opacity-60",
+        "m-0 inline-flex min-w-0 flex-wrap gap-0.5 rounded-lg border-[length:var(--segment-border-width,0px)] border-input bg-muted p-[var(--segment-pad,0.125rem)] disabled:opacity-60",
         className,
       )}
     >
@@ -76,8 +80,11 @@ function SegmentedControl<T extends string>({
             <label
               htmlFor={optionId}
               className={cn(
-                "flex cursor-pointer items-center gap-1.5 rounded-[calc(var(--radius)*7/9)] px-3 font-medium whitespace-nowrap text-segment-foreground transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-disabled:cursor-not-allowed hover:text-foreground",
-                size === "sm" ? "min-h-7 text-xs" : "min-h-[30px] text-[13px]",
+                "flex cursor-pointer items-center gap-1.5 rounded-[calc(var(--radius)*7/9)] px-3 font-segment whitespace-nowrap text-segment-foreground transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-disabled:cursor-not-allowed hover:text-foreground",
+                size === "sm"
+                  ? "min-h-7 text-xs"
+                  : "min-h-[var(--segment-height,30px)] text-[length:var(--segment-text,13px)]",
+                "peer-checked:shadow-[var(--segment-active-shadow,0_0_transparent)]",
                 option.tone === "allow"
                   ? "peer-checked:bg-segment-allow peer-checked:text-segment-allow-foreground"
                   : option.tone === "block"

@@ -109,18 +109,29 @@ those when a theme leaves it out:
 | `control-shadow`, `card-shadow`, `popover-shadow`, `dialog-shadow`                      | none                                   | buttons, cards, menus     |
 | `heading-weight`, `heading-tracking`, `heading-color`                                   | 600, -0.015em, `foreground`            | h1–h4                     |
 | `gutter`                                                                                | 16px, 24px from 640px                  | `px-gutter`               |
+| `badge-destructive-tint`                                                                | 15%                                    | the destructive badge     |
+| `segment-border-width`, `segment-pad`, `segment-height`, `segment-text`                 | 0, 2px, 30px, 13px                     | the segmented control     |
+| `segment-active-shadow`                                                                 | none                                   | its chosen option         |
+| `card-slots`                                                                            | 0                                      | who pads a card's sides   |
 
 The shape is a theme's too: PCP's proportions are the defaults, and a theme
 overrides any of them as plain variables on `:root` (`themes/plekje.css`
 does, for shadcn's tighter base-nova sizes):
 
-| Variables                                                                   | What                                        |
-| --------------------------------------------------------------------------- | ------------------------------------------- |
-| `--spacing-control-{xs,sm,md,lg}`, `--spacing-control-{xs,sm,md,lg}-x`      | a button's height and side padding per size |
-| `--text-control-{xs,sm,md,lg}`, `--radius-control-{xs,sm,md,lg}`            | its type size and corner                    |
-| `--spacing-field`, `--spacing-field-x`                                      | an input's height and side padding          |
-| `--spacing-card`, `--spacing-card-sm`, `--text-card-title`, `--radius-card` | a card                                      |
-| `--radius-badge`, `--radius-menu`, `--radius-dialog`                        | badges (a pill on plek.je), menus, dialogs  |
+| Variables                                                                    | What                                        |
+| ---------------------------------------------------------------------------- | ------------------------------------------- |
+| `--spacing-control-{xs,sm,md,lg}`, `--spacing-control-{xs,sm,md,lg}-x`       | a button's height and side padding per size |
+| `--text-control-{xs,sm,md,lg}`, `--radius-control-{xs,sm,md,lg}`             | its type size and corner                    |
+| `--spacing-field`, `--spacing-field-x`                                       | an input's height and side padding          |
+| `--spacing-card`, `--spacing-card-sm`, `--text-card-title`, `--radius-card`  | a card                                      |
+| `--font-weight-control`, `--font-weight-control-primary`                     | a button's weight, and the filled primary's |
+| `--radius-badge`, `--spacing-badge-x`, `--text-badge`, `--font-weight-badge` | a badge (a medium 12px pill on plek.je)     |
+| `--radius-menu`, `--radius-dialog`, `--font-weight-segment`                  | menus, dialogs, a segment's label           |
+
+`--card-slots` picks who pads a card's sides: `0` (PCP's), the card pads
+whatever it holds and a CardFooter bleeds to its edges; `1` (shadcn's, as on
+pcp.gg and plek.je), the card pads only top and bottom and CardHeader,
+CardContent and CardFooter pad their own sides.
 
 ## On a phone
 
@@ -141,8 +152,16 @@ The variants are the union of what the apps draw, so a few names move:
 
 - **PCP**: `Button` and `Badge` `variant="outline"` become `"secondary"`
   (PCP's outline was its alias); the theme names every colour components/ui
-  wrote in place, so nothing else changes.
-- **pcp.gg, plek.je**: `Button` with no variant becomes
+  wrote in place. `SubmitButton` has no `disabled`: share-review's push
+  button (`disabled={waiting > 0}`, held until the personal-data check is
+  settled) becomes a plain `Button type="submit"`. Two small changes come
+  with the package: `PageHeader` is a `<header>` (inside `<main>` it is no
+  landmark) where PCP's was a `<div>`, and a dialog's height is capped by
+  `100dvh` rather than `100vh`, so it fits under a phone's browser bars.
+- **pcp.gg, plek.je**: their themes set the base-nova shapes (control sizes,
+  medium filled buttons, medium 12px pill badges with a 10% destructive tint,
+  ringed cards padded per slot, and on plek.je the ringed segmented control),
+  so only names move. `Button` with no variant becomes
   `variant="primary-outline"`, `"solid"` becomes the default, `"destructive"`
   becomes `"destructive-soft"`; `Badge` with no variant becomes `"solid"`,
   `"secondary"` becomes `"solid-secondary"`. `SegmentedControl` takes
@@ -153,5 +172,7 @@ The variants are the union of what the apps draw, so a few names move:
   ink-outlined buttons, panels and fields stay its own; the shared
   `RequiredFieldsForm`, `SubmitButton`, `FormError`, footer pieces and
   `PageHeader` work on its theme. Its `text-muted` is a text colour where the
-  token set's `muted` is a background: until it is renamed
-  `text-muted-foreground`, a shared `bg-muted` draws in that grey.
+  token set's `muted` is a background, so its theme keeps `--color-muted` as
+  that grey for now (a shared `bg-muted` draws in it). The migration renames
+  `text-muted` to `text-muted-foreground` across the app and then drops the
+  `--color-muted` line from its theme, so `muted` is the paper background.

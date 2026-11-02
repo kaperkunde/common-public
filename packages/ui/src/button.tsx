@@ -13,16 +13,17 @@ import { cn } from "./cn"
  * `destructive` in red, `link`). `destructive-soft` is red on a red tint.
  *
  * Height, padding, type and corner per size are theme tokens
- * (`--spacing-control-*`, `--text-control-*`, `--radius-control-*`), so each
- * site keeps its own proportions.
+ * (`--spacing-control-*`, `--text-control-*`, `--radius-control-*`), and so
+ * are the weights (`--font-weight-control`, `--font-weight-control-primary`
+ * for the filled primary button), so each site keeps its own proportions.
  */
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 cursor-pointer items-center justify-center border border-transparent bg-clip-padding font-medium whitespace-nowrap shadow-control transition-colors select-none focus-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 cursor-pointer items-center justify-center border border-transparent bg-clip-padding font-control whitespace-nowrap shadow-control transition-colors select-none focus-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          "bg-primary font-semibold text-primary-foreground hover:bg-primary/85",
+          "bg-primary font-control-primary text-primary-foreground hover:bg-primary/85",
         "primary-outline":
           "border-primary text-primary hover:bg-primary/10 active:bg-primary/20 aria-expanded:bg-primary/10",
         secondary:

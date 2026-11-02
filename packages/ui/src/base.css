@@ -124,6 +124,8 @@
   --radius-control-sm: calc(var(--radius) * 0.8);
   --radius-control-md: var(--radius);
   --radius-control-lg: calc(var(--radius) * 11 / 9);
+  --font-weight-control: 500;
+  --font-weight-control-primary: 600;
 
   /* Inputs, selects and text areas. */
   --spacing-field: 2.5rem;
@@ -135,6 +137,10 @@
   --text-card-title: 1.0625rem;
   --radius-card: calc(var(--radius) * 1.33);
   --radius-badge: calc(var(--radius) * 0.8);
+  --spacing-badge-x: 0.375rem;
+  --text-badge: 0.6875rem;
+  --font-weight-badge: 600;
+  --font-weight-segment: 500;
   --radius-menu: calc(var(--radius) * 14 / 9);
   --radius-dialog: calc(var(--radius) * 2);
 }

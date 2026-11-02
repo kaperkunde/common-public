@@ -63,8 +63,19 @@
   --sidebar-border: color-mix(in srgb, #e9e9ed 16%, transparent);
   --sidebar-ring: #9184d9;
 
-  /* The segmented control's chosen option sits on the page colour. */
+  /*
+   * The segmented control: ringed in the input colour, a little taller, its
+   * options in regular 14px and the chosen one on the page colour with a
+   * small shadow.
+   */
   --segment-active: var(--background);
+  --segment-border-width: 1px;
+  --segment-pad: 0.25rem;
+  --segment-height: 2rem;
+  --segment-text: 0.875rem;
+  --segment-active-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --font-weight-segment: 400;
 }
 
 :root {
@@ -98,4 +109,17 @@
   --card-shadow: 0 0 0 1px
     color-mix(in oklab, var(--foreground) 10%, transparent);
   --heading-weight: 500;
+
+  /* The filled primary button stays medium; badges are medium 12px. */
+  --font-weight-control-primary: 500;
+  --spacing-badge-x: 0.5rem;
+  --text-badge: 0.75rem;
+  --font-weight-badge: 500;
+  --badge-destructive-tint: 10%;
+
+  /*
+   * A card pads only top and bottom; its header, content and footer pad
+   * their own sides.
+   */
+  --card-slots: 1;
 }
