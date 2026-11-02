@@ -1,0 +1,55 @@
+{
+  "name": "@kaperkunde/mcp",
+  "version": "0.0.0",
+  "description": "The MCP tool factory (strict JSON Schema 2020-12 inputs, one validator, outcomes as kinds, write results, long tools) and the owner-by-link helpers for Kaperkunde's apps.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/mcp"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./owner": {
+      "types": "./dist/owner.d.mts",
+      "import": "./dist/owner.mjs"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.mts",
+      "import": "./dist/testing.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts src/owner.ts src/testing.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.2.0",
+    "zod": "^4.6.0"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/server": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.2.0",
+    "@modelcontextprotocol/server": "2.2.0",
+    "zod": "4.6.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
