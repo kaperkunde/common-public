@@ -1,0 +1,145 @@
+{
+  "name": "@kaperkunde/ui",
+  "version": "0.0.0",
+  "description": "One token contract (Tailwind v4) and the primitives on it for Kaperkunde's apps: buttons, fields, cards, lists, dialogs, menus, tabs, forms that say what they still need, and each site's theme.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/ui"
+  },
+  "sideEffects": [
+    "*.css"
+  ],
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./cn": {
+      "types": "./dist/cn.d.mts",
+      "import": "./dist/cn.mjs"
+    },
+    "./button": {
+      "types": "./dist/button.d.mts",
+      "import": "./dist/button.mjs"
+    },
+    "./badge": {
+      "types": "./dist/badge.d.mts",
+      "import": "./dist/badge.mjs"
+    },
+    "./card": {
+      "types": "./dist/card.d.mts",
+      "import": "./dist/card.mjs"
+    },
+    "./input": {
+      "types": "./dist/input.d.mts",
+      "import": "./dist/input.mjs"
+    },
+    "./label": {
+      "types": "./dist/label.d.mts",
+      "import": "./dist/label.mjs"
+    },
+    "./dialog": {
+      "types": "./dist/dialog.d.mts",
+      "import": "./dist/dialog.mjs"
+    },
+    "./disclosure": {
+      "types": "./dist/disclosure.d.mts",
+      "import": "./dist/disclosure.mjs"
+    },
+    "./list": {
+      "types": "./dist/list.d.mts",
+      "import": "./dist/list.mjs"
+    },
+    "./menu": {
+      "types": "./dist/menu.d.mts",
+      "import": "./dist/menu.mjs"
+    },
+    "./switch": {
+      "types": "./dist/switch.d.mts",
+      "import": "./dist/switch.mjs"
+    },
+    "./segmented-control": {
+      "types": "./dist/segmented-control.d.mts",
+      "import": "./dist/segmented-control.mjs"
+    },
+    "./tabs": {
+      "types": "./dist/tabs.d.mts",
+      "import": "./dist/tabs.mjs"
+    },
+    "./nav-tabs": {
+      "types": "./dist/nav-tabs.d.mts",
+      "import": "./dist/nav-tabs.mjs"
+    },
+    "./table": {
+      "types": "./dist/table.d.mts",
+      "import": "./dist/table.mjs"
+    },
+    "./radio-group": {
+      "types": "./dist/radio-group.d.mts",
+      "import": "./dist/radio-group.mjs"
+    },
+    "./submit-button": {
+      "types": "./dist/submit-button.d.mts",
+      "import": "./dist/submit-button.mjs"
+    },
+    "./form-status": {
+      "types": "./dist/form-status.d.mts",
+      "import": "./dist/form-status.mjs"
+    },
+    "./required-fields": {
+      "types": "./dist/required-fields.d.mts",
+      "import": "./dist/required-fields.mjs"
+    },
+    "./copy-button": {
+      "types": "./dist/copy-button.d.mts",
+      "import": "./dist/copy-button.mjs"
+    },
+    "./footer": {
+      "types": "./dist/footer.d.mts",
+      "import": "./dist/footer.mjs"
+    },
+    "./page": {
+      "types": "./dist/page.d.mts",
+      "import": "./dist/page.mjs"
+    },
+    "./base.css": "./dist/base.css",
+    "./themes/*.css": "./dist/themes/*.css"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.8.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.7.0"
+  },
+  "peerDependencies": {
+    "next": ">=15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.1.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@tailwindcss/node": "4.3.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "happy-dom": "21.0.4",
+    "next": "16.3.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tailwindcss": "4.3.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

@@ -1,0 +1,252 @@
+/*
+ * @kaperkunde/ui: the token contract and the few rules every site keeps.
+ *
+ * Import it after Tailwind and before your theme:
+ *
+ *   @import "tailwindcss";
+ *   @import "@kaperkunde/ui/base.css";
+ *   @import "@kaperkunde/ui/themes/pcp.css";   (or your own theme)
+ *
+ * No colour is written here: a theme sets the semantic variables on :root
+ * (--background, --primary, ...). What is written here is how those names
+ * reach Tailwind, the shape of the controls (a theme may override any of it),
+ * and the phone rules.
+ */
+
+/* The package's own classes, so the app's Tailwind generates them. */
+@source "./";
+
+/* Colours: a theme's variables, under Tailwind's names. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground, var(--background));
+  --color-success: var(--success, var(--primary));
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-field: var(--field, transparent);
+  --color-separator: var(--separator, var(--border));
+  --color-row-hover: var(--row-hover, var(--muted));
+
+  /*
+   * What a control needs beyond the base set. Each falls back to a base
+   * token, so a theme only names the ones it draws differently.
+   */
+  --color-secondary-hover: var(
+    --secondary-hover,
+    color-mix(in oklch, var(--secondary), var(--foreground) 5%)
+  );
+  --color-secondary-hover-foreground: var(
+    --secondary-hover-foreground,
+    var(--secondary-foreground)
+  );
+  --color-highlight: var(--highlight, var(--row-hover, var(--muted)));
+  --color-dialog: var(--dialog, var(--popover));
+  --color-overlay: var(--overlay, color-mix(in srgb, black 60%, transparent));
+  --color-switch: var(--switch, var(--secondary));
+  --color-switch-thumb: var(--switch-thumb, var(--foreground));
+  --color-segment-foreground: var(
+    --segment-foreground,
+    var(--muted-foreground)
+  );
+  --color-segment-active: var(--segment-active, var(--secondary));
+  --color-segment-active-foreground: var(
+    --segment-active-foreground,
+    var(--foreground)
+  );
+  --color-segment-allow: var(
+    --segment-allow,
+    color-mix(in oklch, var(--success) 25%, var(--muted))
+  );
+  --color-segment-allow-foreground: var(
+    --segment-allow-foreground,
+    var(--success)
+  );
+  --color-segment-block: var(
+    --segment-block,
+    color-mix(in oklch, var(--destructive) 25%, var(--muted))
+  );
+  --color-segment-block-foreground: var(
+    --segment-block-foreground,
+    var(--destructive)
+  );
+
+  /* Shadows are a theme's too: none unless it says. */
+  --shadow-control: var(--control-shadow, 0 0 transparent);
+  --shadow-card: var(--card-shadow, 0 0 transparent);
+  --shadow-popover: var(--popover-shadow, 0 0 transparent);
+  --shadow-dialog: var(--dialog-shadow, var(--popover-shadow, 0 0 transparent));
+
+  /* The radius scale, from one --radius (PCP's steps). */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.33);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * The shape of the controls: height, side padding, type and corner per size.
+ * These are PCP's; a theme overrides any of them as plain variables on
+ * :root (see themes/plekje.css).
+ */
+@theme {
+  --spacing-control-xs: 1.75rem;
+  --spacing-control-sm: 2rem;
+  --spacing-control-md: 2.25rem;
+  --spacing-control-lg: 2.75rem;
+  --spacing-control-xs-x: 0.5rem;
+  --spacing-control-sm-x: 0.75rem;
+  --spacing-control-md-x: 0.875rem;
+  --spacing-control-lg-x: 1.25rem;
+  --text-control-xs: 0.75rem;
+  --text-control-sm: 0.8125rem;
+  --text-control-md: 0.8125rem;
+  --text-control-lg: 0.9375rem;
+  --radius-control-xs: calc(var(--radius) * 0.8);
+  --radius-control-sm: calc(var(--radius) * 0.8);
+  --radius-control-md: var(--radius);
+  --radius-control-lg: calc(var(--radius) * 11 / 9);
+
+  /* Inputs, selects and text areas. */
+  --spacing-field: 2.5rem;
+  --spacing-field-x: 0.75rem;
+
+  /* Cards, badges, menus and dialogs. */
+  --spacing-card: 1.25rem;
+  --spacing-card-sm: 0.75rem;
+  --text-card-title: 1.0625rem;
+  --radius-card: calc(var(--radius) * 1.33);
+  --radius-badge: calc(var(--radius) * 0.8);
+  --radius-menu: calc(var(--radius) * 14 / 9);
+  --radius-dialog: calc(var(--radius) * 2);
+}
+
+:root {
+  /*
+   * The page gutter, as one token, because the header, the main column and
+   * the footer have to agree on it: 16px on a phone, 24px from 640px.
+   */
+  --gutter: 1rem;
+
+  /*
+   * The gutter at an edge the notch, the rounded corner or the home indicator
+   * can reach (the page asks for viewport-fit=cover, so it is handed those
+   * strips and pays them back). max() keeps both sides honest: never less than
+   * the gutter, so a phone with no inset is unchanged, and never less than the
+   * inset, so a phone on its side keeps the first letter clear of the camera.
+   */
+  --edge-left: max(var(--gutter), env(safe-area-inset-left, 0px));
+  --edge-right: max(var(--gutter), env(safe-area-inset-right, 0px));
+  --edge-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --gutter: 1.5rem;
+  }
+}
+
+/* The side gutter, notch included: for the header, the main column and the footer. */
+@utility px-gutter {
+  padding-left: var(--edge-left);
+  padding-right: var(--edge-right);
+}
+
+/* Room under the last thing on the page for the home indicator. */
+@utility pb-safe {
+  padding-bottom: var(--edge-bottom);
+}
+
+/* The focus ring, written once: every control here wears it. */
+@utility focus-ring {
+  outline-style: none;
+
+  &:focus-visible {
+    @apply ring-3 ring-ring/50;
+  }
+}
+
+/* The same ring for a field, whose border also turns to the ring colour. */
+@utility focus-ring-field {
+  outline-style: none;
+
+  &:focus-visible {
+    @apply border-ring ring-3 ring-ring/40;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    /*
+     * Safari inflates the text of anything it takes for a desktop layout,
+     * which silently widens a line past the column it was measured for.
+     */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /*
+     * A word longer than its line breaks rather than pushing the page wide.
+     * break-word, never anywhere: inside a flex row `anywhere` also counts the
+     * break when the box is asked how narrow it could be, and every name in
+     * the row comes out one letter wide.
+     */
+    overflow-wrap: break-word;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--heading-color, var(--foreground));
+    font-weight: var(--heading-weight, 600);
+    letter-spacing: var(--heading-tracking, -0.015em);
+  }
+  code,
+  kbd,
+  pre {
+    @apply font-mono;
+  }
+  /* A disclosure's own marker is drawn by the component instead. */
+  summary {
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+}
+
+/*
+ * A field under 16px makes iOS zoom in on it, and leaves the reader scrolled
+ * sideways on a page that fitted a moment earlier. Unlayered, so it wins over
+ * any text size a field was given.
+ */
+@media (max-width: 560px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
