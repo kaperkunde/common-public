@@ -1,0 +1,56 @@
+{
+  "name": "@kaperkunde/next-kit",
+  "version": "0.0.0",
+  "description": "Result and ActionState, site and operator helpers, robots/sitemap/llms.txt, dates, text utilities, Prisma (MariaDB) helpers and a once-per-run job scheduler for Kaperkunde's Next.js apps.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/next-kit"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./local-date": {
+      "types": "./dist/local-date.d.mts",
+      "import": "./dist/local-date.mjs"
+    },
+    "./prisma": {
+      "types": "./dist/prisma.d.mts",
+      "import": "./dist/prisma.mjs"
+    },
+    "./scheduler": {
+      "types": "./dist/scheduler.d.mts",
+      "import": "./dist/scheduler.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts src/local-date.tsx src/prisma.ts src/scheduler.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
