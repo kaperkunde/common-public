@@ -1,0 +1,51 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Kaperkunde's shared Renovate preset: github>kaperkunde/common-public//renovate/default",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "rangeStrategy": "bump",
+  "minimumReleaseAge": "3 days",
+  "prConcurrentLimit": 5,
+  "timezone": "Europe/Amsterdam",
+  "packageRules": [
+    {
+      "description": "Our own packages: as soon as they are released, grouped, and merged once the app's checks pass. Majors wait for a person.",
+      "matchPackageNames": ["@kaperkunde/**"],
+      "groupName": "Kaperkunde shared packages",
+      "minimumReleaseAge": null,
+      "schedule": ["at any time"]
+    },
+    {
+      "matchPackageNames": ["@kaperkunde/**"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Everything else that is not a major: one grouped pull request a week.",
+      "matchPackageNames": ["!@kaperkunde/**"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin"],
+      "groupName": "Third-party updates",
+      "schedule": ["before 6am on monday"]
+    },
+    {
+      "description": "Third-party patches merge themselves once the checks pass.",
+      "matchPackageNames": ["!@kaperkunde/**"],
+      "matchUpdateTypes": ["patch", "digest"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "A third-party major waits for approval on the dependency dashboard, so a new Next or React never arrives unasked.",
+      "matchPackageNames": ["!@kaperkunde/**"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"],
+    "automerge": true
+  }
+}
