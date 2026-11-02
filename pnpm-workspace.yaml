@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+
+# A day before a new release can be installed: most malicious versions are
+# found and pulled within hours.
+minimumReleaseAge: 1440
+
+# Only these may run install scripts.
+onlyBuiltDependencies:
+  - esbuild
