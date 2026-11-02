@@ -1,0 +1,47 @@
+{
+  "name": "@kaperkunde/pcpgg-protocol",
+  "version": "0.0.0",
+  "description": "pcp.gg's tunnel: the wire protocol, the connector that runs next to PCP, and the relay that routes encrypted connections by name.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/pcpgg-protocol"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./connector": {
+      "types": "./dist/connector.d.mts",
+      "import": "./dist/connector.mjs"
+    },
+    "./relay": {
+      "types": "./dist/relay/index.d.mts",
+      "import": "./dist/relay/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts src/connector.ts src/relay/index.ts --format esm --dts --clean --unbundle",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
