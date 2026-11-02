@@ -104,6 +104,8 @@ importers:
         specifier: ^8.18.1
         version: 8.18.2
 
+  packages/security: {}
+
 packages:
 
   '@babel/code-frame@7.29.7':
