@@ -6,7 +6,7 @@ written once, tested here, and kept up to date in every app by Renovate.
 
 ## Packages
 
-None are published yet. Each lands here with its own README:
+Each has its own README. `@kaperkunde/config` is the first; the rest follow:
 
 | Package                      | What it does                                                                              |
 | ---------------------------- | ----------------------------------------------------------------------------------------- |

@@ -1,0 +1,79 @@
+{
+  "name": "@kaperkunde/config",
+  "version": "0.0.0",
+  "description": "Shared ESLint, Prettier, TypeScript, Vitest, Playwright and lint-staged presets for Kaperkunde's Next.js apps.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/config"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "eslint.mjs",
+    "lint-staged.mjs",
+    "prettier.json",
+    "server-only-stub.mjs",
+    "tsconfig"
+  ],
+  "exports": {
+    "./eslint": "./eslint.mjs",
+    "./lint-staged": "./lint-staged.mjs",
+    "./prettier": "./prettier.json",
+    "./server-only-stub": "./server-only-stub.mjs",
+    "./tsconfig/next.json": "./tsconfig/next.json",
+    "./tsconfig/library.json": "./tsconfig/library.json",
+    "./vitest": {
+      "types": "./dist/vitest.d.mts",
+      "import": "./dist/vitest.mjs"
+    },
+    "./playwright": {
+      "types": "./dist/playwright.d.mts",
+      "import": "./dist/playwright.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/vitest.ts src/playwright.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.63.0",
+    "eslint": "^9.39.0",
+    "eslint-config-next": "^16.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "vitest": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    },
+    "eslint": {
+      "optional": true
+    },
+    "eslint-config-next": {
+      "optional": true
+    },
+    "eslint-config-prettier": {
+      "optional": true
+    },
+    "vitest": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.6",
+    "eslint-config-prettier": "10.1.8",
+    "next": "16.3.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "vitest": "5.0.2"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
