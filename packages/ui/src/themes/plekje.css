@@ -1,0 +1,125 @@
+/*
+ * plek.je's theme: the Nocturne palette, dark only. The values are plek.je's
+ * app/globals.css, unchanged. Ramp steps used: neutral-100 #f3f5fe,
+ * neutral-500 #9397ab, neutral-800 #3f424d, neutral-900 #292b31,
+ * accent-300 #d2cefd, accent-700 #5d5294, accent-900 #2b2741.
+ */
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  --background: #161826;
+  --foreground: #e9e9ed;
+  --card: #232532;
+  --card-foreground: #e9e9ed;
+  --popover: #232532;
+  --popover-foreground: #e9e9ed;
+  --primary: #9184d9;
+  --primary-foreground: #161826;
+  --secondary: #3f424d;
+  --secondary-foreground: #f3f5fe;
+  --muted: #292b31;
+  --muted-foreground: #9397ab;
+  --accent: #2b2741;
+  --accent-foreground: #d2cefd;
+  --destructive: oklch(0.704 0.191 22.216);
+  /* "Needs you" amber, a step short of destructive: something waits on the
+     user, but nothing is broken. */
+  --warning: oklch(0.75 0.15 75);
+  --warning-foreground: oklch(0.8 0.12 75);
+  --border: color-mix(in srgb, #e9e9ed 16%, transparent);
+  --input: color-mix(in srgb, #e9e9ed 16%, transparent);
+  --ring: #9184d9;
+  --chart-1: #9184d9;
+  --chart-2: #9397ab;
+  --chart-3: #5d5294;
+  --chart-4: #3f424d;
+  --chart-5: #292b31;
+  --radius: 0.5rem;
+  --sidebar: #232532;
+  --sidebar-foreground: #e9e9ed;
+  --sidebar-primary: #9184d9;
+  --sidebar-primary-foreground: #161826;
+  --sidebar-accent: #2b2741;
+  --sidebar-accent-foreground: #d2cefd;
+  --sidebar-border: color-mix(in srgb, #e9e9ed 16%, transparent);
+  --sidebar-ring: #9184d9;
+
+  /*
+   * The segmented control: ringed in the input colour, a little taller, its
+   * options in regular 14px and the chosen one on the page colour with a
+   * small shadow.
+   */
+  --segment-active: var(--background);
+  --segment-border-width: 1px;
+  --segment-pad: 0.25rem;
+  --segment-height: 2rem;
+  --segment-text: 0.875rem;
+  --segment-active-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --font-weight-segment: 400;
+}
+
+:root {
+  /*
+   * The shape of the controls as shadcn's base-nova drew them here: a step
+   * smaller and tighter than PCP's, cards ringed, badges as pills.
+   */
+  --spacing-control-xs: 1.5rem;
+  --spacing-control-sm: 1.75rem;
+  --spacing-control-md: 2rem;
+  --spacing-control-lg: 2.25rem;
+  --spacing-control-xs-x: 0.5rem;
+  --spacing-control-sm-x: 0.625rem;
+  --spacing-control-md-x: 0.625rem;
+  --spacing-control-lg-x: 0.625rem;
+  --text-control-xs: 0.75rem;
+  --text-control-sm: 0.8rem;
+  --text-control-md: 0.875rem;
+  --text-control-lg: 0.875rem;
+  --radius-control-xs: min(calc(var(--radius) * 0.8), 10px);
+  --radius-control-sm: min(calc(var(--radius) * 0.8), 12px);
+  --radius-control-md: var(--radius);
+  --radius-control-lg: var(--radius);
+  --spacing-field: 2rem;
+  --spacing-field-x: 0.625rem;
+  --spacing-card: 1rem;
+  --spacing-card-sm: 0.75rem;
+  --text-card-title: 1rem;
+  --radius-card: calc(var(--radius) * 1.4);
+  --radius-badge: calc(var(--radius) * 2.6);
+  --card-shadow: 0 0 0 1px
+    color-mix(in oklab, var(--foreground) 10%, transparent);
+  --heading-weight: 500;
+
+  /* The filled primary button stays medium; badges are medium 12px. */
+  --font-weight-control-primary: 500;
+  --spacing-badge-x: 0.5rem;
+  --text-badge: 0.75rem;
+  --font-weight-badge: 500;
+  --badge-destructive-tint: 10%;
+
+  /*
+   * A card pads only top and bottom; its header, content and footer pad
+   * their own sides.
+   */
+  --card-slots: 1;
+}

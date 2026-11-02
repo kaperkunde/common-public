@@ -1,0 +1,86 @@
+/*
+ * pcp.gg's theme: PCP's teal on a bluer night, and the logo's electric blue.
+ * The palette is pcp.gg's app/globals.css, unchanged.
+ */
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+  --color-electric: var(--electric);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  /* Dark only: a control panel that is open in a side window. */
+  --background: #131720;
+  --foreground: #e6e9ef;
+  --card: #1c2230;
+  --card-foreground: #e6e9ef;
+  --popover: #1c2230;
+  --popover-foreground: #e6e9ef;
+  --primary: #5ed3c3;
+  --primary-foreground: #0d1117;
+  --secondary: #2a3242;
+  --secondary-foreground: #f1f3f8;
+  --muted: #232a38;
+  --muted-foreground: #97a1b3;
+  --accent: #1f3a3a;
+  --accent-foreground: #b5efe6;
+  --destructive: oklch(0.72 0.19 22);
+  --warning: oklch(0.8 0.14 80);
+  --success: #5ed3c3;
+  --border: color-mix(in srgb, #e6e9ef 14%, transparent);
+  --input: color-mix(in srgb, #e6e9ef 16%, transparent);
+  --ring: #5ed3c3;
+  --radius: 0.5rem;
+
+  /* The logo's electric blue, for the odd highlight next to PCP's teal. */
+  --electric: #4f8cff;
+}
+
+:root {
+  /*
+   * The shape of the controls as shadcn's base-nova drew them here: a step
+   * smaller and tighter than PCP's, cards ringed, badges as pills.
+   */
+  --spacing-control-xs: 1.5rem;
+  --spacing-control-sm: 1.75rem;
+  --spacing-control-md: 2rem;
+  --spacing-control-lg: 2.25rem;
+  --spacing-control-xs-x: 0.5rem;
+  --spacing-control-sm-x: 0.625rem;
+  --spacing-control-md-x: 0.625rem;
+  --spacing-control-lg-x: 0.625rem;
+  --text-control-xs: 0.75rem;
+  --text-control-sm: 0.8rem;
+  --text-control-md: 0.875rem;
+  --text-control-lg: 0.875rem;
+  --radius-control-xs: min(calc(var(--radius) * 0.8), 10px);
+  --radius-control-sm: min(calc(var(--radius) * 0.8), 12px);
+  --radius-control-md: var(--radius);
+  --radius-control-lg: var(--radius);
+  --spacing-field: 2rem;
+  --spacing-field-x: 0.625rem;
+  --spacing-card: 1rem;
+  --spacing-card-sm: 0.75rem;
+  --text-card-title: 1rem;
+  --radius-card: calc(var(--radius) * 1.4);
+  --radius-badge: calc(var(--radius) * 2.6);
+  --card-shadow: 0 0 0 1px
+    color-mix(in oklab, var(--foreground) 10%, transparent);
+  --heading-weight: 500;
+
+  /* The filled primary button stays medium; badges are medium 12px. */
+  --font-weight-control-primary: 500;
+  --spacing-badge-x: 0.5rem;
+  --text-badge: 0.75rem;
+  --font-weight-badge: 500;
+  --badge-destructive-tint: 10%;
+
+  /*
+   * A card pads only top and bottom; its header, content and footer pad
+   * their own sides.
+   */
+  --card-slots: 1;
+}

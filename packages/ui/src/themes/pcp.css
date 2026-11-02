@@ -1,0 +1,98 @@
+/*
+ * PCP's theme: dark only, a control panel open beside other windows.
+ * The values are PCP's app/globals.css and DESIGN.md › Look, unchanged; the
+ * component tokens below them are the colours PCP's components/ui wrote in
+ * place, now named.
+ */
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar: var(--sidebar);
+  --color-tile-mcp: var(--tile-mcp);
+  --color-tile-mcp-foreground: var(--tile-mcp-foreground);
+  --color-tile-api: var(--tile-api);
+  --color-tile-api-foreground: var(--tile-api-foreground);
+  --color-tile-mail: var(--tile-mail);
+  --color-tile-mail-foreground: var(--tile-mail-foreground);
+  --color-tile-calendar: var(--tile-calendar);
+  --color-tile-calendar-foreground: var(--tile-calendar-foreground);
+  --color-tile-browser: var(--tile-browser);
+  --color-tile-browser-foreground: var(--tile-browser-foreground);
+  --color-tile-ssh: var(--tile-ssh);
+  --color-tile-ssh-foreground: var(--tile-ssh-foreground);
+  --color-tile-wrapper: var(--tile-wrapper);
+  --color-tile-wrapper-foreground: var(--tile-wrapper-foreground);
+}
+
+:root {
+  color-scheme: dark;
+
+  /* The system's own type, as on a Mac: no web font to download. */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+    system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --background: #0f1217;
+  --foreground: #e8eaee;
+  --sidebar: #14181e;
+  --card: #181c23;
+  --card-foreground: #e8eaee;
+  --popover: #20252e;
+  --popover-foreground: #e8eaee;
+  --field: #11151b;
+  --primary: #5ed3c3;
+  --primary-foreground: #0b1014;
+  --secondary: #262c37;
+  --secondary-foreground: #e8eaee;
+  --muted: #232933;
+  --muted-foreground: #9aa3b2;
+  --accent: #1c3532;
+  --accent-foreground: #8fe4d8;
+  --destructive: #ff8a8a;
+  --warning: #f5b544;
+  --warning-foreground: #1a1306;
+  --success: #5ed3c3;
+  --separator: color-mix(in srgb, #ffffff 6.5%, transparent);
+  --row-hover: #1d222a;
+  --border: color-mix(in srgb, #ffffff 9%, transparent);
+  --input: color-mix(in srgb, #ffffff 12%, transparent);
+  --ring: #5ed3c3;
+  --radius: 0.5625rem;
+
+  /* What components/ui wrote in place. */
+  --secondary-hover: #2f3642;
+  --secondary-hover-foreground: #ffffff;
+  --highlight: #2a303b;
+  --dialog: #1a1f27;
+  --dialog-shadow: 0 30px 80px #000000b0, inset 0 0 0 1px #ffffff14;
+  --popover-shadow: 0 20px 50px #000000a0, inset 0 0 0 1px #ffffff14;
+  --overlay: rgb(0 0 0 / 0.6);
+  --switch: #3a414e;
+  --switch-thumb: #ffffff;
+  --segment-foreground: #aab2bf;
+  --segment-active: #3d4451;
+  --segment-active-foreground: #ffffff;
+  --segment-allow: #1f4a44;
+  --segment-allow-foreground: #9ff0e3;
+  --segment-block: #4a2326;
+  --segment-block-foreground: #ffb3b3;
+
+  /* One tint per kind of server, for its icon tile. */
+  --tile-mcp: #24303f;
+  --tile-mcp-foreground: #9cc3ff;
+  --tile-api: #3a2f22;
+  --tile-api-foreground: #ffc58a;
+  --tile-mail: #33263b;
+  --tile-mail-foreground: #e0a8ff;
+  --tile-calendar: #3b2526;
+  --tile-calendar-foreground: #ffa8a3;
+  --tile-browser: #1f3437;
+  --tile-browser-foreground: #8fe4d8;
+  --tile-ssh: #2a2f3a;
+  --tile-ssh-foreground: #d6dbe3;
+  --tile-wrapper: #23332a;
+  --tile-wrapper-foreground: #a6e3b8;
+}
