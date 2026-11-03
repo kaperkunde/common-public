@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/ui",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One token contract (Tailwind v4) and the primitives on it for Kaperkunde's apps: buttons, fields, cards, lists, dialogs, menus, tabs, forms that say what they still need, and each site's theme.",
   "license": "MIT",
   "type": "module",
