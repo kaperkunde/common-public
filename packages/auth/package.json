@@ -16,11 +16,13 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./preset": {
       "types": "./dist/preset.d.mts",
-      "import": "./dist/preset.mjs"
+      "import": "./dist/preset.mjs",
+      "default": "./dist/preset.mjs"
     }
   },
   "scripts": {
