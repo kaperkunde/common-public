@@ -19,7 +19,7 @@
       "matchUpdateTypes": ["minor", "patch"],
       "automerge": true,
       "automergeType": "pr",
-      "platformAutomerge": true
+      "platformAutomerge": false
     },
     {
       "description": "Everything else that is not a major: one grouped pull request a week.",
@@ -34,7 +34,7 @@
       "matchUpdateTypes": ["patch", "digest"],
       "automerge": true,
       "automergeType": "pr",
-      "platformAutomerge": true
+      "platformAutomerge": false
     },
     {
       "description": "A third-party major waits for approval on the dependency dashboard, so a new Next or React never arrives unasked.",
