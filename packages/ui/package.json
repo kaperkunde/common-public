@@ -18,91 +18,113 @@
   "exports": {
     "./cn": {
       "types": "./dist/cn.d.mts",
-      "import": "./dist/cn.mjs"
+      "import": "./dist/cn.mjs",
+      "default": "./dist/cn.mjs"
     },
     "./button": {
       "types": "./dist/button.d.mts",
-      "import": "./dist/button.mjs"
+      "import": "./dist/button.mjs",
+      "default": "./dist/button.mjs"
     },
     "./badge": {
       "types": "./dist/badge.d.mts",
-      "import": "./dist/badge.mjs"
+      "import": "./dist/badge.mjs",
+      "default": "./dist/badge.mjs"
     },
     "./card": {
       "types": "./dist/card.d.mts",
-      "import": "./dist/card.mjs"
+      "import": "./dist/card.mjs",
+      "default": "./dist/card.mjs"
     },
     "./input": {
       "types": "./dist/input.d.mts",
-      "import": "./dist/input.mjs"
+      "import": "./dist/input.mjs",
+      "default": "./dist/input.mjs"
     },
     "./label": {
       "types": "./dist/label.d.mts",
-      "import": "./dist/label.mjs"
+      "import": "./dist/label.mjs",
+      "default": "./dist/label.mjs"
     },
     "./dialog": {
       "types": "./dist/dialog.d.mts",
-      "import": "./dist/dialog.mjs"
+      "import": "./dist/dialog.mjs",
+      "default": "./dist/dialog.mjs"
     },
     "./disclosure": {
       "types": "./dist/disclosure.d.mts",
-      "import": "./dist/disclosure.mjs"
+      "import": "./dist/disclosure.mjs",
+      "default": "./dist/disclosure.mjs"
     },
     "./list": {
       "types": "./dist/list.d.mts",
-      "import": "./dist/list.mjs"
+      "import": "./dist/list.mjs",
+      "default": "./dist/list.mjs"
     },
     "./menu": {
       "types": "./dist/menu.d.mts",
-      "import": "./dist/menu.mjs"
+      "import": "./dist/menu.mjs",
+      "default": "./dist/menu.mjs"
     },
     "./switch": {
       "types": "./dist/switch.d.mts",
-      "import": "./dist/switch.mjs"
+      "import": "./dist/switch.mjs",
+      "default": "./dist/switch.mjs"
     },
     "./segmented-control": {
       "types": "./dist/segmented-control.d.mts",
-      "import": "./dist/segmented-control.mjs"
+      "import": "./dist/segmented-control.mjs",
+      "default": "./dist/segmented-control.mjs"
     },
     "./tabs": {
       "types": "./dist/tabs.d.mts",
-      "import": "./dist/tabs.mjs"
+      "import": "./dist/tabs.mjs",
+      "default": "./dist/tabs.mjs"
     },
     "./nav-tabs": {
       "types": "./dist/nav-tabs.d.mts",
-      "import": "./dist/nav-tabs.mjs"
+      "import": "./dist/nav-tabs.mjs",
+      "default": "./dist/nav-tabs.mjs"
     },
     "./table": {
       "types": "./dist/table.d.mts",
-      "import": "./dist/table.mjs"
+      "import": "./dist/table.mjs",
+      "default": "./dist/table.mjs"
     },
     "./radio-group": {
       "types": "./dist/radio-group.d.mts",
-      "import": "./dist/radio-group.mjs"
+      "import": "./dist/radio-group.mjs",
+      "default": "./dist/radio-group.mjs"
     },
     "./submit-button": {
       "types": "./dist/submit-button.d.mts",
-      "import": "./dist/submit-button.mjs"
+      "import": "./dist/submit-button.mjs",
+      "default": "./dist/submit-button.mjs"
     },
     "./form-status": {
       "types": "./dist/form-status.d.mts",
-      "import": "./dist/form-status.mjs"
+      "import": "./dist/form-status.mjs",
+      "default": "./dist/form-status.mjs"
     },
     "./required-fields": {
       "types": "./dist/required-fields.d.mts",
-      "import": "./dist/required-fields.mjs"
+      "import": "./dist/required-fields.mjs",
+      "default": "./dist/required-fields.mjs"
     },
     "./copy-button": {
       "types": "./dist/copy-button.d.mts",
-      "import": "./dist/copy-button.mjs"
+      "import": "./dist/copy-button.mjs",
+      "default": "./dist/copy-button.mjs"
     },
     "./footer": {
       "types": "./dist/footer.d.mts",
-      "import": "./dist/footer.mjs"
+      "import": "./dist/footer.mjs",
+      "default": "./dist/footer.mjs"
     },
     "./page": {
       "types": "./dist/page.d.mts",
-      "import": "./dist/page.mjs"
+      "import": "./dist/page.mjs",
+      "default": "./dist/page.mjs"
     },
     "./base.css": "./dist/base.css",
     "./themes/*.css": "./dist/themes/*.css"

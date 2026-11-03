@@ -19,15 +19,18 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./connector": {
       "types": "./dist/connector.d.mts",
-      "import": "./dist/connector.mjs"
+      "import": "./dist/connector.mjs",
+      "default": "./dist/connector.mjs"
     },
     "./relay": {
       "types": "./dist/relay/index.d.mts",
-      "import": "./dist/relay/index.mjs"
+      "import": "./dist/relay/index.mjs",
+      "default": "./dist/relay/index.mjs"
     }
   },
   "scripts": {
