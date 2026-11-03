@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/config",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared ESLint, Prettier, TypeScript, Vitest, Playwright and lint-staged presets for Kaperkunde's Next.js apps.",
   "license": "MIT",
   "type": "module",
