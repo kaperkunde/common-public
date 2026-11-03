@@ -1,0 +1,11 @@
+{
+  "name": "@kaperkunde/legal-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Test fixture shaped like the published @kaperkunde/legal-docs.",
+  "exports": {
+    "./manifest.json": "./manifest.json",
+    "./package.json": "./package.json",
+    "./*": "./*"
+  }
+}

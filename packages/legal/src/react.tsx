@@ -11,11 +11,11 @@ export type LegalLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
 }
 
 /**
- * A legal document from the `legal` submodule, drawn as the site styles it.
+ * A legal document from kaperkunde/legal, drawn as the site styles it.
  *
  * Every link is resolved in the legal repository's own coordinates first
  * (`site.resolveHref`): a document the site publishes becomes its route, one
- * it does not becomes the file on GitHub at the pinned commit. rehype-slug
+ * it does not becomes the file on GitHub at the commit served. rehype-slug
  * gives every heading the id GitHub would, which is what makes the documents'
  * cross-references land. Tables scroll in their own box so a phone's page is
  * never wider than the screen.
@@ -36,7 +36,7 @@ export function LegalMarkdown({
   markdown: string
   /** Where it sits inside the legal repository; its links resolve against this. */
   sourcePath: string
-  /** The commit the submodule is pinned to. */
+  /** The legal commit the app serves: `manifest.commit`, or the submodule's pinned commit. */
   commit: string
   site: LegalSite
   /** The prose styles of the site, on the wrapping element. */

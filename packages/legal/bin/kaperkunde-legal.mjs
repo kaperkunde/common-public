@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// For an app that still carries kaperkunde/legal as a `legal` submodule only.
+// An app with @kaperkunde/legal-docs installed needs none of this: the
+// package's manifest.json says what the generated file used to, and the app
+// deletes the file, the scripts and the Dockerfile's fallback clone.
+//
 // Writes (sync) or verifies (check) the app's generated legal version file
 // from its `legal` submodule, so the commit the app links to, the commit the
 // Dockerfile's fallback clone checks out and the documents it serves can never

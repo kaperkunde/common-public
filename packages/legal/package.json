@@ -1,7 +1,7 @@
 {
   "name": "@kaperkunde/legal",
   "version": "0.1.0",
-  "description": "Rendering, pinning and checking the kaperkunde/legal documents a site publishes.",
+  "description": "Rendering and checking the kaperkunde/legal documents a site publishes, read from @kaperkunde/legal-docs.",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -46,9 +46,16 @@
     "remark-gfm": "^4.0.1"
   },
   "peerDependencies": {
+    "@kaperkunde/legal-docs": "^1.0.0",
     "react": "^19.0.0"
   },
+  "peerDependenciesMeta": {
+    "@kaperkunde/legal-docs": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@kaperkunde/legal-docs": "link:fixtures/legal-docs",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "react": "19.2.8",

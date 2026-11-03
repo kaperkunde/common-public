@@ -1,0 +1,28 @@
+{
+  "format": 1,
+  "repository": "kaperkunde/legal",
+  "commit": "0123456789abcdef0123456789abcdef01234567",
+  "date": "2026-10-06T12:35:47+00:00",
+  "documents": {
+    "hosting/tos.md": {
+      "blob": "cca7d7fa8abd6e7c6e0c565f2ee5860dc62f468b",
+      "commit": "e1c0df20b05788b164fb5b01a192d02935a82f7d",
+      "date": "2026-09-09T12:20:56+00:00",
+      "tag": {
+        "name": "hosting-tos-2026.3",
+        "commit": "1367c524beb58c60312d34b33f75211769357220",
+        "current": false
+      }
+    },
+    "privacy.md": {
+      "blob": "e188b7c407ea307a11abadfee9c2143d0385ad73",
+      "commit": "6e72504c02341479cd6fbdb9078436d663d9101b",
+      "date": "2026-10-06T11:47:27+00:00",
+      "tag": {
+        "name": "privacy-2026.11",
+        "commit": "6e72504c02341479cd6fbdb9078436d663d9101b",
+        "current": true
+      }
+    }
+  }
+}

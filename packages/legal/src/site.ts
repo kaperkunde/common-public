@@ -1,20 +1,25 @@
 /**
  * The legal documents a site publishes, and where each one comes from.
  *
- * The prose lives in kaperkunde/legal, carried in each app as the `legal` git
- * submodule. Three paths matter and they are not the same thing: `path` is
- * where a reader finds the document on the site, `filePath` is where it sits
- * on disk from the app's root, and `sourcePath` is where it sits inside the
- * legal repository, which is the only one a link written in the markdown
- * knows about.
+ * The prose lives in kaperkunde/legal and reaches an app as the
+ * `@kaperkunde/legal-docs` package (or, for an app that has not moved over
+ * yet, the `legal` git submodule). Two paths matter and they are not the same
+ * thing: `path` is where a reader finds the document on the site, and
+ * `sourcePath` is where it sits inside the legal repository, which is where
+ * the package keeps it too and the only one a link written in the markdown
+ * knows about. `filePath`, where it sits on disk from the app's root, is the
+ * submodule's alone.
  *
  * Pure and client-safe: nothing here reads a file.
  */
 export type LegalDoc = {
   /** Root-relative route the document is published at. */
   path: string
-  /** From the app's root: what the page reads. */
-  filePath: string
+  /**
+   * Submodule path only: from the app's root, what the page reads where
+   * `@kaperkunde/legal-docs` is not installed. Leave it out once it is.
+   */
+  filePath?: string
   /** Inside the legal repository: what the links in the markdown resolve against. */
   sourcePath: string
   /** Tab label on the legal pages. */
@@ -38,8 +43,9 @@ export type LegalSite = {
   pathForSource(sourcePath: string): string | undefined
   /**
    * Where a link written inside `sourcePath` should point on this site.
-   * `commit` is the pinned legal commit, used only for documents the site
-   * does not publish, which link to GitHub at that exact commit.
+   * `commit` is the legal commit the app serves (`manifest.commit`), used
+   * only for documents the site does not publish, which link to GitHub at
+   * that exact commit.
    */
   resolveHref(href: string, sourcePath: string, commit: string): string
 }
