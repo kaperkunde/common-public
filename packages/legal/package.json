@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/legal",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Rendering, pinning and checking the kaperkunde/legal documents a site publishes.",
   "license": "MIT",
   "type": "module",
