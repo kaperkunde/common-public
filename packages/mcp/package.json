@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/mcp",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "The MCP tool factory (strict JSON Schema 2020-12 inputs, one validator, outcomes as kinds, write results, long tools) and the owner-by-link helpers for Kaperkunde's apps.",
   "license": "MIT",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/pcpgg-protocol",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "pcp.gg's tunnel: the wire protocol, the connector that runs next to PCP, and the relay that routes encrypted connections by name.",
   "license": "MIT",
   "type": "module",
