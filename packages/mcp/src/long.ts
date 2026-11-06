@@ -21,8 +21,8 @@ export const LONG_STREAMED_PATIENCE_MS = 240_000
 /** How often progress is sent while a long tool runs. */
 export const PROGRESS_EVERY_MS = 5_000
 
-export type PatienceOptions<Args> = {
-  spec: LongSpec<Args>
+export type PatienceOptions<Args, Out = Outcome> = {
+  spec: LongSpec<Args, Out>
   args: Args
   /** The tool's title, for the progress messages. */
   title: string
@@ -31,17 +31,18 @@ export type PatienceOptions<Args> = {
   /** Sends one progress notification (ToolContext.progress). */
   progress: (progress: number, more: { message: string }) => Promise<void>
   /** Told what the run came to when it finishes after the answer. */
-  onLate?: (outcome: Outcome) => void
+  onLate?: (outcome: Out) => void
 }
 
 /**
  * The run's outcome, or `stillGoing`'s once patience runs out. `work` must
- * not reject: serve.ts turns a thrown error into an outcome first.
+ * not reject: serve.ts turns a thrown error into an outcome first. An app
+ * with an outcome shape of its own passes it as `Out`.
  */
-export async function awaitPatiently<Args>(
-  work: Promise<Outcome>,
-  { spec, args, title, streamed, progress, onLate }: PatienceOptions<Args>,
-): Promise<Outcome> {
+export async function awaitPatiently<Args, Out = Outcome>(
+  work: Promise<Out>,
+  { spec, args, title, streamed, progress, onLate }: PatienceOptions<Args, Out>,
+): Promise<Out> {
   const patience =
     spec.patienceMs?.(args, streamed) ??
     (streamed ? LONG_STREAMED_PATIENCE_MS : LONG_PATIENCE_MS)

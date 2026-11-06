@@ -6,6 +6,14 @@ import { jwt } from "better-auth/plugins"
 
 import type { McpUrls } from "./urls"
 
+/** The plugins the preset adds, by type, so `auth.api` knows their endpoints. */
+export type McpPresetPlugins<Extra extends readonly BetterAuthPlugin[] = []> = [
+  ReturnType<typeof jwt>,
+  ReturnType<typeof mcp>,
+  ReturnType<typeof cimd>,
+  ...Extra,
+]
+
 /**
  * The Better Auth options an app needs to be an OAuth 2.1 authorization
  * server for its MCP connector, as one object spread into `betterAuth({…})`:
@@ -24,7 +32,9 @@ import type { McpUrls } from "./urls"
  *
  * An app with its own `plugins` passes them in `extraPlugins`.
  */
-export function mcpAuthPreset({
+export function mcpAuthPreset<
+  const Extra extends readonly BetterAuthPlugin[] = [],
+>({
   urls,
   scopes,
   loginPage = "/login",
@@ -32,7 +42,7 @@ export function mcpAuthPreset({
   refreshDays = 60,
   rateLimited = process.env.NODE_ENV === "production" &&
     process.env.E2E?.trim() !== "1",
-  extraPlugins = [],
+  extraPlugins = [] as unknown as Extra,
   disabledPaths = [],
 }: {
   urls: Pick<McpUrls, "issuer" | "resource">
@@ -41,7 +51,7 @@ export function mcpAuthPreset({
   consentPage?: string
   refreshDays?: number
   rateLimited?: boolean
-  extraPlugins?: readonly BetterAuthPlugin[]
+  extraPlugins?: Extra
   disabledPaths?: readonly string[]
 }) {
   return {
@@ -56,9 +66,8 @@ export function mcpAuthPreset({
         "/jwks": false as const,
       },
     },
-    // Typed as Better Auth plugins, so the object spreads into
-    // betterAuth({…}) without a cast; the plugins' own types are too large
-    // for a declaration file to name.
+    // Typed plugin by plugin, so betterAuth({…}) takes them without a cast
+    // and auth.api knows the endpoints they add (getJwks, the consent calls).
     plugins: [
       jwt({ jwt: { issuer: urls.issuer }, disableSettingJwtHeader: true }),
       mcp({
@@ -74,7 +83,7 @@ export function mcpAuthPreset({
       }),
       cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" }),
       ...extraPlugins,
-    ] as BetterAuthPlugin[],
+    ] as unknown as McpPresetPlugins<[...Extra]>,
   }
 }
 

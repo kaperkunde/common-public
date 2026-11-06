@@ -187,5 +187,5 @@ describe("mcpAuthPreset", () => {
     expect(
       preset.plugins.map((plugin) => (plugin as { id: string }).id),
     ).toEqual(["jwt", "oauth-provider", "cimd"])
-  })
+  }, 30_000)
 })

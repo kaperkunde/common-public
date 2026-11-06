@@ -22,6 +22,11 @@
       "import": "./dist/index.mjs",
       "default": "./dist/index.mjs"
     },
+    "./redirect": {
+      "types": "./dist/redirect.d.mts",
+      "import": "./dist/redirect.mjs",
+      "default": "./dist/redirect.mjs"
+    },
     "./net": {
       "types": "./dist/net.d.mts",
       "import": "./dist/net.mjs",
@@ -29,7 +34,7 @@
     }
   },
   "scripts": {
-    "build": "tsdown src/index.ts src/net.ts --format esm --dts --clean",
+    "build": "tsdown src/index.ts src/net.ts src/redirect.ts --format esm --dts --clean",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "publishConfig": {
