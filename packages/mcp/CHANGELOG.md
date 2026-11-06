@@ -1,5 +1,11 @@
 # @kaperkunde/mcp
 
+## 0.2.0
+
+### Minor Changes
+
+- 28cd704: `awaitPatiently`, `PatienceOptions` and `LongSpec` take the outcome type as a parameter (`Out`, `Outcome` by default), so an app whose tools answer in a shape of its own uses them without a cast.
+
 ## 0.1.1
 
 ### Patch Changes

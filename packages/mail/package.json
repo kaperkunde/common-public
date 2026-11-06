@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/mail",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "One themed email template, SMTP under an app's own settings, and Mailpit helpers for tests.",
   "license": "MIT",
   "type": "module",

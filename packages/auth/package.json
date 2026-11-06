@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/auth",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Better Auth as the OAuth 2.1 server for an MCP connector: the preset, discovery routes, scope and consent checks, challenges, opaque tokens, and the auth forms' rules and messages.",
   "license": "MIT",
   "type": "module",

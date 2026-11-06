@@ -1,5 +1,11 @@
 # @kaperkunde/mail
 
+## 0.4.0
+
+### Minor Changes
+
+- 28cd704: `smtpSettings` reads `<PREFIX>_SECURE`: `true` or `false` says outright whether TLS is implicit, and anything else leaves it to the port (465 implicit, STARTTLS otherwise), as before.
+
 ## 0.3.0
 
 ### Minor Changes
