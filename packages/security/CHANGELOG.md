@@ -1,5 +1,12 @@
 # @kaperkunde/security
 
+## 0.2.1
+
+### Patch Changes
+
+- 2564280: `isPublicAddress` refuses all of `2001::/23`, the IETF protocol assignments block (Teredo, AS112, ORCHID and the rest), rather than Teredo's `2001::/32` alone.
+- 3de4f46: `publicFetch`, following redirects (`maxRedirects` above 0), now does what a browser does: Authorization, Cookie and Proxy-Authorization are dropped on a redirect to another origin, and a 303 (or a 301/302 after a POST) is followed as a GET with no body. Before, the caller's credentials went to whatever origin a redirect named.
+
 ## 0.2.0
 
 ### Minor Changes
