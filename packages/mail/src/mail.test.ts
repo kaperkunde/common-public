@@ -119,4 +119,23 @@ describe("smtpSettings", () => {
       replyTo: "r@x",
     })
   })
+
+  it("takes the card's width and the name's letter spacing from the theme", () => {
+    const content = {
+      heading: "Hi",
+      paragraphs: ["Hello."],
+      reason: "Because.",
+    }
+    const rendered = renderEmail(content, theme)
+    const narrow = renderEmail(content, {
+      ...theme,
+      maxWidth: 480,
+      nameLetterSpacing: "-0.01em",
+    })
+    expect(narrow.html).toContain("max-width:480px;")
+    expect(narrow.html).not.toContain("max-width:520px;")
+    expect(narrow.html).toContain("letter-spacing:-0.01em;")
+    expect(rendered.html).toContain("max-width:520px;")
+    expect(rendered.html).not.toContain("letter-spacing:")
+  })
 })
