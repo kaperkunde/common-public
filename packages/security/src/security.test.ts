@@ -54,9 +54,29 @@ describe("checkRateLimit", () => {
 describe("clientIpFromHeaders", () => {
   const h = (xff: string) => new Headers({ "x-forwarded-for": xff })
 
-  it("takes the left-most entry without trusted proxies", () => {
-    expect(clientIpFromHeaders(h("1.2.3.4, 10.0.0.1"))).toBe("1.2.3.4")
+  it("takes the right-most entry without trusted proxies", () => {
+    // A client's own X-Forwarded-For sits to the left of what the proxy
+    // appended, so it never decides the key.
+    expect(clientIpFromHeaders(h("6.6.6.6, 1.2.3.4"))).toBe("1.2.3.4")
+    expect(clientIpFromHeaders(h("1.2.3.4"))).toBe("1.2.3.4")
     expect(clientIpFromHeaders(new Headers())).toBe("local")
+  })
+
+  it("counts hops from the right", () => {
+    const xff = h("6.6.6.6, 1.2.3.4, 10.0.0.1")
+    expect(clientIpFromHeaders(xff, { hops: 2 })).toBe("1.2.3.4")
+    expect(clientIpFromHeaders(xff, { hops: 9 })).toBe("6.6.6.6")
+  })
+
+  it("reads X-Real-IP only without X-Forwarded-For", () => {
+    expect(clientIpFromHeaders(new Headers({ "x-real-ip": "1.2.3.4" }))).toBe(
+      "1.2.3.4",
+    )
+    expect(
+      clientIpFromHeaders(
+        new Headers({ "x-real-ip": "6.6.6.6", "x-forwarded-for": "1.2.3.4" }),
+      ),
+    ).toBe("1.2.3.4")
   })
 
   it("walks from the right past trusted proxies", () => {
