@@ -1,5 +1,11 @@
 # @kaperkunde/mail
 
+## 0.2.0
+
+### Minor Changes
+
+- 75a3c26: `EmailTheme` takes `maxWidth` (the card's width in px, 520 when unset) and `nameLetterSpacing` (CSS letter spacing for the name beside the logo), so an app's mail keeps its own proportions.
+
 ## 0.1.1
 
 ### Patch Changes
