@@ -3,7 +3,8 @@ import path from "node:path"
 
 import GithubSlugger from "github-slugger"
 
-import { isAbsoluteHref, type LegalSite } from "./site"
+import { isAbsoluteHref, type LegalDoc, type LegalSite } from "./site"
+import { legalDocsSource, type LegalDocsOptions } from "./source"
 
 const LINK = /\[[^\]]*\]\(([^)\s]+)\)/g
 const HEADING = /^#{1,6}\s+(.+?)\s*$/gm
@@ -25,28 +26,59 @@ function headingsIn(file: string): Set<string> {
  * 404s here and never throws: it becomes a plausible URL to a file that is not
  * there. This walks every relative link and reports one that lands on no route
  * the site publishes, on a heading that does not exist (github-slugger is what
- * rehype-slug writes the ids with), or on a file missing from the submodule.
+ * rehype-slug writes the ids with), or on a file missing from the documents.
  *
- *   expect(findBrokenLegalLinks({ site, commit: LEGAL_COMMIT })).toEqual([])
+ *   expect(findBrokenLegalLinks({ site, commit: manifest.commit })).toEqual([])
+ *
+ * The documents are read where the server reads them: `@kaperkunde/legal-docs`
+ * when it is installed, `docsRoot` when one is given, and otherwise each
+ * `filePath` from `root` with unpublished files looked for in `submoduleDir`.
  */
 export function findBrokenLegalLinks({
   site,
   commit,
-  root = process.cwd(),
-  submoduleDir = "legal",
+  root,
+  submoduleDir,
+  docsRoot,
+  resolveFrom,
 }: {
   site: LegalSite
   commit: string
+  /** Submodule path only: the app root `filePath` is read from. */
   root?: string
+  /** Submodule path only: where the submodule sits, from `root`. */
   submoduleDir?: string
-}): string[] {
+} & LegalDocsOptions): string[] {
+  const legacy =
+    docsRoot === undefined &&
+    resolveFrom === undefined &&
+    (root !== undefined || submoduleDir !== undefined)
+  const source = legacy
+    ? legalDocsSource(root ?? process.cwd())
+    : legalDocsSource({ docsRoot, resolveFrom })
+
+  const fileOf = (doc: Pick<LegalDoc, "sourcePath" | "filePath">): string => {
+    if (source.kind === "docs") return path.join(source.dir, doc.sourcePath)
+    return path.join(
+      source.root,
+      doc.filePath ?? path.join(submoduleDir ?? "legal", doc.sourcePath),
+    )
+  }
+  const repoFile = (file: string): { at: string; shown: string } =>
+    source.kind === "docs"
+      ? { at: path.join(source.dir, file), shown: file }
+      : {
+          at: path.join(source.root, submoduleDir ?? "legal", file),
+          shown: `${submoduleDir ?? "legal"}/${file}`,
+        }
+
   const broken: string[] = []
   const githubPrefix = `https://github.com/${site.repo}/blob/${commit}/`
 
   for (const doc of site.docs) {
-    const source = readFileSync(path.join(root, doc.filePath), "utf8")
+    const text = readFileSync(fileOf(doc), "utf8")
 
-    for (const match of source.matchAll(LINK)) {
+    for (const match of text.matchAll(LINK)) {
       const href = match[1]
       if (!href || isAbsoluteHref(href)) continue
 
@@ -57,19 +89,16 @@ export function findBrokenLegalLinks({
         const to = site.docByPath(target)
         if (!to) {
           broken.push(`${doc.sourcePath}: ${href} -> no document at ${target}`)
-        } else if (
-          fragment &&
-          !headingsIn(path.join(root, to.filePath)).has(fragment)
-        ) {
+        } else if (fragment && !headingsIn(fileOf(to)).has(fragment)) {
           broken.push(
             `${doc.sourcePath}: ${href} -> ${target} has no #${fragment}`,
           )
         }
       } else {
-        const file = target.replace(githubPrefix, "")
-        if (!existsSync(path.join(root, submoduleDir, file))) {
+        const file = repoFile(target.replace(githubPrefix, ""))
+        if (!existsSync(file.at)) {
           broken.push(
-            `${doc.sourcePath}: ${href} -> ${submoduleDir}/${file} is not there`,
+            `${doc.sourcePath}: ${href} -> ${file.shown} is not there`,
           )
         }
       }
