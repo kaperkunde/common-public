@@ -1,5 +1,11 @@
 # @kaperkunde/config
 
+## 0.1.2
+
+### Patch Changes
+
+- 372d63e: The lint-staged preset passes `--no-warn-ignored` to ESLint, so a staged file the ESLint config ignores (generated code, say) no longer fails `--max-warnings 0`.
+
 ## 0.1.1
 
 ### Patch Changes

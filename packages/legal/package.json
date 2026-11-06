@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/legal",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Rendering and checking the kaperkunde/legal documents a site publishes, read from @kaperkunde/legal-docs.",
   "license": "MIT",
   "type": "module",
