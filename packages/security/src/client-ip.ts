@@ -86,14 +86,16 @@ function trustedList(raw: string): BlockList {
  * client wrote itself sits to the left and is never reached. When every
  * entry is trusted, the left-most.
  *
- * Without it the left-most X-Forwarded-For entry (or X-Real-IP) counts, which
- * is right behind a proxy that replaces the header and wrong behind one that
- * appends: set `trustedProxies` in production. Answers "local" when no
- * header names anyone.
+ * Without it, the entry `hops` places from the right (1 by default, the
+ * address the one proxy in front of the app appended): whatever a client
+ * wrote itself sits further left and is never reached. Behind a proxy that
+ * replaces the header instead, that is the only entry, so the default fits
+ * both. X-Real-IP counts only when there is no X-Forwarded-For. Answers
+ * "local" when no header names anyone.
  */
 export function clientIpFromHeaders(
   headers: Headers,
-  { trustedProxies }: { trustedProxies?: string } = {},
+  { trustedProxies, hops = 1 }: { trustedProxies?: string; hops?: number } = {},
 ): string {
   const raw = trustedProxies?.trim()
 
@@ -115,7 +117,16 @@ export function clientIpFromHeaders(
     return addressKey(unmapped(entries[0] ?? ""))
   }
 
-  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-  const reported = forwarded || headers.get("x-real-ip")?.trim()
-  return reported ? addressKey(reported) : "local"
+  const entries = (headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+  if (entries.length > 0) {
+    const from = Math.max(1, Math.floor(hops))
+    const index = Math.max(0, entries.length - from)
+    return addressKey(unmapped(entries[index] ?? ""))
+  }
+
+  const real = headers.get("x-real-ip")?.trim()
+  return real ? addressKey(unmapped(real)) : "local"
 }
