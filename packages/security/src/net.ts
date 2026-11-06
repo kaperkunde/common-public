@@ -1,7 +1,7 @@
 import dns, { type LookupAddress } from "node:dns"
 import { BlockList, isIP, type LookupFunction } from "node:net"
 
-import { Agent, fetch as undiciFetch, type RequestInit } from "undici"
+import { Agent, Headers, fetch as undiciFetch, type RequestInit } from "undici"
 
 /**
  * Which addresses count as public, and connections that only reach those.
@@ -144,6 +144,9 @@ export async function publicFetch(
   const dispatcher = agentFor(allow)
   const signal = init.signal ?? AbortSignal.timeout(timeoutMs)
   let url = new URL(input)
+  let method = (init.method ?? "GET").toUpperCase()
+  let body = init.body
+  const headers = new Headers(init.headers)
 
   for (let hop = 0; ; hop++) {
     if (url.protocol !== "https:" && url.protocol !== "http:") {
@@ -162,6 +165,9 @@ export async function publicFetch(
     try {
       response = await undiciFetch(url, {
         ...init,
+        method,
+        body,
+        headers,
         redirect: "manual",
         signal,
         dispatcher,
@@ -189,7 +195,33 @@ export async function publicFetch(
           `${url.host} redirected, and redirects are not followed here`,
         )
       }
-      url = new URL(location, url)
+      const next = new URL(location, url)
+      // As a browser does: a 303, or a 301/302 after a POST, becomes a GET
+      // with no body; and credentials never follow a redirect to another
+      // origin, whose server the caller never chose to trust with them.
+      if (
+        response.status === 303 ||
+        ((response.status === 301 || response.status === 302) &&
+          method === "POST")
+      ) {
+        if (method !== "HEAD") method = "GET"
+        body = undefined
+        for (const name of [
+          "content-type",
+          "content-length",
+          "content-encoding",
+          "content-language",
+          "content-location",
+        ]) {
+          headers.delete(name)
+        }
+      }
+      if (next.origin !== url.origin) {
+        for (const name of ["authorization", "cookie", "proxy-authorization"]) {
+          headers.delete(name)
+        }
+      }
+      url = next
       continue
     }
 

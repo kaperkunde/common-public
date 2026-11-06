@@ -105,4 +105,63 @@ describe("publicFetch", () => {
       server.close()
     }
   })
+
+  it("drops credentials on a redirect to another origin, and a 303 becomes a GET", async () => {
+    const echo = http.createServer((req, res) => {
+      let body = ""
+      req.on("data", (c) => (body += c))
+      req.on("end", () =>
+        res.end(
+          JSON.stringify({
+            method: req.method,
+            authorization: req.headers.authorization ?? null,
+            cookie: req.headers.cookie ?? null,
+            body,
+          }),
+        ),
+      )
+    })
+    await new Promise<void>((r) => echo.listen(0, "127.0.0.1", r))
+    const echoPort = (echo.address() as AddressInfo).port
+
+    const origin = http.createServer((req, res) => {
+      if (req.url === "/away") {
+        res.writeHead(303, { location: `http://127.0.0.1:${echoPort}/` }).end()
+      } else if (req.url === "/same") {
+        res.writeHead(302, { location: "/echo" }).end()
+      } else {
+        res.end(JSON.stringify({ authorization: req.headers.authorization }))
+      }
+    })
+    await new Promise<void>((r) => origin.listen(0, "127.0.0.1", r))
+    const originPort = (origin.address() as AddressInfo).port
+    const allow = (a: string) => a === "127.0.0.1"
+    const secret = { authorization: "Bearer s3cret", cookie: "sid=1" }
+
+    try {
+      const away = await publicFetch(`http://127.0.0.1:${originPort}/away`, {
+        allow,
+        maxRedirects: 1,
+        method: "POST",
+        headers: { ...secret, "content-type": "text/plain" },
+        body: "payload",
+      })
+      expect(await away.json()).toEqual({
+        method: "GET",
+        authorization: null,
+        cookie: null,
+        body: "",
+      })
+
+      const same = await publicFetch(`http://127.0.0.1:${originPort}/same`, {
+        allow,
+        maxRedirects: 1,
+        headers: secret,
+      })
+      expect(await same.json()).toEqual({ authorization: "Bearer s3cret" })
+    } finally {
+      echo.close()
+      origin.close()
+    }
+  })
 })
