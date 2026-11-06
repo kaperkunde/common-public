@@ -1,5 +1,11 @@
 # @kaperkunde/security
 
+## 0.3.0
+
+### Minor Changes
+
+- 28cd704: A new `@kaperkunde/security/redirect` entry exports `safeCallbackUrl` alone, so a login form in the browser can use it: the root entry pulls in `node:net` and `node:crypto`.
+
 ## 0.2.1
 
 ### Patch Changes
