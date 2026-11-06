@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/legal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Rendering and checking the kaperkunde/legal documents a site publishes, read from @kaperkunde/legal-docs.",
   "license": "MIT",
   "type": "module",
@@ -20,19 +20,23 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./server": {
       "types": "./dist/server.d.mts",
-      "import": "./dist/server.mjs"
+      "import": "./dist/server.mjs",
+      "default": "./dist/server.mjs"
     },
     "./react": {
       "types": "./dist/react.d.mts",
-      "import": "./dist/react.mjs"
+      "import": "./dist/react.mjs",
+      "default": "./dist/react.mjs"
     },
     "./testing": {
       "types": "./dist/testing.d.mts",
-      "import": "./dist/testing.mjs"
+      "import": "./dist/testing.mjs",
+      "default": "./dist/testing.mjs"
     }
   },
   "scripts": {

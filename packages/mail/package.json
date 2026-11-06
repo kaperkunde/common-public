@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/mail",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One themed email template, SMTP under an app's own settings, and Mailpit helpers for tests.",
   "license": "MIT",
   "type": "module",
@@ -16,15 +16,18 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./template": {
       "types": "./dist/template.d.mts",
-      "import": "./dist/template.mjs"
+      "import": "./dist/template.mjs",
+      "default": "./dist/template.mjs"
     },
     "./testing": {
       "types": "./dist/testing.d.mts",
-      "import": "./dist/testing.mjs"
+      "import": "./dist/testing.mjs",
+      "default": "./dist/testing.mjs"
     }
   },
   "scripts": {

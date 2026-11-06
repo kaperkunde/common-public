@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The MCP tool factory (strict JSON Schema 2020-12 inputs, one validator, outcomes as kinds, write results, long tools) and the owner-by-link helpers for Kaperkunde's apps.",
   "license": "MIT",
   "type": "module",
@@ -19,15 +19,18 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./owner": {
       "types": "./dist/owner.d.mts",
-      "import": "./dist/owner.mjs"
+      "import": "./dist/owner.mjs",
+      "default": "./dist/owner.mjs"
     },
     "./testing": {
       "types": "./dist/testing.d.mts",
-      "import": "./dist/testing.mjs"
+      "import": "./dist/testing.mjs",
+      "default": "./dist/testing.mjs"
     }
   },
   "scripts": {

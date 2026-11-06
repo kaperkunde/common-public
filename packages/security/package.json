@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/security",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Rate limits, client addresses, safe redirects, same-origin checks, constant-time compares, signed link tokens, the admin check, a secret box boot checks, and fetches that only reach public addresses for Kaperkunde's apps.",
   "license": "MIT",
   "type": "module",
@@ -19,11 +19,13 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./net": {
       "types": "./dist/net.d.mts",
-      "import": "./dist/net.mjs"
+      "import": "./dist/net.mjs",
+      "default": "./dist/net.mjs"
     }
   },
   "scripts": {

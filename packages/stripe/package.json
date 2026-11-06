@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/stripe",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The checked Stripe webhook: signature, fetch-back by id, a shared account's app marker, and live keys refused on development.",
   "license": "MIT",
   "type": "module",
@@ -16,7 +16,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     }
   },
   "scripts": {

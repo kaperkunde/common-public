@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/next-kit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Result and ActionState, site and operator helpers, robots/sitemap/llms.txt, dates, text utilities, Prisma (MariaDB) helpers and a once-per-run job scheduler for Kaperkunde's Next.js apps.",
   "license": "MIT",
   "type": "module",
@@ -16,19 +16,23 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./local-date": {
       "types": "./dist/local-date.d.mts",
-      "import": "./dist/local-date.mjs"
+      "import": "./dist/local-date.mjs",
+      "default": "./dist/local-date.mjs"
     },
     "./prisma": {
       "types": "./dist/prisma.d.mts",
-      "import": "./dist/prisma.mjs"
+      "import": "./dist/prisma.mjs",
+      "default": "./dist/prisma.mjs"
     },
     "./scheduler": {
       "types": "./dist/scheduler.d.mts",
-      "import": "./dist/scheduler.mjs"
+      "import": "./dist/scheduler.mjs",
+      "default": "./dist/scheduler.mjs"
     }
   },
   "scripts": {

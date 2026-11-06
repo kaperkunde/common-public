@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/config",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared ESLint, Prettier, TypeScript, Vitest, Playwright and lint-staged presets for Kaperkunde's Next.js apps.",
   "license": "MIT",
   "type": "module",
@@ -27,11 +27,13 @@
     "./tsconfig/library.json": "./tsconfig/library.json",
     "./vitest": {
       "types": "./dist/vitest.d.mts",
-      "import": "./dist/vitest.mjs"
+      "import": "./dist/vitest.mjs",
+      "default": "./dist/vitest.mjs"
     },
     "./playwright": {
       "types": "./dist/playwright.d.mts",
-      "import": "./dist/playwright.mjs"
+      "import": "./dist/playwright.mjs",
+      "default": "./dist/playwright.mjs"
     }
   },
   "scripts": {
