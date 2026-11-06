@@ -56,6 +56,10 @@ export type EmailTheme = {
   fonts?: { body?: string; heading?: string }
   /** Border radius of the card and button, in px. */
   radius?: number
+  /** The card's maximum width, in px (520 when unset). */
+  maxWidth?: number
+  /** Letter spacing of the name beside the logo, as CSS ("-0.01em"); none when unset. */
+  nameLetterSpacing?: string
   /** The `color-scheme` meta: "dark", "light" or "dark light". */
   colorScheme?: string
   /** Links every message of this brand ends with (Terms, Privacy, Support). */
@@ -109,6 +113,10 @@ function renderHtml(content: EmailContent, theme: EmailTheme): string {
     "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
   const headingFont = theme.fonts?.heading ?? body
   const radius = theme.radius ?? 12
+  const maxWidth = theme.maxWidth ?? 520
+  const nameSpacing = theme.nameLetterSpacing
+    ? `letter-spacing:${escapeHtml(theme.nameLetterSpacing)};`
+    : ""
   const site = escapeHtml(theme.siteUrl)
   const preheader = escapeHtml(
     content.preheader ??
@@ -171,16 +179,16 @@ function renderHtml(content: EmailContent, theme: EmailTheme): string {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.page};">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:${c.card};border:1px solid ${c.border};border-radius:${radius}px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}px;background:${c.card};border:1px solid ${c.border};border-radius:${radius}px;">
             <tr>
               <td style="padding:32px;">
-                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr>${logo}<td style="vertical-align:middle;"><a href="${site}" style="color:${c.heading};text-decoration:none;font-size:18px;font-weight:600;">${escapeHtml(theme.name)}</a></td></tr></table>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr>${logo}<td style="vertical-align:middle;"><a href="${site}" style="color:${c.heading};text-decoration:none;font-size:18px;font-weight:600;${nameSpacing}">${escapeHtml(theme.name)}</a></td></tr></table>
                 <h1 style="margin:0 0 16px;font-family:${headingFont};font-size:20px;font-weight:600;color:${c.heading};">${escapeHtml(content.heading)}</h1>
                 ${paragraphs}${cta}${secondary}${footnote}
               </td>
             </tr>
           </table>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${maxWidth}px;">
             <tr>
               <td style="padding:20px 32px 0;text-align:center;">
                 <p style="${small}">${escapeHtml(content.reason)}</p>

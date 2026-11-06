@@ -19,6 +19,11 @@
       "import": "./dist/index.mjs",
       "default": "./dist/index.mjs"
     },
+    "./forms": {
+      "types": "./dist/forms.d.mts",
+      "import": "./dist/forms.mjs",
+      "default": "./dist/forms.mjs"
+    },
     "./preset": {
       "types": "./dist/preset.d.mts",
       "import": "./dist/preset.mjs",
@@ -26,7 +31,7 @@
     }
   },
   "scripts": {
-    "build": "tsdown src/index.ts src/preset.ts --format esm --dts --clean",
+    "build": "tsdown src/index.ts src/preset.ts src/forms.ts --format esm --dts --clean",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "peerDependencies": {
