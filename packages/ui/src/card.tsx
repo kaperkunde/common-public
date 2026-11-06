@@ -9,19 +9,28 @@ import { cn } from "./cn"
  * the edge its `--card-shadow`. Who pads the sides is the theme's
  * `--card-slots`: 0 (PCP's), the card pads whatever it holds; 1 (shadcn's),
  * the card pads only top and bottom and its header, content and footer pad
- * their own sides, so anything else inside runs edge to edge.
+ * their own sides, so anything else inside runs edge to edge. The space
+ * between its parts is `--card-gap` (16px; `size="sm"`: `--card-gap-sm`,
+ * 12px).
+ *
+ * `clip` cuts off whatever pokes out past its rounded corners (an image, a
+ * table running edge to edge), as shadcn's card did. It is off by default:
+ * it also cuts a focus ring or a menu reaching past the edge, and lets the
+ * card grow narrower than its content in a flex row.
  */
 function Card({
   className,
   size = "default",
+  clip = false,
   ...props
-}: ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: ComponentProps<"div"> & { size?: "default" | "sm"; clip?: boolean }) {
   return (
     <div
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-4 rounded-card bg-card px-(--card-px) py-(--card-pad) text-sm text-card-foreground shadow-card [--card-pad:var(--spacing-card)] [--card-px:calc(var(--card-pad)*(1_-_var(--card-slots,0)))] [--card-slot-px:calc(var(--card-pad)*var(--card-slots,0))] data-[size=sm]:gap-3 data-[size=sm]:[--card-pad:var(--spacing-card-sm)]",
+        "group/card flex flex-col gap-[var(--card-gap,calc(var(--spacing)*4))] rounded-card bg-card px-(--card-px) py-(--card-pad) text-sm text-card-foreground shadow-card [--card-pad:var(--spacing-card)] [--card-px:calc(var(--card-pad)*(1_-_var(--card-slots,0)))] [--card-slot-px:calc(var(--card-pad)*var(--card-slots,0))] data-[size=sm]:gap-[var(--card-gap-sm,calc(var(--spacing)*3))] data-[size=sm]:[--card-pad:var(--spacing-card-sm)]",
+        clip && "overflow-hidden",
         className,
       )}
       {...props}
@@ -43,6 +52,12 @@ function CardHeader({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
+/**
+ * The card's heading, an h2 unless `as` says otherwise. As a heading it
+ * tracks as the theme's h1–h4 do (`--heading-tracking`), or as
+ * `--card-title-tracking` where that is set; `as="div"` is no heading and
+ * keeps the text's own spacing.
+ */
 function CardTitle({
   as: Tag = "h2",
   className,
@@ -60,12 +75,13 @@ function CardTitle({
   )
 }
 
+/** A grey line under the title, `--text-card-description` (13px) in size. */
 function CardDescription({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
       className={cn(
-        "text-[13px] leading-relaxed text-muted-foreground",
+        "text-card-description leading-relaxed text-muted-foreground",
         className,
       )}
       {...props}

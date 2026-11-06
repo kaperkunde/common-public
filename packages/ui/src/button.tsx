@@ -15,10 +15,16 @@ import { cn } from "./cn"
  * Height, padding, type and corner per size are theme tokens
  * (`--spacing-control-*`, `--text-control-*`, `--radius-control-*`), and so
  * are the weights (`--font-weight-control`, `--font-weight-control-primary`
- * for the filled primary button), so each site keeps its own proportions.
+ * for the filled primary button) and the border's width
+ * (`--control-border-width`, 1px), so each site keeps its own proportions.
+ * `xl` is the large call to action on a landing page.
+ *
+ * Every variant has a border, transparent unless it draws one, so a button
+ * keeps its size whichever it is; pass `border-transparent` to draw an
+ * outlined variant without its line (`cn` lets it win).
  */
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 cursor-pointer items-center justify-center border border-transparent bg-clip-padding font-control whitespace-nowrap shadow-control transition-colors select-none focus-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 cursor-pointer items-center justify-center border-[length:var(--control-border-width,1px)] border-transparent bg-clip-padding font-control whitespace-nowrap shadow-control transition-colors select-none focus-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -45,11 +51,13 @@ const buttonVariants = cva(
         xs: "h-control-xs gap-1 rounded-control-xs px-control-xs-x text-control-xs [&_svg:not([class*='size-'])]:size-3.5",
         sm: "h-control-sm gap-1.5 rounded-control-sm px-control-sm-x text-control-sm [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-control-lg gap-2 rounded-control-lg px-control-lg-x text-control-lg",
+        xl: "h-control-xl gap-2 rounded-control-xl px-control-xl-x text-control-xl",
         icon: "size-control-md rounded-control-md",
         "icon-xs":
           "size-control-xs rounded-control-xs [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-control-sm rounded-control-sm",
         "icon-lg": "size-control-lg rounded-control-lg",
+        "icon-xl": "size-control-xl rounded-control-xl",
       },
     },
     defaultVariants: {

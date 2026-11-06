@@ -129,6 +129,76 @@ describe("Tailwind", () => {
     expect(pcp).toContain("border-radius: calc(var(--radius) * 1.33)")
   })
 
+  it("sets each control's line where the sites had it", async () => {
+    for (const theme of themes) {
+      const { css } = await build(theme)
+      expect(css, theme).toContain(
+        "--text-control-xs--line-height: calc(1 / 0.75);",
+      )
+      expect(css, theme).toContain(
+        "line-height: var(--tw-leading, var(--text-control-xs--line-height));",
+      )
+      expect(css, theme).toContain("--text-control-xl--line-height: 1.5;")
+    }
+    for (const theme of ["pcp-gg", "plekje"]) {
+      const { css } = await build(theme)
+      expect(css, theme).toContain(
+        "--text-control-md--line-height: calc(1.25 / 0.875);",
+      )
+      expect(css, theme).toContain(
+        "--text-control-lg--line-height: calc(1.25 / 0.875);",
+      )
+    }
+    for (const theme of ["pcp", "studyguild"]) {
+      const { css } = await build(theme)
+      expect(css, theme).not.toContain("--text-control-md--line-height")
+      expect(css, theme).not.toContain("--text-control-lg--line-height")
+    }
+    expect((await build("plekje")).css).toContain(
+      "--text-badge--line-height: calc(1 / 0.75);",
+    )
+    expect((await build("pcp-gg")).css).not.toContain(
+      "--text-badge--line-height",
+    )
+  })
+
+  it("gives the extra-large button tokens, base-nova's on pcp.gg", async () => {
+    const pcp = (await build("pcp")).css
+    expect(pcp).toContain("--spacing-control-xl: 3rem;")
+    expect(pcp).toContain(".h-control-xl {")
+    const pcpGg = (await build("pcp-gg")).css
+    expect(pcpGg).toContain("--spacing-control-xl: 2.75rem;")
+    expect(pcpGg).toContain("--spacing-control-xl-x: 1.25rem;")
+  })
+
+  it("colours a placeholder by a token, 70% of the grey unless set", async () => {
+    const { css } = await build("pcp")
+    expect(css).toContain(".placeholder\\:text-placeholder::placeholder {")
+    expect(css).toContain(
+      "--placeholder,\n    color-mix(in oklab, var(--muted-foreground) 70%, transparent)",
+    )
+  })
+
+  it("keeps the base rules' specificity while letting a field opt out", async () => {
+    const { css } = await build("pcp")
+    expect(css).toContain("summary:where(:not([data-marker])) {")
+    expect(css).toContain(
+      "summary:where(:not([data-marker]))::-webkit-details-marker {",
+    )
+    expect(css).toContain("select:where(:not([data-compact]))")
+    expect(css).toContain("textarea:where(:not([data-compact]))")
+    expect(css).toMatch(
+      /input:not\(\[type="checkbox"\], \[type="radio"\], \[type="range"\]\):where\(\s*:not\(\[data-compact\]\)\s*\)/,
+    )
+    expect(css).toContain(
+      ':is(h1, h2, h3, h4):where([data-slot="card-title"]) {',
+    )
+    expect(css).toContain("--card-title-tracking,")
+    expect(css).toContain("--text-card-description: 13px;")
+    expect(css).toContain("gap: var(--card-gap,calc(var(--spacing) * 4));")
+    expect(css).toContain("border-width: var(--control-border-width,1px);")
+  })
+
   it("keeps Study Guild's own names", async () => {
     const { css } = await build("studyguild", [
       "bg-paper",
@@ -137,6 +207,14 @@ describe("Tailwind", () => {
     ])
     expect(css).toContain("--color-paper: #f3eee3")
     expect(css).toContain(".shadow-brutal {")
+  })
+
+  it("lets Study Guild's muted be the paper, its grey the muted text", async () => {
+    const { css } = await build("studyguild", ["bg-muted"])
+    expect(css).not.toContain("--color-muted:")
+    expect(css).toContain("--muted: var(--color-paper)")
+    expect(css).toContain("--muted-foreground: #5e5850")
+    expect(css).toMatch(/\.bg-muted \{\s*background-color: var\(--muted\);/)
   })
 
   it("keeps a colour a semantic token points at, used or not", async () => {

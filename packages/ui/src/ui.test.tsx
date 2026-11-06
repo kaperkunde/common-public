@@ -64,6 +64,20 @@ describe("cn", () => {
     expect(cn("text-control-sm", "text-primary-foreground")).toBe(
       "text-control-sm text-primary-foreground",
     )
+    expect(cn("text-control-xl", "text-primary-foreground")).toBe(
+      "text-control-xl text-primary-foreground",
+    )
+    expect(cn("text-card-description", "text-muted-foreground")).toBe(
+      "text-card-description text-muted-foreground",
+    )
+  })
+
+  it("knows the extra-large control tokens", () => {
+    expect(
+      cn("h-control-xl px-control-xl-x text-control-xl rounded-control-xl", [
+        "h-12 px-6 text-sm rounded-none",
+      ]),
+    ).toBe("h-12 px-6 text-sm rounded-none")
   })
 })
 
@@ -95,6 +109,51 @@ describe("Button", () => {
     )
     expect(buttonVariants({ size: "icon-sm" })).toContain("size-control-sm")
     expect(buttonVariants({ size: "lg" })).toContain("h-control-lg")
+  })
+
+  it("has an extra-large size on its own tokens", () => {
+    const xl = buttonVariants({ size: "xl" })
+    for (const token of [
+      "h-control-xl",
+      "gap-2",
+      "rounded-control-xl",
+      "px-control-xl-x",
+      "text-control-xl",
+    ]) {
+      expect(xl).toContain(token)
+    }
+    expect(buttonVariants({ size: "icon-xl" })).toContain("size-control-xl")
+  })
+
+  it("draws its border at the theme's width, 1px unless it says", () => {
+    expect(buttonVariants()).toContain(
+      "border-[length:var(--control-border-width,1px)]",
+    )
+    expect(cn(buttonVariants(), "border-2")).not.toContain(
+      "--control-border-width",
+    )
+  })
+
+  it("lets border-transparent take an outlined variant's line away", () => {
+    for (const variant of ["outline", "primary-outline"] as const) {
+      const classes = cn(
+        buttonVariants({ variant, size: "xl" }),
+        "border-transparent",
+      ).split(" ")
+      expect(classes).toContain("border-transparent")
+      expect(classes).not.toContain("border-border")
+      expect(classes).not.toContain("border-primary")
+      expect(classes).toContain(
+        "border-[length:var(--control-border-width,1px)]",
+      )
+    }
+    for (const variant of ["link", "ghost", "plain"] as const) {
+      const classes = buttonVariants({ variant }).split(" ")
+      expect(classes).toContain("border-transparent")
+      expect(classes.filter((name) => /^border-[a-z]+$/.test(name))).toEqual([
+        "border-transparent",
+      ])
+    }
   })
 
   it("lets a class passed in win", () => {
@@ -193,6 +252,45 @@ describe("Card", () => {
 
   it("lets the title be another element", () => {
     expect(html(<CardTitle as="div">Plain</CardTitle>)).toMatch(/^<div/)
+    expect(html(<CardTitle as="h3">Sub</CardTitle>)).toMatch(
+      /^<h3 data-slot="card-title"/,
+    )
+  })
+
+  it("spaces its parts by --card-gap, 16px (12px small) unless set", () => {
+    const card = tagOf(html(<Card>Body</Card>), "div")
+    expect(card).toContain("gap-[var(--card-gap,calc(var(--spacing)*4))]")
+    expect(card).toContain(
+      "data-[size=sm]:gap-[var(--card-gap-sm,calc(var(--spacing)*3))]",
+    )
+    expect(card).not.toContain(" gap-4")
+    expect(
+      tagOf(html(<Card className="gap-6">Body</Card>), "div"),
+    ).not.toContain("--card-gap,")
+  })
+
+  it("clips what pokes out only when asked", () => {
+    expect(tagOf(html(<Card>Body</Card>), "div")).not.toContain(
+      "overflow-hidden",
+    )
+    expect(tagOf(html(<Card clip>Body</Card>), "div")).toContain(
+      "overflow-hidden",
+    )
+  })
+
+  it("sizes the description by a token", () => {
+    const description = tagOf(
+      html(<CardDescription>Nightly</CardDescription>),
+      "div",
+    )
+    expect(description).toContain("text-card-description")
+    expect(description).toContain("text-muted-foreground")
+    expect(
+      tagOf(
+        html(<CardDescription className="text-sm">Nightly</CardDescription>),
+        "div",
+      ),
+    ).not.toContain("text-card-description")
   })
 })
 
@@ -211,6 +309,10 @@ describe("fields", () => {
     expect(html(<Input />)).toContain("bg-field")
     expect(html(<Textarea />)).toContain("h-auto")
     expect(html(<Select />)).toContain("bg-secondary")
+    expect(html(<Input />)).toContain("placeholder:text-placeholder")
+    expect(tagOf(html(<Select data-compact="" />), "select")).toContain(
+      'data-compact=""',
+    )
     expect(tagOf(html(<Checkbox />), "input")).toContain('type="checkbox"')
   })
 
@@ -245,6 +347,34 @@ describe("fields", () => {
     expect(withError).toContain('id="email-error"')
     expect(withError).toContain('role="alert"')
     expect(withError).not.toContain("email-hint")
+  })
+
+  it("adds a class of its own to a Field's label and hint", () => {
+    const plain = html(
+      <Field label="Email" htmlFor="email" hint="Hint">
+        <Input id="email" />
+      </Field>,
+    )
+    const styled = html(
+      <Field
+        label="Email"
+        htmlFor="email"
+        hint="Hint"
+        labelClassName="font-black uppercase"
+        hintClassName="text-sm"
+      >
+        <Input id="email" />
+      </Field>,
+    )
+    expect(tagOf(styled, "label")).toContain("font-black uppercase")
+    expect(tagOf(styled, "label")).not.toContain("font-medium")
+    expect(tagOf(styled, "div", "email-hint")).toContain(
+      "text-muted-foreground text-sm",
+    )
+    expect(tagOf(styled, "div", "email-hint")).not.toContain("text-xs")
+    expect(tagOf(plain, "div", "email-hint")).toContain(
+      'class="text-xs text-muted-foreground"',
+    )
   })
 })
 
@@ -505,6 +635,35 @@ describe("footer", () => {
     ).not.toContain("KVK")
   })
 
+  it("words the operator line by a template", () => {
+    const markup = html(
+      <OperatorCredit
+        operator={OPERATOR}
+        template="Run by {operator} in {country} · KVK {kvk}"
+        linkClassName="text-card"
+      />,
+    )
+    expect(markup).toMatch(
+      /^<p data-slot="operator-credit">Run by <a href="https:\/\/kaperkunde.com" target="_blank" rel="noopener noreferrer" class="text-card">Kaperkunde<\/a> in (<!-- -->)?the Netherlands(<!-- -->)? · KVK (<!-- -->)?42061326<\/p>$/,
+    )
+    expect(markup).not.toContain("Made with care")
+
+    const withLink = html(
+      <OperatorCredit
+        operator={OPERATOR}
+        template={({ operator, country, kvk }) => (
+          <>
+            Run by {operator} in {country} · KVK {kvk} ·{" "}
+            <a href="/subprocessors">Subprocessors</a>
+          </>
+        )}
+      />,
+    )
+    expect(withLink).toContain("Run by <a")
+    expect(withLink).toContain('href="/subprocessors"')
+    expect(withLink).toContain("42061326")
+  })
+
   it("opens outside addresses in a new tab and keeps the rest here", () => {
     const markup = html(
       <FooterLinks
@@ -558,5 +717,35 @@ describe("page", () => {
     expect(markup).toContain(">Servers</h1>")
     expect(markup).toContain('href="/"')
     expect(markup).toContain("Settings")
+  })
+
+  it("centres the actions unless told to sit at the foot", () => {
+    const centred = html(<PageHeader title="Guilds" action={<a>Add</a>} />)
+    expect(centred).not.toContain("self-end")
+    const atFoot = html(
+      <PageHeader title="Guilds" action={<a>Add</a>} actionsAlign="end" />,
+    )
+    expect(tagOf(atFoot, "div", "gap-2")).toContain("sm:self-end")
+  })
+
+  it("adds a class of its own to the kicker, title and description", () => {
+    const markup = html(
+      <PageHeader
+        title="Guilds"
+        kicker="Hall"
+        description="Every guild"
+        kickerClassName="text-guild font-black"
+        titleClassName="font-display text-3xl"
+        descriptionClassName="text-[15px]"
+      />,
+    )
+    const title = tagOf(markup, "h1")
+    expect(title).toContain("font-display text-3xl")
+    expect(title).not.toContain("text-[28px]")
+    expect(title).toContain("sm:text-[30px]")
+    expect(tagOf(markup, "div", "uppercase")).toContain("text-guild font-black")
+    expect(tagOf(markup, "div", "uppercase")).not.toContain("font-semibold")
+    expect(tagOf(markup, "div", "max-w-2xl")).toContain("text-[15px]")
+    expect(tagOf(markup, "div", "max-w-2xl")).not.toContain("text-sm")
   })
 })

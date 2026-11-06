@@ -7,7 +7,7 @@ import { cn } from "./cn"
  * field colour, the ring colour around it when focused, red when invalid.
  */
 const fieldClassName =
-  "h-field w-full min-w-0 rounded-lg border border-input bg-field px-field-x py-1 text-base transition-colors placeholder:text-muted-foreground/70 focus-ring-field disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive in-data-asked:invalid:border-destructive md:text-sm"
+  "h-field w-full min-w-0 rounded-lg border border-input bg-field px-field-x py-1 text-base transition-colors placeholder:text-placeholder focus-ring-field disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive in-data-asked:invalid:border-destructive md:text-sm"
 
 function Input({ className, type, ...props }: ComponentProps<"input">) {
   return (

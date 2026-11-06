@@ -5,11 +5,8 @@
  * unchanged, so `bg-paper`, `text-ink` and `shadow-brutal` keep working; the
  * semantic tokens under them point at those names.
  *
- * One name collides: Study Guild's `muted` is a text colour (#5e5850), where
- * the token set's `muted` is a background. Study Guild's own wins here, so
- * its pages are unchanged; a shared component's `bg-muted` draws in that
- * grey. Once the app's `text-muted` is renamed `text-muted-foreground`, drop
- * the `--color-muted` line below.
+ * Its grey text is `text-muted-foreground`; `muted` is the token set's
+ * background, the paper, as on every other site.
  */
 
 @theme {
@@ -18,7 +15,6 @@
   --color-ink: #17141c;
   --color-ink-2: #221e29;
   --color-ink-3: #3a3542;
-  --color-muted: #5e5850;
   --color-line: #d9d3c7;
   --color-guild: #c9291f;
   --color-guild-dark: #8f1c15;
@@ -61,7 +57,7 @@
   --secondary-foreground: var(--color-ink);
   --secondary-hover: var(--color-paper);
   --muted: var(--color-paper);
-  --muted-foreground: var(--color-muted);
+  --muted-foreground: #5e5850;
   --accent: var(--color-gold-soft);
   --accent-foreground: var(--color-ink);
   --destructive: var(--color-guild);

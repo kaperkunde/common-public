@@ -1,5 +1,5 @@
 import Link from "next/link"
-import type { ReactNode } from "react"
+import { Fragment, type ReactNode } from "react"
 
 import { cn } from "./cn"
 
@@ -52,15 +52,32 @@ function FooterAnchor({
   )
 }
 
+/** The pieces of the operator line, for a `template` function. */
+export type OperatorCreditParts = {
+  /** The operator's name, a link to its site. */
+  operator: ReactNode
+  name: string
+  country: string
+  /** The KVK number, when the operator has one. */
+  kvk?: string
+}
+
 /**
  * The operator line every site carries: "Made with care in the Netherlands
  * by Kaperkunde", the name a link to the operator's site, and the KVK number
  * after it when `kvk` is set.
+ *
+ * `template` words it otherwise, in the order a site wants: a string with
+ * `{operator}` (the name as a link), `{name}`, `{country}` and `{kvk}` in it
+ * ("Run by {operator} in {country} · KVK {kvk}"), or a function given those
+ * parts that returns the line (to add a link after it, say). `words` and
+ * `kvk` are then not read; `{kvk}` is empty for an operator without one.
  */
 function OperatorCredit({
   operator,
   words = "Made with care",
   kvk = false,
+  template,
   className,
   linkClassName: operatorLinkClassName = linkClassName,
 }: {
@@ -69,23 +86,64 @@ function OperatorCredit({
   words?: string
   /** Adds " · KVK <number>". */
   kvk?: boolean
+  /** The whole line, worded and ordered by the site. */
+  template?: string | ((parts: OperatorCreditParts) => ReactNode)
   className?: string
   linkClassName?: string
 }) {
+  const link = (
+    <a
+      href={operator.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={operatorLinkClassName}
+    >
+      {operator.name}
+    </a>
+  )
+
+  if (template !== undefined) {
+    const parts: OperatorCreditParts = {
+      operator: link,
+      name: operator.name,
+      country: operator.country,
+      kvk: operator.kvk,
+    }
+    return (
+      <p data-slot="operator-credit" className={className}>
+        {typeof template === "function"
+          ? template(parts)
+          : fillTemplate(template, parts)}
+      </p>
+    )
+  }
+
   return (
     <p data-slot="operator-credit" className={className}>
-      {words} in {operator.country} by{" "}
-      <a
-        href={operator.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={operatorLinkClassName}
-      >
-        {operator.name}
-      </a>
+      {words} in {operator.country} by {link}
       {kvk && operator.kvk ? <>{` · KVK ${operator.kvk}`}</> : null}
     </p>
   )
+}
+
+/** `{operator}`, `{name}`, `{country}` and `{kvk}` in a template, filled in. */
+function fillTemplate(template: string, parts: OperatorCreditParts) {
+  return template
+    .split(/(\{(?:operator|name|country|kvk)\})/)
+    .map((piece, index) => {
+      switch (piece) {
+        case "{operator}":
+          return <Fragment key={index}>{parts.operator}</Fragment>
+        case "{name}":
+          return parts.name
+        case "{country}":
+          return parts.country
+        case "{kvk}":
+          return parts.kvk ?? ""
+        default:
+          return piece
+      }
+    })
 }
 
 /** The footer's links, as a navigation landmark named "Footer". */
