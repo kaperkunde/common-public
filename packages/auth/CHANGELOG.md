@@ -1,5 +1,11 @@
 # @kaperkunde/auth
 
+## 0.2.0
+
+### Minor Changes
+
+- 75a3c26: A new `@kaperkunde/auth/forms` entry gives the form helpers (`validatePassword`, `withResetPasswordEmail`, `authErrorMessage`, `oauthRedirectFrom` and their constants) without anything server-only, so a client component can import them. The root entry pulls in `node:crypto`.
+
 ## 0.1.1
 
 ### Patch Changes
