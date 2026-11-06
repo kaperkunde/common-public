@@ -65,7 +65,9 @@ function PageColumn({
  * The top of a page: a link back to where it sits (on a page under
  * another), an optional icon, a small line above the title (`kicker`), the
  * title with a grey line under it, and the page's own actions at the right
- * (under it on a phone).
+ * (under it on a phone), level with the middle of the title block, or with
+ * its foot from 640px when `actionsAlign="end"`. The kicker, the title and
+ * the description each take a class of their own, added to theirs.
  */
 function PageHeader({
   title,
@@ -74,7 +76,11 @@ function PageHeader({
   action,
   back,
   icon,
+  actionsAlign = "center",
   className,
+  kickerClassName,
+  titleClassName,
+  descriptionClassName,
 }: {
   title: ReactNode
   description?: ReactNode
@@ -82,7 +88,12 @@ function PageHeader({
   action?: ReactNode
   back?: { href: string; label: ReactNode }
   icon?: ReactNode
+  /** Where the actions sit beside the title block: its middle, or (from 640px) its foot. */
+  actionsAlign?: "center" | "end"
   className?: string
+  kickerClassName?: string
+  titleClassName?: string
+  descriptionClassName?: string
 }) {
   return (
     <header
@@ -103,22 +114,44 @@ function PageHeader({
           {icon}
           <div className="flex min-w-0 flex-col gap-1">
             {kicker ? (
-              <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+              <div
+                className={cn(
+                  "text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase",
+                  kickerClassName,
+                )}
+              >
                 {kicker}
               </div>
             ) : null}
-            <h1 className="text-[28px] leading-tight font-bold tracking-[-0.02em] break-words sm:text-[30px]">
+            <h1
+              className={cn(
+                "text-[28px] leading-tight font-bold tracking-[-0.02em] break-words sm:text-[30px]",
+                titleClassName,
+              )}
+            >
               {title}
             </h1>
             {description ? (
-              <div className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              <div
+                className={cn(
+                  "max-w-2xl text-sm leading-relaxed text-muted-foreground",
+                  descriptionClassName,
+                )}
+              >
                 {description}
               </div>
             ) : null}
           </div>
         </div>
         {action ? (
-          <div className="flex flex-wrap items-center gap-2">{action}</div>
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-2",
+              actionsAlign === "end" && "sm:self-end",
+            )}
+          >
+            {action}
+          </div>
         ) : null}
       </div>
     </header>

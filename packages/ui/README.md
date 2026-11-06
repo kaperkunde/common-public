@@ -43,9 +43,9 @@ server components.
 | `@kaperkunde/ui/cn`                  | `cn()`                                                                                                                              | every app                         |
 | `@kaperkunde/ui/button`              | `Button` (Base UI), `ButtonLink` (next/link), `buttonVariants`                                                                      | PCP, plek.je, pcp.gg              |
 | `@kaperkunde/ui/badge`               | `Badge`, `badgeVariants`, `CountBadge`, `StatusDot`                                                                                 | PCP, plek.je                      |
-| `@kaperkunde/ui/card`                | `Card` (`size="sm"`), `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter`                       | PCP, plek.je                      |
+| `@kaperkunde/ui/card`                | `Card` (`size="sm"`, `clip`), `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter`               | PCP, plek.je                      |
 | `@kaperkunde/ui/input`               | `Input`, `Textarea`, `Select`, `Checkbox`, `fieldClassName`                                                                         | PCP                               |
-| `@kaperkunde/ui/label`               | `Label` (`required` marks "(needed)"), `Field` (label, hint, error)                                                                 | PCP, Study Guild                  |
+| `@kaperkunde/ui/label`               | `Label` (`required` marks "(needed)"), `Field` (label, hint, error; `labelClassName`, `hintClassName`)                              | PCP, Study Guild                  |
 | `@kaperkunde/ui/dialog` ●            | `Dialog`, `DialogTrigger`, `DialogClose`, `DialogContent`, `DialogTitle`, `DialogDescription`, `DialogFooter`                       | PCP                               |
 | `@kaperkunde/ui/disclosure`          | `Disclosure` (native details)                                                                                                       | PCP                               |
 | `@kaperkunde/ui/list`                | `List`, `ListSection`, `ListRow`, `RowValue`                                                                                        | PCP                               |
@@ -60,11 +60,55 @@ server components.
 | `@kaperkunde/ui/form-status`         | `FormError` (role=alert, optional support link), `FormNote` (role=status), `FormStatus`                                             | PCP, plek.je, pcp.gg, Study Guild |
 | `@kaperkunde/ui/required-fields` ●   | `RequiredFieldsForm`, `useRequiredFields`, `stillNeeded`                                                                            | Lore Spawner                      |
 | `@kaperkunde/ui/copy-button` ●       | `CopyButton`, `CopyableValue`                                                                                                       | pcp.gg, plek.je, PCP              |
-| `@kaperkunde/ui/footer`              | `OperatorCredit`, `FooterLinks`, `SiteFooter`                                                                                       | every site footer                 |
-| `@kaperkunde/ui/page`                | `PageShell`, `PageColumn`, `PageHeader` (back link, icon, kicker, title, description, action)                                       | PCP, pcp.gg, Study Guild          |
+| `@kaperkunde/ui/footer`              | `OperatorCredit` (`template`), `FooterLinks`, `SiteFooter`                                                                          | every site footer                 |
+| `@kaperkunde/ui/page`                | `PageShell`, `PageColumn`, `PageHeader` (back link, icon, kicker, title, description, action; `actionsAlign`, a class for each)     | PCP, pcp.gg, Study Guild          |
 
 `next` is an optional peer: only `button` (ButtonLink), `list`, `menu`,
 `nav-tabs`, `footer` and `page` import `next/link`.
+
+## Options a site opts into
+
+Each draws exactly as before unless a site asks for it.
+
+- **Button** `size="xl"` (and `"icon-xl"`): the large call to action, on the
+  `--*-control-xl` tokens. An outlined variant loses its line with
+  `className="border-transparent"`; `cn` lets that win over `border-border`
+  and `border-primary`.
+- **Card** `clip`: `overflow-hidden`, for an image or a table running edge to
+  edge under the rounded corners. Off by default, because it also cuts a
+  focus ring or a menu reaching past the edge and lets the card grow
+  narrower than its content in a flex row.
+- **CardTitle** `as="h3"` or `as="div"`: a heading tracks as the theme's
+  h1–h4 (or as `--card-title-tracking`); a `div` is no heading and keeps the
+  text's own spacing.
+- **Field** `labelClassName`, `hintClassName`; **PageHeader**
+  `kickerClassName`, `titleClassName`, `descriptionClassName`: added to the
+  part's own classes, a class of the same kind replacing the default.
+- **PageHeader** `actionsAlign="end"`: the actions sit level with the foot of
+  the title block from 640px (`"center"`, the middle, is the default).
+- **OperatorCredit** `template`: the line in a site's own words and order,
+  as a string or a function of the parts.
+
+  ```tsx
+  <OperatorCredit
+    operator={OPERATOR}
+    template="Run by {operator} in {country} · KVK {kvk}"
+  />
+  <OperatorCredit
+    operator={OPERATOR}
+    template={({ operator, country, kvk }) => (
+      <>
+        Run by {operator} in {country} · KVK {kvk} ·{" "}
+        <Link href="/subprocessors">Subprocessors</Link>
+      </>
+    )}
+  />
+  ```
+
+- **`<summary data-marker>`** keeps the browser's own triangle, which
+  `base.css` otherwise hides (the Disclosure draws its own chevron).
+- **`data-compact`** on an input, select or text area keeps the size it was
+  given on a phone, where every other field is 16px.
 
 ## Forms say what they still need
 
@@ -113,6 +157,10 @@ those when a theme leaves it out:
 | `segment-border-width`, `segment-pad`, `segment-height`, `segment-text`                 | 0, 2px, 30px, 13px                     | the segmented control     |
 | `segment-active-shadow`                                                                 | none                                   | its chosen option         |
 | `card-slots`                                                                            | 0                                      | who pads a card's sides   |
+| `card-gap`, `card-gap-sm`                                                               | 16px, 12px                             | between a card's parts    |
+| `card-title-tracking`                                                                   | `heading-tracking`                     | a heading CardTitle       |
+| `placeholder`                                                                           | `muted-foreground` at 70%              | a field's placeholder     |
+| `control-border-width`                                                                  | 1px                                    | a button's border         |
 
 The shape is a theme's too: PCP's proportions are the defaults, and a theme
 overrides any of them as plain variables on `:root` (`themes/plekje.css`
@@ -120,13 +168,22 @@ does, for shadcn's tighter base-nova sizes):
 
 | Variables                                                                    | What                                        |
 | ---------------------------------------------------------------------------- | ------------------------------------------- |
-| `--spacing-control-{xs,sm,md,lg}`, `--spacing-control-{xs,sm,md,lg}-x`       | a button's height and side padding per size |
-| `--text-control-{xs,sm,md,lg}`, `--radius-control-{xs,sm,md,lg}`             | its type size and corner                    |
+| `--spacing-control-{xs,sm,md,lg,xl}`, `--spacing-control-{xs,sm,md,lg,xl}-x` | a button's height and side padding per size |
+| `--text-control-{xs,sm,md,lg,xl}`, `--radius-control-{xs,sm,md,lg,xl}`       | its type size and corner                    |
+| `--text-control-{xs,…}--line-height`                                         | the line it sits on, in a theme's `@theme`  |
 | `--spacing-field`, `--spacing-field-x`                                       | an input's height and side padding          |
 | `--spacing-card`, `--spacing-card-sm`, `--text-card-title`, `--radius-card`  | a card                                      |
+| `--text-card-description`                                                    | a card's description (13px)                 |
 | `--font-weight-control`, `--font-weight-control-primary`                     | a button's weight, and the filled primary's |
 | `--radius-badge`, `--spacing-badge-x`, `--text-badge`, `--font-weight-badge` | a badge (a medium 12px pill on plek.je)     |
 | `--radius-menu`, `--radius-dialog`, `--font-weight-segment`                  | menus, dialogs, a segment's label           |
+
+Tailwind gives a `text-control-*` class a line height only when its key is
+in an `@theme` block, so a line height a theme adds goes there, not on
+`:root`. The extra-small control sits on `text-xs`'s line
+(`calc(1 / 0.75)`) and the extra-large on 1.5 everywhere; the others take
+the line around them, except on pcp.gg and plek.je, whose themes put md and
+lg on `text-sm`'s (`calc(1.25 / 0.875)`) and plek.je's badges on `text-xs`'s.
 
 `--card-slots` picks who pads a card's sides: `0` (PCP's), the card pads
 whatever it holds and a CardFooter bleeds to its edges; `1` (shadcn's, as on
@@ -141,7 +198,8 @@ CardContent and CardFooter pad their own sides.
   with `max(var(--gutter), env(safe-area-inset-*))`, `pb-safe` with the home
   indicator's inset; ask for `viewport-fit=cover` in the viewport tag.
 - **A field under 16px zooms iOS in on itself**, so every input, select and
-  text area is 16px under 560px, whatever size it was given.
+  text area is 16px under 560px, whatever size it was given, unless it is
+  marked `data-compact` (drawn small on purpose).
 - **`overflow-wrap: break-word`, never `anywhere`**, which inside a flex row
   makes every name one letter wide; `body` has it.
 - Safari's text inflation is off (`text-size-adjust: 100%`).
@@ -171,8 +229,5 @@ The variants are the union of what the apps draw, so a few names move:
   brutal shadows as they are, and maps the semantic tokens onto them. Its
   ink-outlined buttons, panels and fields stay its own; the shared
   `RequiredFieldsForm`, `SubmitButton`, `FormError`, footer pieces and
-  `PageHeader` work on its theme. Its `text-muted` is a text colour where the
-  token set's `muted` is a background, so its theme keeps `--color-muted` as
-  that grey for now (a shared `bg-muted` draws in it). The migration renames
-  `text-muted` to `text-muted-foreground` across the app and then drops the
-  `--color-muted` line from its theme, so `muted` is the paper background.
+  `PageHeader` work on its theme. Its grey text is `text-muted-foreground`;
+  `muted` is the paper background, as the token set has it.

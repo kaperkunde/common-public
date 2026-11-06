@@ -87,10 +87,12 @@
   --spacing-control-sm: 1.75rem;
   --spacing-control-md: 2rem;
   --spacing-control-lg: 2.25rem;
+  --spacing-control-xl: 2.75rem;
   --spacing-control-xs-x: 0.5rem;
   --spacing-control-sm-x: 0.625rem;
   --spacing-control-md-x: 0.625rem;
   --spacing-control-lg-x: 0.625rem;
+  --spacing-control-xl-x: 1.25rem;
   --text-control-xs: 0.75rem;
   --text-control-sm: 0.8rem;
   --text-control-md: 0.875rem;
@@ -99,6 +101,7 @@
   --radius-control-sm: min(calc(var(--radius) * 0.8), 12px);
   --radius-control-md: var(--radius);
   --radius-control-lg: var(--radius);
+  --radius-control-xl: var(--radius);
   --spacing-field: 2rem;
   --spacing-field-x: 0.625rem;
   --spacing-card: 1rem;
@@ -122,4 +125,15 @@
    * their own sides.
    */
   --card-slots: 1;
+}
+
+/*
+ * The line each control's text sits on, as base-nova's text-sm set it (the
+ * small button's 0.8rem takes the line around it; the extra-small one's is
+ * base.css's). Badges keep text-xs's line.
+ */
+@theme {
+  --text-control-md--line-height: calc(1.25 / 0.875);
+  --text-control-lg--line-height: calc(1.25 / 0.875);
+  --text-badge--line-height: calc(1 / 0.75);
 }

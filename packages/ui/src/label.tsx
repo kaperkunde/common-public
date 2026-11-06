@@ -38,7 +38,8 @@ function Label({
 /**
  * A label above its control, a grey hint under it, and the field's own error
  * in place of the hint once there is one (`<id>-hint`, `<id>-error`, for the
- * control's `aria-describedby`).
+ * control's `aria-describedby`). `labelClassName` and `hintClassName` are
+ * added to the label's and the hint's own classes.
  */
 function Field({
   label,
@@ -47,6 +48,8 @@ function Field({
   error,
   required,
   className,
+  labelClassName,
+  hintClassName,
   children,
 }: Required & {
   label: ReactNode
@@ -54,16 +57,21 @@ function Field({
   hint?: ReactNode
   error?: ReactNode
   className?: string
+  labelClassName?: string
+  hintClassName?: string
   children: ReactNode
 }) {
   return (
     <div data-slot="field" className={cn("flex flex-col gap-1.5", className)}>
-      <Label htmlFor={htmlFor} required={required}>
+      <Label htmlFor={htmlFor} required={required} className={labelClassName}>
         {label}
       </Label>
       {children}
       {hint && !error ? (
-        <div id={`${htmlFor}-hint`} className="text-xs text-muted-foreground">
+        <div
+          id={`${htmlFor}-hint`}
+          className={cn("text-xs text-muted-foreground", hintClassName)}
+        >
           {hint}
         </div>
       ) : null}
