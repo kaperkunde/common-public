@@ -1,5 +1,11 @@
 # @kaperkunde/auth
 
+## 0.2.1
+
+### Patch Changes
+
+- 2564280: `mcpAuthPreset`'s `extraPlugins` is typed as Better Auth plugins and the returned `plugins` is `BetterAuthPlugin[]`, so it type-checks in `betterAuth({…})` without a cast.
+
 ## 0.2.0
 
 ### Minor Changes

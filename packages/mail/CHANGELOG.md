@@ -1,5 +1,11 @@
 # @kaperkunde/mail
 
+## 0.3.0
+
+### Minor Changes
+
+- 2564280: `createMailer` takes an optional `render(content, theme)`, for an app whose mail has a layout of its own that no theme can express. It defaults to `renderEmail`.
+
 ## 0.2.0
 
 ### Minor Changes
