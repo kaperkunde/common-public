@@ -56,12 +56,21 @@ export function createMailer({
   prefix,
   defaultFrom,
   theme,
+  render = renderEmail,
   env = process.env,
 }: {
   /** The env-var prefix: "SMTP", "STUDYGUILD_SMTP", "GHOSTHOST_SMTP". */
   prefix: string
   defaultFrom: string
   theme: EmailTheme | (() => EmailTheme)
+  /**
+   * Draws the message: `renderEmail` unless the app's mail looks like
+   * nothing a theme can say. Whatever it returns is sent as it is.
+   */
+  render?: (
+    content: EmailContent,
+    theme: EmailTheme,
+  ) => { html: string; text: string }
   env?: Record<string, string | undefined>
 }) {
   let transporter: Transporter | undefined
@@ -89,7 +98,7 @@ export function createMailer({
         greetingTimeout: 10_000,
         socketTimeout: 20_000,
       })
-      const { html, text } = renderEmail(
+      const { html, text } = render(
         content,
         typeof theme === "function" ? theme() : theme,
       )

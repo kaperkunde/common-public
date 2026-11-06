@@ -45,7 +45,7 @@ const V6: Array<[string, number]> = [
   ["64:ff9b::", 96], // NAT64
   ["64:ff9b:1::", 48], // local-use NAT64
   ["100::", 64], // discard-only
-  ["2001::", 32], // Teredo
+  ["2001::", 23], // IETF protocol assignments, Teredo among them
   ["2001:db8::", 32], // documentation
   ["2002::", 16], // 6to4
   ["fc00::", 7], // unique local
