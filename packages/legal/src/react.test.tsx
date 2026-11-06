@@ -25,4 +25,17 @@ describe("LegalMarkdown", () => {
     )
     expect(html).toContain('style="overflow-x:auto"><table>')
   })
+
+  it("leaves out the wrapper when bare", () => {
+    const html = renderToStaticMarkup(
+      <LegalMarkdown
+        markdown={"## A\n\nText.\n"}
+        sourcePath="pcpgg/privacy.md"
+        commit={COMMIT}
+        site={site}
+        bare
+      />,
+    )
+    expect(html.startsWith("<h2")).toBe(true)
+  })
 })

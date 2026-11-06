@@ -31,6 +31,7 @@ export function LegalMarkdown({
   className,
   tableClassName,
   Link,
+  bare = false,
 }: {
   /** The document, with its own `# heading` already taken off (splitTitle). */
   markdown: string
@@ -44,6 +45,12 @@ export function LegalMarkdown({
   /** On the box each table scrolls in. */
   tableClassName?: string
   Link?: ComponentType<LegalLinkProps>
+  /**
+   * Leave out the wrapping element, so the document's elements go straight
+   * into the caller's container (where a rhythm such as `.prose > * + *`
+   * must reach them). `className` is then unused.
+   */
+  bare?: boolean
 }) {
   const components: Components = {
     a: ({ href, children, node: _node, ...rest }) => {
@@ -85,15 +92,14 @@ export function LegalMarkdown({
     ),
   }
 
-  return (
-    <div className={className}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSlug]}
-        components={components}
-      >
-        {markdown}
-      </ReactMarkdown>
-    </div>
+  const body = (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeSlug]}
+      components={components}
+    >
+      {markdown}
+    </ReactMarkdown>
   )
+  return bare ? body : <div className={className}>{body}</div>
 }

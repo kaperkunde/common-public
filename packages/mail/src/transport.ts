@@ -40,7 +40,14 @@ export function smtpSettings(
   return {
     host: read("HOST") ?? "localhost",
     port,
-    secure: port === 465,
+    // Implicit TLS on 465 and STARTTLS elsewhere, unless `_SECURE` says
+    // "true" or "false" outright.
+    secure:
+      read("SECURE") === "true"
+        ? true
+        : read("SECURE") === "false"
+          ? false
+          : port === 465,
     ...(user && pass ? { auth: { user, pass } } : {}),
     from: read("FROM") ?? defaultFrom,
     ...(read("REPLY_TO") ? { replyTo: read("REPLY_TO") } : {}),

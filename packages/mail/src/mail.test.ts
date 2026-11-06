@@ -90,6 +90,16 @@ describe("renderEmail", () => {
 })
 
 describe("smtpSettings", () => {
+  it("lets _SECURE say outright whether TLS is implicit", () => {
+    const at = (env: Record<string, string>) =>
+      smtpSettings("SMTP", { defaultFrom: "x", env }).secure
+    expect(at({ SMTP_PORT: "587" })).toBe(false)
+    expect(at({ SMTP_PORT: "465" })).toBe(true)
+    expect(at({ SMTP_PORT: "2465", SMTP_SECURE: "true" })).toBe(true)
+    expect(at({ SMTP_PORT: "465", SMTP_SECURE: "false" })).toBe(false)
+    expect(at({ SMTP_PORT: "465", SMTP_SECURE: "maybe" })).toBe(true)
+  })
+
   it("reads the app's prefix, with Mailpit as the default", () => {
     expect(
       smtpSettings("APP_SMTP", { defaultFrom: "App <no@app>", env: {} }),

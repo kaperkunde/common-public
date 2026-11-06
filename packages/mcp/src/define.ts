@@ -91,7 +91,7 @@ type Json = Record<string, unknown>
 type AnyObject = z.ZodObject<any>
 
 /** A tool that may run longer than a client waits (long.ts). */
-export type LongSpec<Args = Record<string, unknown>> = {
+export type LongSpec<Args = Record<string, unknown>, Out = Outcome> = {
   /**
    * How long to wait for the run before answering that it is still going:
    * LONG_PATIENCE_MS, or LONG_STREAMED_PATIENCE_MS for a client that asked
@@ -102,7 +102,7 @@ export type LongSpec<Args = Record<string, unknown>> = {
    * The honest answer once patience runs out: it is still going, and where
    * its result will land. The run carries on behind it.
    */
-  stillGoing: (args: Args, waitedMs: number) => Outcome
+  stillGoing: (args: Args, waitedMs: number) => Out
   /** How often progress is sent while it runs; PROGRESS_EVERY_MS. */
   progressEveryMs?: number
 }
