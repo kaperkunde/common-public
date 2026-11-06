@@ -139,3 +139,31 @@ describe("smtpSettings", () => {
     expect(rendered.html).not.toContain("letter-spacing:")
   })
 })
+
+describe("createMailer", () => {
+  it("draws with the app's own render when it brings one", async () => {
+    const { createMailer } = await import("./index")
+    const seen: string[] = []
+    const mailer = createMailer({
+      prefix: "TEST_SMTP",
+      defaultFrom: "a@example.com",
+      theme,
+      env: {},
+      render: (content) => {
+        seen.push(content.heading)
+        return { html: "<p>own</p>", text: "own" }
+      },
+    })
+    // No SMTP host: the send fails on the way, after the render ran.
+    await mailer
+      .send({
+        to: "b@example.com",
+        subject: "Hi",
+        heading: "Mine",
+        paragraphs: ["Hello."],
+        reason: "Because.",
+      })
+      .catch(() => {})
+    expect(seen).toEqual(["Mine"])
+  })
+})

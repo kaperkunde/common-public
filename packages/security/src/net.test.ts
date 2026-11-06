@@ -11,7 +11,12 @@ import {
 } from "./net"
 
 describe("isPublicAddress", () => {
-  it.each(["8.8.8.8", "1.1.1.1", "2606:4700:4700::1111"])("allows %s", (a) => {
+  it.each([
+    "8.8.8.8",
+    "1.1.1.1",
+    "2606:4700:4700::1111",
+    "2001:4860:4860::8888",
+  ])("allows %s", (a) => {
     expect(isPublicAddress(a)).toBe(true)
   })
 
@@ -36,6 +41,9 @@ describe("isPublicAddress", () => {
     "fd00::1",
     "fe80::1%eth0",
     "2001:db8::1",
+    "2001::1",
+    "2001:4:112::1",
+    "2001:1ff::1",
     "not-an-address",
   ])("refuses %s", (a) => {
     expect(isPublicAddress(a)).toBe(false)

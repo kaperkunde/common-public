@@ -1,6 +1,7 @@
 import { cimd } from "@better-auth/cimd"
 import { fetchClientMetadataResource } from "@better-auth/cimd/node"
 import { mcp } from "@better-auth/mcp"
+import type { BetterAuthPlugin } from "better-auth"
 import { jwt } from "better-auth/plugins"
 
 import type { McpUrls } from "./urls"
@@ -40,7 +41,7 @@ export function mcpAuthPreset({
   consentPage?: string
   refreshDays?: number
   rateLimited?: boolean
-  extraPlugins?: readonly unknown[]
+  extraPlugins?: readonly BetterAuthPlugin[]
   disabledPaths?: readonly string[]
 }) {
   return {
@@ -55,6 +56,9 @@ export function mcpAuthPreset({
         "/jwks": false as const,
       },
     },
+    // Typed as Better Auth plugins, so the object spreads into
+    // betterAuth({…}) without a cast; the plugins' own types are too large
+    // for a declaration file to name.
     plugins: [
       jwt({ jwt: { issuer: urls.issuer }, disableSettingJwtHeader: true }),
       mcp({
@@ -70,7 +74,7 @@ export function mcpAuthPreset({
       }),
       cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" }),
       ...extraPlugins,
-    ],
+    ] as BetterAuthPlugin[],
   }
 }
 
