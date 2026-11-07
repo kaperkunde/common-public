@@ -1,5 +1,11 @@
 # @kaperkunde/security
 
+## 0.3.1
+
+### Patch Changes
+
+- 40d4cc2: Published through npm trusted publishing (OIDC) from the release workflow, with no npm token. No code changes.
+
 ## 0.3.0
 
 ### Minor Changes
