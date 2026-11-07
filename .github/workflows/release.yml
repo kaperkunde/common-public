@@ -27,9 +27,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
           registry-url: https://registry.npmjs.org
-      # npm's trusted publishing (OIDC, no token) needs npm 11.5.1 or later;
-      # Node 24's own npm can be older. Once every package names this
-      # workflow as its trusted publisher, NPM_TOKEN can be deleted.
+      # Publishing is npm's trusted publishing: every package names this
+      # workflow as its trusted publisher, and npm trades the job's OIDC
+      # token for a short-lived one. No npm token is stored anywhere. It
+      # needs npm 11.5.1 or later; Node 24's own npm can be older.
       - run: npm install -g npm@11.21.1
       - run: pnpm install --frozen-lockfile
       - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
@@ -39,6 +40,4 @@ jobs:
           commit: Version packages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
