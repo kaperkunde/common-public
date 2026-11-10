@@ -1,4 +1,11 @@
-import type { ComponentProps, ReactNode } from "react"
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+} from "react"
 
 import { cn } from "./cn"
 
@@ -36,6 +43,35 @@ function Label({
 }
 
 /**
+ * Adds the hint's id to the `aria-describedby` of the control (the element
+ * child whose `id` is the field's `htmlFor`, else the only element child),
+ * keeping what it already has.
+ */
+function describedBy(
+  children: ReactNode,
+  htmlFor: string,
+  hintId: string,
+): ReactNode {
+  const idOf = (child: ReactNode) =>
+    isValidElement(child) ? (child.props as { id?: string }).id : undefined
+  const elements = Children.toArray(children).filter(isValidElement)
+  const byId = elements.some((child) => idOf(child) === htmlFor)
+  if (!byId && elements.length !== 1) return children
+
+  return Children.map(children, (child) => {
+    if (!isValidElement(child) || (byId && idOf(child) !== htmlFor))
+      return child
+    const el = child as ReactElement<{ "aria-describedby"?: string }>
+    const existing =
+      el.props["aria-describedby"]?.split(/\s+/).filter(Boolean) ?? []
+    if (existing.includes(hintId)) return child
+    return cloneElement(el, {
+      "aria-describedby": [...existing, hintId].join(" "),
+    })
+  })
+}
+
+/**
  * A label above its control, a grey hint under it, and the field's own error
  * in place of the hint once there is one (`<id>-hint`, `<id>-error`, for the
  * control's `aria-describedby`). `labelClassName` and `hintClassName` are
@@ -61,13 +97,14 @@ function Field({
   hintClassName?: string
   children: ReactNode
 }) {
+  const showHint = !!hint && !error
   return (
     <div data-slot="field" className={cn("flex flex-col gap-1.5", className)}>
       <Label htmlFor={htmlFor} required={required} className={labelClassName}>
         {label}
       </Label>
-      {children}
-      {hint && !error ? (
+      {showHint ? describedBy(children, htmlFor, `${htmlFor}-hint`) : children}
+      {showHint ? (
         <div
           id={`${htmlFor}-hint`}
           className={cn("text-xs text-muted-foreground", hintClassName)}
