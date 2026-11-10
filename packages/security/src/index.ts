@@ -5,7 +5,14 @@ export {
   secretProblem,
   type BootCheck,
 } from "./boot"
-export { clientIpFromHeaders, parseTrustedProxies } from "./client-ip"
+export {
+  clientIpFromHeaders,
+  parseTrustedProxies,
+  resolveClientIp,
+  stampPeer,
+  type ClientIp,
+  type ClientIpOptions,
+} from "./client-ip"
 export { createLinkTokens } from "./link-token"
 export {
   checkRateLimit,

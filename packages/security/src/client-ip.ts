@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import type { IncomingMessage } from "node:http"
 import { BlockList, isIP } from "node:net"
 
 /**
@@ -77,8 +78,98 @@ function trustedList(raw: string): BlockList {
   return list
 }
 
+export type ClientIpOptions = {
+  /** Proxy addresses and CIDR ranges (loopback is always among them). */
+  trustedProxies?: string
+  /** Entries in from the right of X-Forwarded-For when none are trusted. */
+  hops?: number
+  /**
+   * The address that connected to the app (the socket peer), already
+   * extracted by the caller. Without it, forwarded headers are believed as
+   * before.
+   */
+  peer?: string
+  /**
+   * The header the app's own server stamped the peer into (see
+   * `stampPeer`); read when `peer` is not given. The app must strip any
+   * incoming copy first, or a client could name itself.
+   */
+  peerHeader?: string
+}
+
+export type ClientIp = {
+  /** The rate-limit key: an IP address, a short hash, or "local". */
+  ip: string
+  /**
+   * Where it came from: "peer" (the connecting address), "forwarded"
+   * (X-Forwarded-For), "header" (X-Real-IP) or "none" (nothing named anyone).
+   */
+  source: "peer" | "forwarded" | "header" | "none"
+  /**
+   * True when forwarded headers arrived from a peer that is not a trusted
+   * proxy and were ignored: the app is behind a proxy it was not told about.
+   * The app can warn once.
+   */
+  untrustedForwarded: boolean
+}
+
+function forwardedEntries(headers: Headers): string[] {
+  return (headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+function fromForwardedHeaders(
+  headers: Headers,
+  raw: string | undefined,
+  hops: number,
+): ClientIp {
+  const entries = forwardedEntries(headers)
+
+  if (raw) {
+    const list = trustedList(raw)
+    if (entries.length === 0) {
+      return { ip: "local", source: "none", untrustedForwarded: false }
+    }
+    let chosen = entries[0] ?? ""
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const address = unmapped(entries[i] ?? "")
+      const type = family(address)
+      if (!type || !list.check(address, type)) {
+        chosen = entries[i] ?? ""
+        break
+      }
+    }
+    return {
+      ip: addressKey(unmapped(chosen)),
+      source: "forwarded",
+      untrustedForwarded: false,
+    }
+  }
+
+  if (entries.length > 0) {
+    const from = Math.max(1, Math.floor(hops))
+    const index = Math.max(0, entries.length - from)
+    return {
+      ip: addressKey(unmapped(entries[index] ?? "")),
+      source: "forwarded",
+      untrustedForwarded: false,
+    }
+  }
+
+  const real = headers.get("x-real-ip")?.trim()
+  return real
+    ? {
+        ip: addressKey(unmapped(real)),
+        source: "header",
+        untrustedForwarded: false,
+      }
+    : { ip: "local", source: "none", untrustedForwarded: false }
+}
+
 /**
- * The client's address, for rate limits, from a request's headers.
+ * The client's address, for rate limits, and how it was found.
  *
  * With `trustedProxies` (addresses and CIDR ranges), X-Forwarded-For is read
  * from the right, past every address that is one of them, to the first that
@@ -87,46 +178,69 @@ function trustedList(raw: string): BlockList {
  * entry is trusted, the left-most.
  *
  * Without it, the entry `hops` places from the right (1 by default, the
- * address the one proxy in front of the app appended): whatever a client
- * wrote itself sits further left and is never reached. Behind a proxy that
- * replaces the header instead, that is the only entry, so the default fits
- * both. X-Real-IP counts only when there is no X-Forwarded-For. Answers
- * "local" when no header names anyone.
+ * address the one proxy in front of the app appended). X-Real-IP counts only
+ * when there is no X-Forwarded-For. "local" when no header names anyone.
+ *
+ * When the connecting address is known (`peer`, or `peerHeader`), forwarded
+ * headers count only if it is a proxy: loopback, or inside `trustedProxies`
+ * when that is set (loopback is always trusted). From any other peer they are
+ * ignored, the peer is the answer, and `untrustedForwarded` says that
+ * forwarded headers were there. With no forwarded headers the peer is the
+ * answer too. A peer that is not an IP address is hashed, never trusted.
+ *
+ * The caller must strip an incoming `peerHeader` before its own server sets
+ * it; otherwise a client chooses its own address.
  */
+export function resolveClientIp(
+  headers: Headers,
+  { trustedProxies, hops = 1, peer, peerHeader }: ClientIpOptions = {},
+): ClientIp {
+  const raw = trustedProxies?.trim() || undefined
+  const peerValue = (
+    peer ?? (peerHeader ? headers.get(peerHeader) : null)
+  )?.trim()
+
+  if (!peerValue) return fromForwardedHeaders(headers, raw, hops)
+
+  const address = unmapped(peerValue)
+  const type = family(address)
+  const proxy = (raw ? trustedList(raw) : trustedList("")).check(
+    address,
+    type ?? "ipv4",
+  )
+  const trusted = type !== null && proxy
+  const forwarded =
+    forwardedEntries(headers).length > 0 || !!headers.get("x-real-ip")?.trim()
+
+  if (trusted && forwarded) return fromForwardedHeaders(headers, raw, hops)
+
+  return {
+    ip: addressKey(address),
+    source: "peer",
+    untrustedForwarded: !trusted && forwarded,
+  }
+}
+
+/** `resolveClientIp`'s address alone. */
 export function clientIpFromHeaders(
   headers: Headers,
-  { trustedProxies, hops = 1 }: { trustedProxies?: string; hops?: number } = {},
+  options: ClientIpOptions = {},
 ): string {
-  const raw = trustedProxies?.trim()
+  return resolveClientIp(headers, options).ip
+}
 
-  if (raw) {
-    const list = trustedList(raw)
-    const entries = (headers.get("x-forwarded-for") ?? "")
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-
-    if (entries.length === 0) return "local"
-
-    for (let i = entries.length - 1; i >= 0; i--) {
-      const address = unmapped(entries[i] ?? "")
-      const type = family(address)
-      if (!type || !list.check(address, type)) return addressKey(address)
-    }
-
-    return addressKey(unmapped(entries[0] ?? ""))
-  }
-
-  const entries = (headers.get("x-forwarded-for") ?? "")
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-  if (entries.length > 0) {
-    const from = Math.max(1, Math.floor(hops))
-    const index = Math.max(0, entries.length - from)
-    return addressKey(unmapped(entries[index] ?? ""))
-  }
-
-  const real = headers.get("x-real-ip")?.trim()
-  return real ? addressKey(unmapped(real)) : "local"
+/**
+ * For the app's own server entry, before its framework handles the request:
+ * removes any incoming header of that name (a client could send one) and sets
+ * it from the socket, so `resolveClientIp`'s `peerHeader` can be believed.
+ * Without a socket address the header stays absent.
+ */
+export function stampPeer(
+  req: Pick<IncomingMessage, "headers" | "socket">,
+  headerName: string,
+): void {
+  const name = headerName.toLowerCase()
+  delete req.headers[name]
+  const address = req.socket?.remoteAddress
+  if (address) req.headers[name] = address
 }
