@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/security",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Rate limits, client addresses, safe redirects, same-origin checks, constant-time compares, signed link tokens, the admin check, a secret box boot checks, and fetches that only reach public addresses for Kaperkunde's apps.",
   "license": "MIT",
   "type": "module",
