@@ -51,7 +51,7 @@
     }
   },
   "devDependencies": {
-    "@better-auth/cimd": "1.7.7",
+    "@better-auth/cimd": "1.7.20",
     "@better-auth/mcp": "1.7.7",
     "@better-auth/oauth-provider": "1.7.7",
     "better-auth": "1.7.7"
