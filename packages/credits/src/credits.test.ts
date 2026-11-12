@@ -10,7 +10,13 @@ describe("a hook's usage as a ledger row", () => {
       purpose: "chat",
       requests: [
         { inputTokens: 100, outputTokens: 10, cachedTokens: 80, speed: "fast" },
-        { inputTokens: 50, outputTokens: 5, cacheWriteTokens: 20, cacheWrite1hTokens: 5, reasoningTokens: 3 },
+        {
+          inputTokens: 50,
+          outputTokens: 5,
+          cacheWriteTokens: 20,
+          cacheWrite1hTokens: 5,
+          reasoningTokens: 3,
+        },
       ],
       scopeId: "world-1",
     })
@@ -34,10 +40,27 @@ describe("a hook's usage as a ledger row", () => {
 
   it("writes speech as a quantity of its own kind", () => {
     expect(
-      ledgerRowOf({ userId: "ash", model: "voice", purpose: "speech", kind: "tts_chars", units: 1200 }),
-    ).toMatchObject({ kind: "tts_chars", units: { tts_chars: 1200 }, totalTokens: 0, requests: null })
+      ledgerRowOf({
+        userId: "ash",
+        model: "voice",
+        purpose: "speech",
+        kind: "tts_chars",
+        units: 1200,
+      }),
+    ).toMatchObject({
+      kind: "tts_chars",
+      units: { tts_chars: 1200 },
+      totalTokens: 0,
+      requests: null,
+    })
     expect(
-      ledgerRowOf({ userId: "ash", model: "voice", purpose: "speech", units: { tts_seconds: 4 }, source: "own" }),
+      ledgerRowOf({
+        userId: "ash",
+        model: "voice",
+        purpose: "speech",
+        units: { tts_seconds: 4 },
+        source: "own",
+      }),
     ).toMatchObject({ units: { tts_seconds: 4 }, own: true })
   })
 

@@ -52,9 +52,9 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
   })
 
   it("lets nobody but the server move a balance", async () => {
-    await expect(pool.query(`SELECT * FROM credit_admit('ash')`)).rejects.toThrow(
-      /by the server alone/,
-    )
+    await expect(
+      pool.query(`SELECT * FROM credit_admit('ash')`),
+    ).rejects.toThrow(/by the server alone/)
     const client = await pool.connect()
     try {
       await client.query("BEGIN")
@@ -73,9 +73,12 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
   it("hands out the allotment from the pool, and what is left of it, then nothing", async () => {
     const ash = await store.admit("ash")
     expect(ash.free).toBe(1_000_000)
-    const expires = (await pool.query(`SELECT (${MONTH} + interval '1 month') AS at`))
-      .rows[0].at as Date
-    expect(new Date(ash.freeExpiresAt as string).getTime()).toBe(expires.getTime())
+    const expires = (
+      await pool.query(`SELECT (${MONTH} + interval '1 month') AS at`)
+    ).rows[0].at as Date
+    expect(new Date(ash.freeExpiresAt as string).getTime()).toBe(
+      expires.getTime(),
+    )
     // $1.50 budget, $1 gone: half an allotment left.
     expect((await store.admit("bo")).free).toBe(500_000)
     const cy = await credits.admit("cy", { model: "m" })
@@ -241,13 +244,23 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
   })
 
   it("hands one allotment to two admissions racing for the last of the pool", async () => {
-    await pool.query(`UPDATE credit_pool_periods SET "grantedUsd" = 1.5 WHERE "periodStart" = ${MONTH}`)
-    const [one, two] = await Promise.all([store.admit("eve"), store.admit("fay")])
+    await pool.query(
+      `UPDATE credit_pool_periods SET "grantedUsd" = 1.5 WHERE "periodStart" = ${MONTH}`,
+    )
+    const [one, two] = await Promise.all([
+      store.admit("eve"),
+      store.admit("fay"),
+    ])
     // The pool is spent: nothing for either.
     expect(one.free + two.free).toBe(0)
     // Another dollar: one allotment between them, never two.
-    await pool.query(`INSERT INTO credit_pool_budgets ("budgetUsd", "adminEmail") VALUES (2.5, 'a')`)
-    const [three, four] = await Promise.all([store.admit("eve"), store.admit("fay")])
+    await pool.query(
+      `INSERT INTO credit_pool_budgets ("budgetUsd", "adminEmail") VALUES (2.5, 'a')`,
+    )
+    const [three, four] = await Promise.all([
+      store.admit("eve"),
+      store.admit("fay"),
+    ])
     expect(three.free + four.free).toBe(1_000_000)
   })
 
@@ -265,8 +278,12 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
     await store.addSalePrice("eur", 250)
     const purchase = await store.purchaseOpen("ash", "eur", 500)
     expect(purchase.credits).toBe(2_000_000)
-    await expect(store.purchaseOpen("ash", "eur", 499)).rejects.toThrow(/at least 500/)
-    await expect(store.purchaseOpen("ash", "gbp", 500)).rejects.toThrow(/no price in gbp/)
+    await expect(store.purchaseOpen("ash", "eur", 499)).rejects.toThrow(
+      /at least 500/,
+    )
+    await expect(store.purchaseOpen("ash", "gbp", 500)).rejects.toThrow(
+      /no price in gbp/,
+    )
     const credit = {
       eventId: "evt_1",
       eventType: "checkout.session.completed",
@@ -311,11 +328,17 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
     expect((await store.autorefill("cy"))?.pending).toBe(false)
 
     // Spend it back below the threshold, and a second refill this month fits the maximum.
-    await pool.query(`UPDATE credit_balances SET purchased = 10 WHERE "userId" = 'cy'`)
+    await pool.query(
+      `UPDATE credit_balances SET purchased = 10 WHERE "userId" = 'cy'`,
+    )
     const second = await store.refillClaim("cy")
     expect(second).toBeDefined()
-    expect((await store.refillFailed(second!.id, null, "Card declined"))?.enabled).toBe(false)
-    expect(await store.refillFailed(second!.id, null, "Card declined")).toBeUndefined()
+    expect(
+      (await store.refillFailed(second!.id, null, "Card declined"))?.enabled,
+    ).toBe(false)
+    expect(
+      await store.refillFailed(second!.id, null, "Card declined"),
+    ).toBeUndefined()
     expect((await store.autorefill("cy"))?.enabled).toBe(false)
 
     // On again, but €5 + €5 already this month leaves no room under €10.
@@ -326,7 +349,10 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
       currency: "eur",
       monthlyMaxCents: 1000,
     })
-    await pool.query(`UPDATE credit_purchases SET status = 'paid' WHERE id = $1`, [second!.id])
+    await pool.query(
+      `UPDATE credit_purchases SET status = 'paid' WHERE id = $1`,
+      [second!.id],
+    )
     expect(await store.refillClaim("cy")).toBeUndefined()
   })
 
@@ -352,7 +378,10 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
     expect(row.source).toBe("own")
     expect(row.credits).toBe(0)
     expect((await store.balance("dee"))?.purchased).toBe(before?.purchased)
-    const verdict = await credits.admit("dee", { model: "own-model", source: "own" })
+    const verdict = await credits.admit("dee", {
+      model: "own-model",
+      source: "own",
+    })
     expect(verdict.ok ? undefined : verdict.code).toBe("OWN_LIMIT")
     expect((await store.ownBackend("dee"))?.models).toEqual(["own-model"])
   })
@@ -375,9 +404,13 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
     expect(await store.decideProposal(pending[0]!.id, true)).toBe(true)
     expect(await store.decideProposal(pending[0]!.id, true)).toBe(false)
     const now = await store.priceNow("m")
-    expect(now?.kinds.find((kind) => kind.kind === "input")?.usdPerMillion).toBe(3)
+    expect(
+      now?.kinds.find((kind) => kind.kind === "input")?.usdPerMillion,
+    ).toBe(3)
     expect(now?.source).toBe("feed a")
-    expect((await store.factors()).some((f) => f.model === "m" && f.factor === 2)).toBe(true)
+    expect(
+      (await store.factors()).some((f) => f.model === "m" && f.factor === 2),
+    ).toBe(true)
   })
 
   it("rolls back whole", async () => {

@@ -237,21 +237,19 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
        ORDER BY p.model, p."effectiveFrom" DESC`,
       params,
     )
-    return rows.map(
-      (row): ModelPrice & { id: number } => ({
-        id: num(row.id),
-        model: String(row.model),
-        effectiveFrom: String(iso(row.effectiveFrom)),
-        kinds: (row.kinds as KindPrice[]).map((kind) => ({
-          ...kind,
-          usdPerMillion: num(kind.usdPerMillion),
-        })),
-        longPromptUnits: nullableNum(row.longPromptUnits),
-        longPromptFactor: nullableNum(row.longPromptFactor),
-        source: (row.source as string | null) ?? null,
-        syncedAt: iso(row.syncedAt),
-      }),
-    )
+    return rows.map((row): ModelPrice & { id: number } => ({
+      id: num(row.id),
+      model: String(row.model),
+      effectiveFrom: String(iso(row.effectiveFrom)),
+      kinds: (row.kinds as KindPrice[]).map((kind) => ({
+        ...kind,
+        usdPerMillion: num(kind.usdPerMillion),
+      })),
+      longPromptUnits: nullableNum(row.longPromptUnits),
+      longPromptFactor: nullableNum(row.longPromptFactor),
+      source: (row.source as string | null) ?? null,
+      syncedAt: iso(row.syncedAt),
+    }))
   }
 
   return {
@@ -407,7 +405,9 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
         effectiveFrom: String(iso(row.effectiveFrom)),
       })),
 
-    addFactor: async (factor: Omit<PriceFactor, "effectiveFrom"> & { effectiveFrom?: string }) => {
+    addFactor: async (
+      factor: Omit<PriceFactor, "effectiveFrom"> & { effectiveFrom?: string },
+    ) => {
       await db.query(
         `INSERT INTO ${t("price_factors")} (model, dimension, value, factor, "effectiveFrom")
          VALUES ($1, $2, $3, $4, coalesce($5::timestamptz, now()))`,
@@ -516,7 +516,11 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     /** Writes the provider's figure for a month beside the ledger's, and the drift factor. */
     trueUpPool: async (
       periodStart: string,
-      figures: { providerCents: number; ledgerCents: number; driftFactor: number },
+      figures: {
+        providerCents: number
+        ledgerCents: number
+        driftFactor: number
+      },
     ) => {
       await db.query(
         `INSERT INTO ${t("pool_periods")} ("periodStart", "providerCents", "ledgerCents", "driftFactor", "checkedAt")
@@ -582,16 +586,14 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
            ORDER BY "createdAt" DESC, id DESC LIMIT $2`,
           [options.userId ?? null, options.limit ?? 50],
         )
-      ).map(
-        (row): GrantRow => ({
-          id: num(row.id),
-          userId: String(row.userId),
-          amount: num(row.amount),
-          reason: String(row.reason),
-          adminEmail: String(row.adminEmail),
-          createdAt: String(iso(row.createdAt)),
-        }),
-      ),
+      ).map((row): GrantRow => ({
+        id: num(row.id),
+        userId: String(row.userId),
+        amount: num(row.amount),
+        reason: String(row.reason),
+        adminEmail: String(row.adminEmail),
+        createdAt: String(iso(row.createdAt)),
+      })),
 
     // --- a user's own model ---------------------------------------------------------------
 
@@ -708,7 +710,11 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
       )
     },
 
-    purchaseOpen: async (userId: string, currency: string, amountCents: number) =>
+    purchaseOpen: async (
+      userId: string,
+      currency: string,
+      amountCents: number,
+    ) =>
       purchaseOf(
         (await one<Row>(`SELECT * FROM ${t("purchase_open")}($1, $2, $3)`, [
           userId,
@@ -874,7 +880,11 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
         })),
         longPromptUnits: nullableNum(row.longPromptUnits),
         longPromptFactor: nullableNum(row.longPromptFactor),
-        factors: row.factors as { dimension: string; value: string; factor: number }[],
+        factors: row.factors as {
+          dimension: string
+          value: string
+          factor: number
+        }[],
         sources: row.sources as string[],
         problems: row.problems as string[],
         proposedAt: String(iso(row.proposedAt)),

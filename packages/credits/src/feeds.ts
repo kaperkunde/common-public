@@ -132,10 +132,15 @@ export const parseAnthropicPricingPage = (
   const tables = tablesOf(markdown)
   const main = tables.find((table) => {
     const header = table.header.join(" ").toLowerCase()
-    return header.includes("base input") && header.includes("cache") && header.includes("output")
+    return (
+      header.includes("base input") &&
+      header.includes("cache") &&
+      header.includes("output")
+    )
   })
   if (!main) return []
-  const column = (pattern: RegExp) => main.header.findIndex((cell) => pattern.test(cell))
+  const column = (pattern: RegExp) =>
+    main.header.findIndex((cell) => pattern.test(cell))
   const at = {
     input: column(/base input/i),
     write5m: column(/5m cache/i),
@@ -151,10 +156,18 @@ export const parseAnthropicPricingPage = (
     const model = modelIdOf(name)
     const input = dollarsIn(cells[at.input] ?? "")
     const output = dollarsIn(cells[at.output] ?? "")
-    if (!model.startsWith("claude-") || input === undefined || output === undefined) return
+    if (
+      !model.startsWith("claude-") ||
+      input === undefined ||
+      output === undefined
+    )
+      return
     const over = OVER.exec(name)
     if (over) {
-      longTiers.set(model, { tokens: Number((over[1] ?? "").replace(/,/g, "")), input })
+      longTiers.set(model, {
+        tokens: Number((over[1] ?? "").replace(/,/g, "")),
+        input,
+      })
       return
     }
     if (UP_TO.test(name) || !quotes.has(model)) {
@@ -173,19 +186,23 @@ export const parseAnthropicPricingPage = (
     const quote = quotes.get(model)
     if (quote && quote.inputUsd > 0) {
       quote.longPromptTokens = tier.tokens
-      quote.longPromptFactor = Math.round((tier.input / quote.inputUsd) * 1e6) / 1e6
+      quote.longPromptFactor =
+        Math.round((tier.input / quote.inputUsd) * 1e6) / 1e6
     }
   })
   const fast = tables.find((table) => /fast mode/i.test(table.heading))
   fast?.rows.forEach((cells) => {
     const input = dollarsIn(cells[1] ?? "")
     if (input === undefined) return
-    ;(cells[0] ?? "").split("/").map(modelIdOf).forEach((model) => {
-      const quote = quotes.get(model)
-      if (quote && quote.inputUsd > 0) {
-        quote.fastFactor = Math.round((input / quote.inputUsd) * 1e6) / 1e6
-      }
-    })
+    ;(cells[0] ?? "")
+      .split("/")
+      .map(modelIdOf)
+      .forEach((model) => {
+        const quote = quotes.get(model)
+        if (quote && quote.inputUsd > 0) {
+          quote.fastFactor = Math.round((input / quote.inputUsd) * 1e6) / 1e6
+        }
+      })
   })
   return Array.from(quotes.values())
 }
@@ -199,38 +216,52 @@ export const parseLitellm = (
   json: unknown,
   options: { provider?: string; modelPrefix?: string; source?: string } = {},
 ) => {
-  const { provider = "anthropic", modelPrefix = "claude-", source = PRICE_FEEDS.litellm.name } =
-    options
+  const {
+    provider = "anthropic",
+    modelPrefix = "claude-",
+    source = PRICE_FEEDS.litellm.name,
+  } = options
   if (!json || typeof json !== "object") return []
   const quotes: FeedQuote[] = []
-  Object.entries(json as Record<string, Record<string, unknown>>).forEach(([model, entry]) => {
-    if (!model.startsWith(modelPrefix) || !entry || entry.litellm_provider !== provider) return
-    if (/-\d{8}$/.test(model)) return
-    const input = perMillion(entry.input_cost_per_token)
-    const output = perMillion(entry.output_cost_per_token)
-    if (input === undefined || output === undefined) return
-    const quote: FeedQuote = {
-      model,
-      source,
-      inputUsd: input,
-      outputUsd: output,
-      cacheReadUsd: perMillion(entry.cache_read_input_token_cost) ?? null,
-      cacheWriteUsd: perMillion(entry.cache_creation_input_token_cost) ?? null,
-      cacheWrite1hUsd: perMillion(entry.cache_creation_input_token_cost_above_1hr) ?? null,
-    }
-    const tierKey = Object.keys(entry).find((key) =>
-      /^input_cost_per_token_above_\d+k_tokens$/.test(key),
-    )
-    const tierInput = tierKey ? perMillion(entry[tierKey]) : undefined
-    if (tierKey && tierInput !== undefined && input > 0) {
-      quote.longPromptTokens = Number(/above_(\d+)k/.exec(tierKey)?.[1]) * 1000
-      quote.longPromptFactor = Math.round((tierInput / input) * 1e6) / 1e6
-    }
-    const specific = entry.provider_specific_entry as Record<string, unknown> | undefined
-    const fast = Number(specific?.fast)
-    if (Number.isFinite(fast) && fast > 0) quote.fastFactor = fast
-    quotes.push(quote)
-  })
+  Object.entries(json as Record<string, Record<string, unknown>>).forEach(
+    ([model, entry]) => {
+      if (
+        !model.startsWith(modelPrefix) ||
+        !entry ||
+        entry.litellm_provider !== provider
+      )
+        return
+      if (/-\d{8}$/.test(model)) return
+      const input = perMillion(entry.input_cost_per_token)
+      const output = perMillion(entry.output_cost_per_token)
+      if (input === undefined || output === undefined) return
+      const quote: FeedQuote = {
+        model,
+        source,
+        inputUsd: input,
+        outputUsd: output,
+        cacheReadUsd: perMillion(entry.cache_read_input_token_cost) ?? null,
+        cacheWriteUsd:
+          perMillion(entry.cache_creation_input_token_cost) ?? null,
+        cacheWrite1hUsd:
+          perMillion(entry.cache_creation_input_token_cost_above_1hr) ?? null,
+      }
+      const tierKey = Object.keys(entry).find((key) =>
+        /^input_cost_per_token_above_\d+k_tokens$/.test(key),
+      )
+      const tierInput = tierKey ? perMillion(entry[tierKey]) : undefined
+      if (tierKey && tierInput !== undefined && input > 0) {
+        quote.longPromptTokens =
+          Number(/above_(\d+)k/.exec(tierKey)?.[1]) * 1000
+        quote.longPromptFactor = Math.round((tierInput / input) * 1e6) / 1e6
+      }
+      const specific = entry.provider_specific_entry as
+        Record<string, unknown> | undefined
+      const fast = Number(specific?.fast)
+      if (Number.isFinite(fast) && fast > 0) quote.fastFactor = fast
+      quotes.push(quote)
+    },
+  )
   return quotes
 }
 
@@ -242,8 +273,11 @@ export const parseOpenRouter = (
   json: unknown,
   options: { vendor?: string; modelPrefix?: string; source?: string } = {},
 ) => {
-  const { vendor = "anthropic", modelPrefix = "claude-", source = PRICE_FEEDS.openrouter.name } =
-    options
+  const {
+    vendor = "anthropic",
+    modelPrefix = "claude-",
+    source = PRICE_FEEDS.openrouter.name,
+  } = options
   const data = (json as { data?: unknown })?.data
   if (!Array.isArray(data)) return []
   const quotes: FeedQuote[] = []
@@ -254,7 +288,12 @@ export const parseOpenRouter = (
     const pricing = entry.pricing ?? {}
     const input = perMillion(pricing.prompt)
     const output = perMillion(pricing.completion)
-    if (!model.startsWith(modelPrefix) || input === undefined || output === undefined) return
+    if (
+      !model.startsWith(modelPrefix) ||
+      input === undefined ||
+      output === undefined
+    )
+      return
     const quote: FeedQuote = {
       model,
       source,
@@ -292,10 +331,20 @@ const usdOf = (quote: Omit<FeedQuote, "model" | "source">) => {
 }
 
 /** A quote as the kinds a price is set with. */
-export const quoteKinds = (quote: Omit<FeedQuote, "model" | "source">): KindPrice[] => {
+export const quoteKinds = (
+  quote: Omit<FeedQuote, "model" | "source">,
+): KindPrice[] => {
   const kinds: KindPrice[] = [
-    { kind: TOKEN_KINDS.input, unit: "token", usdPerMillion: Number(quote.inputUsd) },
-    { kind: TOKEN_KINDS.output, unit: "token", usdPerMillion: Number(quote.outputUsd) },
+    {
+      kind: TOKEN_KINDS.input,
+      unit: "token",
+      usdPerMillion: Number(quote.inputUsd),
+    },
+    {
+      kind: TOKEN_KINDS.output,
+      unit: "token",
+      usdPerMillion: Number(quote.outputUsd),
+    },
   ]
   const optional: [string, number | null | undefined][] = [
     [TOKEN_KINDS.cacheRead, quote.cacheReadUsd],
@@ -318,7 +367,10 @@ export const quoteFactors = (quote: Pick<FeedQuote, "fastFactor">) =>
 
 /** A stored price (and its model's fast factor, if known) as a quote, to compare. */
 export const quoteOfPrice = (
-  price: Pick<ModelPrice, "model" | "kinds" | "longPromptUnits" | "longPromptFactor">,
+  price: Pick<
+    ModelPrice,
+    "model" | "kinds" | "longPromptUnits" | "longPromptFactor"
+  >,
   source = "in force",
   fastFactor?: number | null,
 ): FeedQuote => ({
@@ -337,7 +389,8 @@ export const quoteOfPrice = (
 /** The cache-read multiples providers document (0.1x most, 0.05x, 0.025x). */
 export const READ_MULTIPLES = [0.1, 0.05, 0.025] as const
 
-const near = (a: number, b: number) => Math.abs(a - b) <= Math.max(Math.abs(b) * 1e-6, 1e-9)
+const near = (a: number, b: number) =>
+  Math.abs(a - b) <= Math.max(Math.abs(b) * 1e-6, 1e-9)
 
 /** What is odd about a quote against the documented multiples, in words; none is fine. */
 export const multipleProblems = (
@@ -356,7 +409,9 @@ export const multipleProblems = (
       `${quote.model}: an hour-long write of $${usd.cacheWrite1h} is not twice input ($${usd.input})`,
     )
   }
-  if (!readMultiples.some((multiple) => near(usd.cacheRead, usd.input * multiple))) {
+  if (
+    !readMultiples.some((multiple) => near(usd.cacheRead, usd.input * multiple))
+  ) {
     problems.push(
       `${quote.model}: a cache read of $${usd.cacheRead} is none of ${readMultiples.join(", ").replace(/, ([^,]*)$/, " or $1")} times input ($${usd.input})`,
     )
@@ -365,7 +420,11 @@ export const multipleProblems = (
 }
 
 const same = (a: number | null | undefined, b: number | null | undefined) =>
-  a === null || a === undefined || b === null || b === undefined || near(Number(a), Number(b))
+  a === null ||
+  a === undefined ||
+  b === null ||
+  b === undefined ||
+  near(Number(a), Number(b))
 
 /** Whether two quotes say the same price; what one leaves out (fast mode, say) is no quarrel. */
 export const quotesAgree = (a: FeedQuote, b: FeedQuote) => {
@@ -387,7 +446,10 @@ const exact = (a: number | null | undefined, b: number | null | undefined) =>
   Math.round(Number(a ?? 0) * 1e9) === Math.round(Number(b ?? 0) * 1e9)
 
 /** Whether a quote says something other than the price in force (or there is none). */
-export const quoteDiffers = (current: FeedQuote | undefined, quote: FeedQuote) => {
+export const quoteDiffers = (
+  current: FeedQuote | undefined,
+  quote: FeedQuote,
+) => {
   if (!current) return true
   const now = usdOf(current)
   const then = usdOf(quote)
@@ -404,21 +466,29 @@ export const quoteDiffers = (current: FeedQuote | undefined, quote: FeedQuote) =
 }
 
 /** What the sources come to for one model: the price, who said it, and what is odd about it. */
-export type Consensus = { quote: FeedQuote; sources: string[]; problems: string[] }
+export type Consensus = {
+  quote: FeedQuote
+  sources: string[]
+  problems: string[]
+}
 
 /**
  * The price the sources agree on, from the quotes for one model in order of trust: the first
  * that another agrees with, filled in with what the agreeing ones add -- and where none agree,
  * or only one answered, the most trusted, flagged.
  */
-export const consensusOf = (quotes: readonly FeedQuote[]): Consensus | undefined => {
+export const consensusOf = (
+  quotes: readonly FeedQuote[],
+): Consensus | undefined => {
   const first = quotes[0]
   if (!first) return undefined
   const backed = (quote: FeedQuote) =>
     quotes.some((other) => other !== quote && quotesAgree(quote, other))
   const agreed = quotes.find(backed)
   const chosen = agreed ?? first
-  const agreeing = quotes.filter((quote) => quote === chosen || quotesAgree(quote, chosen))
+  const agreeing = quotes.filter(
+    (quote) => quote === chosen || quotesAgree(quote, chosen),
+  )
   const filled: FeedQuote = { ...chosen }
   agreeing.forEach((quote) => {
     filled.longPromptTokens = filled.longPromptTokens ?? quote.longPromptTokens
@@ -435,7 +505,9 @@ export const consensusOf = (quotes: readonly FeedQuote[]): Consensus | undefined
       `${chosen.model}: the sources disagree (${quotes.map((quote) => `${quote.source} says $${quote.inputUsd} in, $${quote.outputUsd} out`).join("; ")})`,
     )
   } else if (agreeing.length < quotes.length) {
-    const others = quotes.filter((quote) => !agreeing.includes(quote)).map((quote) => quote.source)
+    const others = quotes
+      .filter((quote) => !agreeing.includes(quote))
+      .map((quote) => quote.source)
     problems.push(`${chosen.model}: ${others.join(" and ")} said otherwise`)
   }
   return { quote: filled, sources, problems }
@@ -451,8 +523,11 @@ export type PendingProposal = {
   factors?: readonly { dimension: string; value: string; factor: number }[]
 }
 
-const fastOf = (factors: readonly { dimension: string; value: string; factor: number }[] = []) =>
-  factors.find((one) => one.dimension === "speed" && one.value === "fast")?.factor ?? null
+const fastOf = (
+  factors: readonly { dimension: string; value: string; factor: number }[] = [],
+) =>
+  factors.find((one) => one.dimension === "speed" && one.value === "fast")
+    ?.factor ?? null
 
 /** What the sync does for one model. */
 export type SyncStep =
@@ -487,14 +562,24 @@ export const syncPlan = (
           new Date(one.effectiveFrom).getTime() <= now.getTime(),
       )
       .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0]?.factor
-    const current = inForce ? quoteOfPrice(inForce, "in force", fast) : undefined
+    const current = inForce
+      ? quoteOfPrice(inForce, "in force", fast)
+      : undefined
     const pending = proposals.find((proposal) => proposal.model === model)
     if (current && !quoteDiffers(current, said.quote)) {
-      return { model, action: "confirm", priceId: inForce?.id, retire: Boolean(pending) }
+      return {
+        model,
+        action: "confirm",
+        priceId: inForce?.id,
+        retire: Boolean(pending),
+      }
     }
     if (
       pending &&
-      !quoteDiffers(quoteOfPrice(pending, "pending", fastOf(pending.factors)), said.quote)
+      !quoteDiffers(
+        quoteOfPrice(pending, "pending", fastOf(pending.factors)),
+        said.quote,
+      )
     ) {
       return { model, action: "unchanged" }
     }
@@ -531,15 +616,26 @@ export const defaultFeeds = (
  * does not read, is logged and left out. Quotes come back in the feeds' order of trust.
  */
 export const fetchQuotes = async (
-  fetcher: (url: string, init: { signal: AbortSignal }) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>,
+  fetcher: (
+    url: string,
+    init: { signal: AbortSignal },
+  ) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>,
   feeds: readonly PriceFeed[] = defaultFeeds(),
-  options: { timeoutMs?: number; log?: (message: string, error?: unknown) => void } = {},
+  options: {
+    timeoutMs?: number
+    log?: (message: string, error?: unknown) => void
+  } = {},
 ) => {
-  const { timeoutMs = 15000, log = (message, error) => console.error(message, error) } = options
+  const {
+    timeoutMs = 15000,
+    log = (message, error) => console.error(message, error),
+  } = options
   const answers = await Promise.all(
     feeds.map(async (feed) => {
       try {
-        const answer = await fetcher(feed.url, { signal: AbortSignal.timeout(timeoutMs) })
+        const answer = await fetcher(feed.url, {
+          signal: AbortSignal.timeout(timeoutMs),
+        })
         if (!answer.ok) throw new Error(`${feed.url} answered ${answer.status}`)
         return feed.read(await answer.text())
       } catch (error) {
@@ -574,7 +670,9 @@ export const syncPrices = async (options: {
   for (const step of plan) {
     if (step.action === "confirm") {
       if (step.priceId) await store.confirmPrice(step.priceId)
-      const pending = proposals.find((proposal) => proposal.model === step.model)
+      const pending = proposals.find(
+        (proposal) => proposal.model === step.model,
+      )
       if (step.retire && pending) await store.decideProposal(pending.id, false)
     }
     if (step.action === "propose") {
@@ -591,6 +689,7 @@ export const syncPrices = async (options: {
       proposed.push(step.model)
     }
   }
-  if (proposed.length > 0 && options.onProposed) await options.onProposed(proposed)
+  if (proposed.length > 0 && options.onProposed)
+    await options.onProposed(proposed)
   return { plan, proposed }
 }

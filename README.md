@@ -8,18 +8,19 @@ written once, tested here, and kept up to date in every app by Renovate.
 
 Each has its own README. `@kaperkunde/config` is the first; the rest follow:
 
-| Package                      | What it does                                                                              |
-| ---------------------------- | ----------------------------------------------------------------------------------------- |
-| `@kaperkunde/config`         | ESLint, Prettier, tsconfig, Vitest and Playwright presets; the Renovate preset            |
-| `@kaperkunde/legal`          | Rendering and pinning the `kaperkunde/legal` documents                                    |
-| `@kaperkunde/pcpgg-protocol` | pcp.gg's tunnel protocol and connector                                                    |
-| `@kaperkunde/security`       | Rate limits, client IP, safe redirects, secret boxes, boot checks, public-address fetches |
-| `@kaperkunde/next-kit`       | `Result`, `ActionState`, site and operator helpers, Prisma, the scheduler                 |
-| `@kaperkunde/mail`           | SMTP transport, the themed email template, Mailpit test helpers                           |
-| `@kaperkunde/auth`           | The Better Auth MCP preset, OAuth discovery, route auth                                   |
-| `@kaperkunde/mcp`            | The MCP tool factory and the owner-by-link helpers                                        |
-| `@kaperkunde/stripe`         | The checked Stripe webhook core                                                           |
-| `@kaperkunde/ui`             | Design tokens and primitives for the Tailwind apps                                        |
+| Package                      | What it does                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `@kaperkunde/config`         | ESLint, Prettier, tsconfig, Vitest and Playwright presets; the Renovate preset             |
+| `@kaperkunde/legal`          | Rendering and pinning the `kaperkunde/legal` documents                                     |
+| `@kaperkunde/pcpgg-protocol` | pcp.gg's tunnel protocol and connector                                                     |
+| `@kaperkunde/security`       | Rate limits, client IP, safe redirects, secret boxes, boot checks, public-address fetches  |
+| `@kaperkunde/next-kit`       | `Result`, `ActionState`, site and operator helpers, Prisma, the scheduler                  |
+| `@kaperkunde/mail`           | SMTP transport, the themed email template, Mailpit test helpers                            |
+| `@kaperkunde/auth`           | The Better Auth MCP preset, OAuth discovery, route auth                                    |
+| `@kaperkunde/mcp`            | The MCP tool factory and the owner-by-link helpers                                         |
+| `@kaperkunde/stripe`         | The checked Stripe webhook core                                                            |
+| `@kaperkunde/credits`        | Usage credits: priced ledger, free pool, grants, Stripe purchases, own keys, SQL templates |
+| `@kaperkunde/ui`             | Design tokens and primitives for the Tailwind apps                                         |
 
 ## Public or private
 

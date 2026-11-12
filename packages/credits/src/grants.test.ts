@@ -79,9 +79,9 @@ describe("the words", () => {
 
   it("signs the amount", () => {
     expect(signedCreditsText(1200)).toBe("+1,200 credits")
-    expect(signedCreditsText(-1, { one: "lore token", many: "lore tokens" })).toBe(
-      "-1 lore token",
-    )
+    expect(
+      signedCreditsText(-1, { one: "lore token", many: "lore tokens" }),
+    ).toBe("-1 lore token")
   })
 
   it("says a balance found in a line", () => {

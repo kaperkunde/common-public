@@ -15,13 +15,17 @@ export const HASURA_ROOT = join(PACKAGE_ROOT, "hasura")
 
 export const manifest = JSON.parse(
   readFileSync(join(HASURA_ROOT, "manifest.json"), "utf8"),
-) as { name: string; vars: Record<string, { description: string; default?: string }> }
+) as {
+  name: string
+  vars: Record<string, { description: string; default?: string }>
+}
 
 /** `{{var}}` replaced; an unknown variable is an error, as the CLI makes it. */
 export const render = (text: string, vars: Readonly<Record<string, string>>) =>
   text.replace(/\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}/g, (_, name: string) => {
     const value = vars[name] ?? manifest.vars[name]?.default
-    if (value === undefined) throw new Error(`Unknown template variable ${name}`)
+    if (value === undefined)
+      throw new Error(`Unknown template variable ${name}`)
     return value
   })
 
@@ -32,7 +36,10 @@ export const migrations = () =>
     .map((dir) => ({
       dir,
       up: readFileSync(join(HASURA_ROOT, "migrations", dir, "up.sql"), "utf8"),
-      down: readFileSync(join(HASURA_ROOT, "migrations", dir, "down.sql"), "utf8"),
+      down: readFileSync(
+        join(HASURA_ROOT, "migrations", dir, "down.sql"),
+        "utf8",
+      ),
     }))
 
 export const TEST_VARS = {

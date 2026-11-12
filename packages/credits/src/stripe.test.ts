@@ -18,7 +18,11 @@ const fakeStore = (overrides: Partial<CreditStore> = {}) =>
     ...overrides,
   }) as unknown as CreditStore
 
-const purchases = (store: CreditStore, stripe?: Partial<Stripe>, told?: string[]) =>
+const purchases = (
+  store: CreditStore,
+  stripe?: Partial<Stripe>,
+  told?: string[],
+) =>
   createPurchases({
     store,
     stripe: () => stripe as Stripe | undefined,
@@ -124,7 +128,11 @@ describe("the webhook's handler", () => {
       }),
     )
     expect(answer).toBe("refill failed")
-    expect(store.refillFailed).toHaveBeenCalledWith(7, "pi_1", "Your card was declined.")
+    expect(store.refillFailed).toHaveBeenCalledWith(
+      7,
+      "pi_1",
+      "Your card was declined.",
+    )
     expect(told).toHaveLength(1)
     expect(told[0]).toContain("auto-refill is now off")
   })
@@ -139,16 +147,25 @@ describe("the webhook's handler", () => {
 
 describe("the helpers", () => {
   it("reads back only numbers this app wrote", () => {
-    expect(ourNumbers(ours)).toEqual({ purchaseId: 7, credits: 2000000, userId: "ash" })
+    expect(ourNumbers(ours)).toEqual({
+      purchaseId: 7,
+      credits: 2000000,
+      userId: "ash",
+    })
     expect(ourNumbers({ ...ours, credits: "lots" })).toBeUndefined()
     expect(ourNumbers(null)).toBeUndefined()
   })
 
   it("names a card, and a failure in Stripe's words", () => {
     expect(
-      cardLabel({ type: "card", card: { brand: "visa", last4: "4242" } } as Stripe.PaymentMethod),
+      cardLabel({
+        type: "card",
+        card: { brand: "visa", last4: "4242" },
+      } as Stripe.PaymentMethod),
     ).toBe("Visa ending 4242")
-    expect(cardLabel({ type: "sepa_debit" } as Stripe.PaymentMethod)).toBe("sepa debit")
+    expect(cardLabel({ type: "sepa_debit" } as Stripe.PaymentMethod)).toBe(
+      "sepa debit",
+    )
     expect(stripeFailure({ message: "Declined" })).toBe("Declined")
     expect(stripeFailure({})).toBe("The charge did not go through.")
   })

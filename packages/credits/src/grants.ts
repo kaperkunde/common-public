@@ -29,14 +29,17 @@ export const whoOf = (text: string): GrantWho | undefined => {
 }
 
 /** Whoever could not be found, as a refusal names them. */
-export const whoText = (who: GrantWho) => ("email" in who ? who.email : who.name)
+export const whoText = (who: GrantWho) =>
+  "email" in who ? who.email : who.name
 
 /**
  * An amount as typed: a whole number above or below zero, thousands separated however the admin
  * likes ("1,200", "1 200", "-5_000"), a typographic minus taken for one. Undefined for zero, a
  * fraction, or anything that is not a number.
  */
-export const parseGrantAmount = (input: string | number): number | undefined => {
+export const parseGrantAmount = (
+  input: string | number,
+): number | undefined => {
   const text =
     typeof input === "number"
       ? String(input)
@@ -66,8 +69,10 @@ export const grantLine = (amount: number, reason: string) =>
   `${isCorrection(amount) ? "Corrected" : "Granted"} by the admin: ${reason.trim()}`
 
 /** The amount with its sign: "+1,200 credits", "-5,000 credits". */
-export const signedCreditsText = (amount: number, unit: CreditUnit = DEFAULT_UNIT) =>
-  amount > 0 ? `+${creditsText(amount, unit)}` : creditsText(amount, unit)
+export const signedCreditsText = (
+  amount: number,
+  unit: CreditUnit = DEFAULT_UNIT,
+) => (amount > 0 ? `+${creditsText(amount, unit)}` : creditsText(amount, unit))
 
 /** What the form would send, or the first thing in the way of it, in words. */
 export const grantProblem = (

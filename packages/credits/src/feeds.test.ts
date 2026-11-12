@@ -98,7 +98,9 @@ describe("reading the price lists", () => {
   })
 
   it("reads nothing out of what is not a price list", () => {
-    expect(parseAnthropicPricingPage("# Nothing here\n\nNo tables.")).toEqual([])
+    expect(parseAnthropicPricingPage("# Nothing here\n\nNo tables.")).toEqual(
+      [],
+    )
     expect(parseLitellm(null)).toEqual([])
     expect(parseOpenRouter({ data: "no" })).toEqual([])
   })

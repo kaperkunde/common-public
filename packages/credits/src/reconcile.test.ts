@@ -23,9 +23,25 @@ describe("the ledger's side", () => {
   it("prices each row in its stretch at the price in force then", () => {
     const costs = ledgerCosts(
       [
-        { model: "m", createdAt: "2026-11-11T10:15:00Z", inputTokens: 1_000_000, outputTokens: 0, credits: 7 },
-        { model: "m", createdAt: "2026-11-11T10:45:00Z", inputTokens: 0, outputTokens: 1_000_000 },
-        { model: "unpriced", createdAt: "2026-11-11T10:45:00Z", inputTokens: 5, outputTokens: 5 },
+        {
+          model: "m",
+          createdAt: "2026-11-11T10:15:00Z",
+          inputTokens: 1_000_000,
+          outputTokens: 0,
+          credits: 7,
+        },
+        {
+          model: "m",
+          createdAt: "2026-11-11T10:45:00Z",
+          inputTokens: 0,
+          outputTokens: 1_000_000,
+        },
+        {
+          model: "unpriced",
+          createdAt: "2026-11-11T10:45:00Z",
+          inputTokens: 5,
+          outputTokens: 5,
+        },
       ],
       [price],
       [],
@@ -60,13 +76,43 @@ describe("the two sides together", () => {
         report: "hourly",
         refreshedAt: "2026-11-11T11:30:00Z",
         costs: [
-          { periodStart: "2026-11-11T10:00:00.000Z", periodEnd: "2026-11-11T11:00:00.000Z", model: "m", cents: 660, byKind: { input: 160 } },
+          {
+            periodStart: "2026-11-11T10:00:00.000Z",
+            periodEnd: "2026-11-11T11:00:00.000Z",
+            model: "m",
+            cents: 660,
+            byKind: { input: 160 },
+          },
         ],
       },
       [
-        { periodStart: "2026-11-11T10:00:00.000Z", periodEnd: "2026-11-11T11:00:00.000Z", model: "m", cents: 600, byKind: { input: 100 }, calls: 2, credits: 6000 },
-        { periodStart: "2026-11-11T11:00:00.000Z", periodEnd: "2026-11-11T12:00:00.000Z", model: "m", cents: 10, byKind: {}, calls: 1, credits: 100 },
-        { periodStart: "2026-11-11T11:00:00.000Z", periodEnd: "2026-11-11T12:00:00.000Z", model: "elsewhere", cents: 10, byKind: {}, calls: 1, credits: 100 },
+        {
+          periodStart: "2026-11-11T10:00:00.000Z",
+          periodEnd: "2026-11-11T11:00:00.000Z",
+          model: "m",
+          cents: 600,
+          byKind: { input: 100 },
+          calls: 2,
+          credits: 6000,
+        },
+        {
+          periodStart: "2026-11-11T11:00:00.000Z",
+          periodEnd: "2026-11-11T12:00:00.000Z",
+          model: "m",
+          cents: 10,
+          byKind: {},
+          calls: 1,
+          credits: 100,
+        },
+        {
+          periodStart: "2026-11-11T11:00:00.000Z",
+          periodEnd: "2026-11-11T12:00:00.000Z",
+          model: "elsewhere",
+          cents: 10,
+          byKind: {},
+          calls: 1,
+          credits: 100,
+        },
       ],
       (model) => model === "m",
     )

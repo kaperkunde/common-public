@@ -157,7 +157,9 @@ const newestBy = <ROW extends { effectiveFrom: string }>(
     )
 
 /** The price a model is charged at a moment: the newest of its versions that had begun. */
-export const priceInForce = <PRICE extends { model: string; effectiveFrom: string }>(
+export const priceInForce = <
+  PRICE extends { model: string; effectiveFrom: string },
+>(
   prices: readonly PRICE[],
   model: string,
   at: Date = new Date(),
@@ -168,8 +170,10 @@ export const priceInForce = <PRICE extends { model: string; effectiveFrom: strin
   )
 
 /** The credits per dollar in force at a moment, or undefined before the first. */
-export const rateInForce = (rates: readonly DollarRate[], at: Date = new Date()) =>
-  newestBy(rates, at)
+export const rateInForce = (
+  rates: readonly DollarRate[],
+  at: Date = new Date(),
+) => newestBy(rates, at)
 
 /** A factor in force for a model at a moment: its own, else every model's, else 1. */
 export const factorAt = (
@@ -215,7 +219,9 @@ export const requestFactor = (
   const prompt = Math.max(Number(request.inputTokens ?? 0) || 0, 0)
   let factor = 1
   if (finite(price.longPromptUnits) && prompt > Number(price.longPromptUnits)) {
-    factor *= finite(price.longPromptFactor) ? Number(price.longPromptFactor) : 1
+    factor *= finite(price.longPromptFactor)
+      ? Number(price.longPromptFactor)
+      : 1
   }
   Object.entries(dimensionsOf(request)).forEach(([dimension, value]) => {
     factor *= factorAt(factors, price.model, dimension, value, at)
@@ -245,11 +251,19 @@ export type PricingOptions = {
  */
 export const pricedCall = (
   usage: CallUsage,
-  price: Pick<ModelPrice, "model" | "kinds" | "longPromptUnits" | "longPromptFactor">,
+  price: Pick<
+    ModelPrice,
+    "model" | "kinds" | "longPromptUnits" | "longPromptFactor"
+  >,
   options: PricingOptions = {},
 ): PricedCall => {
-  const { factors = [], fallbacks = DEFAULT_KIND_FALLBACKS, at = new Date() } = options
-  const own = Number(usage.inputTokens ?? 0) + Number(usage.outputTokens ?? 0) > 0
+  const {
+    factors = [],
+    fallbacks = DEFAULT_KIND_FALLBACKS,
+    at = new Date(),
+  } = options
+  const own =
+    Number(usage.inputTokens ?? 0) + Number(usage.outputTokens ?? 0) > 0
   const requests =
     usage.requests && usage.requests.length > 0
       ? usage.requests
@@ -286,7 +300,10 @@ export const pricedCall = (
 /** What a call cost in US dollars at a price. */
 export const callUsd = (
   usage: CallUsage,
-  price: Pick<ModelPrice, "model" | "kinds" | "longPromptUnits" | "longPromptFactor">,
+  price: Pick<
+    ModelPrice,
+    "model" | "kinds" | "longPromptUnits" | "longPromptFactor"
+  >,
   options: PricingOptions = {},
 ) => pricedCall(usage, price, options).total
 
@@ -296,7 +313,10 @@ export const callUsd = (
  */
 export const creditCost = (
   usage: CallUsage,
-  price: Pick<ModelPrice, "model" | "kinds" | "longPromptUnits" | "longPromptFactor">,
+  price: Pick<
+    ModelPrice,
+    "model" | "kinds" | "longPromptUnits" | "longPromptFactor"
+  >,
   perDollar: number,
   options: PricingOptions = {},
 ) => {

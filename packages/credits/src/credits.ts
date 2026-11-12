@@ -55,8 +55,9 @@ export const ledgerRowOf = (input: UsageInput): LedgerInsert => {
       : input.units
         ? { ...input.units }
         : null
-  const first = <KEY extends "inferenceGeo" | "speed" | "serviceTier">(key: KEY) =>
-    requests.find((request) => request[key])?.[key] ?? null
+  const first = <KEY extends "inferenceGeo" | "speed" | "serviceTier">(
+    key: KEY,
+  ) => requests.find((request) => request[key])?.[key] ?? null
   const inputTokens = sum("inputTokens")
   const outputTokens = sum("outputTokens")
   return {
@@ -118,13 +119,17 @@ export type CreditsConfig = {
 }
 
 /** What an admitted call may run on. */
-export type Admission = { balance?: CreditBalance; source: "deployment" | "own" }
+export type Admission = {
+  balance?: CreditBalance
+  source: "deployment" | "own"
+}
 
 export const createCredits = (config: CreditsConfig) => {
   const store = createStore(config.db, config.names)
   const unit = config.unit ?? DEFAULT_UNIT
   const log =
-    config.log ?? ((message: string, error: unknown) => console.error(message, error))
+    config.log ??
+    ((message: string, error: unknown) => console.error(message, error))
 
   const tellOut = async (userId: string, message: string) => {
     if (!config.onOutOfCredits) return
@@ -156,7 +161,8 @@ export const createCredits = (config: CreditsConfig) => {
             "Your own key has reached the limit you set for this month. It starts again next month, or you can raise the limit."
           if (config.onOwnLimit && (await store.claimOwnLimitNotice(userId))) {
             await Promise.resolve(config.onOwnLimit(userId, message)).catch(
-              (error) => log("A user could not be told of their key's limit", error),
+              (error) =>
+                log("A user could not be told of their key's limit", error),
             )
           }
           return fail("OWN_LIMIT", message)
@@ -184,12 +190,14 @@ export const createCredits = (config: CreditsConfig) => {
     source?: "deployment" | "own"
   }) => {
     const verdict = await admit(context.userId, context)
-    if (!verdict.ok) throw new CreditsRefusedError(verdict.code, verdict.message)
+    if (!verdict.ok)
+      throw new CreditsRefusedError(verdict.code, verdict.message)
     return verdict
   }
 
   /** Writes a call to the ledger, unconverted (or at no credits, for the user's own key). */
-  const recordUsage = (input: UsageInput) => store.insertUsage(ledgerRowOf(input))
+  const recordUsage = (input: UsageInput) =>
+    store.insertUsage(ledgerRowOf(input))
 
   /** Converts one ledger row into credits and takes them from its user. Idempotent. */
   const spend = (usageId: number) => store.spend(usageId)

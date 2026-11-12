@@ -27,9 +27,16 @@ export const cardLabel = (method: Stripe.PaymentMethod | null | undefined) => {
 
 /** What went wrong with a charge, in Stripe's words. */
 export const stripeFailure = (error: unknown) => {
-  const raw = error as { message?: string; decline_code?: string; code?: string }
+  const raw = error as {
+    message?: string
+    decline_code?: string
+    code?: string
+  }
   return (
-    raw?.message ?? raw?.decline_code ?? raw?.code ?? "The charge did not go through."
+    raw?.message ??
+    raw?.decline_code ??
+    raw?.code ??
+    "The charge did not go through."
   )
 }
 
@@ -38,7 +45,9 @@ export const ourNumbers = (metadata: Stripe.Metadata | null | undefined) => {
   const purchaseId = Number(metadata?.purchaseId)
   const credits = Number(metadata?.credits)
   const userId = metadata?.userId
-  return Number.isSafeInteger(purchaseId) && Number.isSafeInteger(credits) && userId
+  return Number.isSafeInteger(purchaseId) &&
+    Number.isSafeInteger(credits) &&
+    userId
     ? { purchaseId, credits, userId }
     : undefined
 }
@@ -108,7 +117,8 @@ export const createPurchases = (config: PurchasesConfig) => {
           metadata: { ...marker },
         })
       } catch (error) {
-        if ((error as { code?: string }).code !== "resource_already_exists") throw error
+        if ((error as { code?: string }).code !== "resource_already_exists")
+          throw error
         made = await stripe.products.retrieve(config.product.id)
       }
     }
@@ -183,8 +193,13 @@ export const createPurchases = (config: PurchasesConfig) => {
       cancel_url: config.urls.purchaseCancelled,
     })
     await store.setPurchaseStripe(purchase.id, { stripeId: session.id })
-    if (!session.url) throw new Error("Stripe made no checkout page for this purchase.")
-    return { url: session.url, purchaseId: purchase.id, credits: purchase.credits }
+    if (!session.url)
+      throw new Error("Stripe made no checkout page for this purchase.")
+    return {
+      url: session.url,
+      purchaseId: purchase.id,
+      credits: purchase.credits,
+    }
   }
 
   /** A Checkout Session that only saves a card, for auto-refill. */
@@ -211,12 +226,14 @@ export const createPurchases = (config: PurchasesConfig) => {
   }
 
   const customerIdOf = (
-    customer: string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined,
+    customer:
+      string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined,
   ) => (typeof customer === "string" ? customer : customer?.id)
 
   const saveCard = async (
     userId: string,
-    customer: string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined,
+    customer:
+      string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined,
     method: string | Stripe.PaymentMethod | null | undefined,
   ) => {
     const customerId = customerIdOf(customer)
@@ -225,25 +242,42 @@ export const createPurchases = (config: PurchasesConfig) => {
       typeof method === "string"
         ? await requireStripe().paymentMethods.retrieve(method)
         : method
-    await store.saveCard(userId, customerId, paymentMethod.id, cardLabel(paymentMethod) ?? null)
+    await store.saveCard(
+      userId,
+      customerId,
+      paymentMethod.id,
+      cardLabel(paymentMethod) ?? null,
+    )
     return true
   }
 
   /** A refill that could not be charged: failed, auto-refill off, the user told once. */
-  const failRefill = async (purchaseId: number, stripeId: string | null, reason: string) => {
+  const failRefill = async (
+    purchaseId: number,
+    stripeId: string | null,
+    reason: string,
+  ) => {
     const turnedOff = await store.refillFailed(purchaseId, stripeId, reason)
     if (turnedOff && config.onRefillFailed) {
       await Promise.resolve(
         config.onRefillFailed(
           turnedOff.userId,
-          refillFailedMessage(turnedOff.amountCents, turnedOff.currency, reason, unit),
+          refillFailedMessage(
+            turnedOff.amountCents,
+            turnedOff.currency,
+            reason,
+            unit,
+          ),
         ),
       ).catch(() => undefined)
     }
     return Boolean(turnedOff)
   }
 
-  const checkoutCompleted = async (event: Stripe.Event, session: Stripe.Checkout.Session) => {
+  const checkoutCompleted = async (
+    event: Stripe.Event,
+    session: Stripe.Checkout.Session,
+  ) => {
     if (!isOurs(session.metadata)) return "ignored: not this app's"
     const metadata = session.metadata ?? {}
     const stripe = requireStripe()
@@ -254,7 +288,11 @@ export const createPurchases = (config: PurchasesConfig) => {
           : session.setup_intent?.id
       if (!intentId || !metadata.userId) return "ignored: no card"
       const intent = await stripe.setupIntents.retrieve(intentId)
-      return (await saveCard(metadata.userId, session.customer, intent.payment_method))
+      return (await saveCard(
+        metadata.userId,
+        session.customer,
+        intent.payment_method,
+      ))
         ? "card saved"
         : "ignored: no card"
     }
@@ -278,13 +316,20 @@ export const createPurchases = (config: PurchasesConfig) => {
     if (intentId) {
       const intent = await stripe.paymentIntents.retrieve(intentId)
       if (intent.setup_future_usage === "off_session") {
-        await saveCard(ours.userId, session.customer ?? intent.customer, intent.payment_method)
+        await saveCard(
+          ours.userId,
+          session.customer ?? intent.customer,
+          intent.payment_method,
+        )
       }
     }
     return credited ? "credited" : "already credited"
   }
 
-  const refillSucceeded = async (event: Stripe.Event, intent: Stripe.PaymentIntent) => {
+  const refillSucceeded = async (
+    event: Stripe.Event,
+    intent: Stripe.PaymentIntent,
+  ) => {
     if (!isOurs(intent.metadata) || intent.metadata.kind !== "refill") {
       return "ignored: not a refill of this app's"
     }
@@ -353,13 +398,18 @@ export const createPurchases = (config: PurchasesConfig) => {
     stripe: Stripe,
     customerId: string,
     paymentMethodId: string,
-  ): Promise<Pick<Stripe.Tax.CalculationCreateParams, "customer" | "customer_details">> => {
+  ): Promise<
+    Pick<Stripe.Tax.CalculationCreateParams, "customer" | "customer_details">
+  > => {
     const customer = await stripe.customers.retrieve(customerId)
-    if (!customer.deleted && customer.address?.country) return { customer: customerId }
+    if (!customer.deleted && customer.address?.country)
+      return { customer: customerId }
     const method = await stripe.paymentMethods.retrieve(paymentMethodId)
     const { address } = method.billing_details
     if (!address?.country) {
-      throw new Error("There is no billing address to work the tax out from. Save the card again.")
+      throw new Error(
+        "There is no billing address to work the tax out from. Save the card again.",
+      )
     }
     return {
       customer_details: {
@@ -404,11 +454,19 @@ export const createPurchases = (config: PurchasesConfig) => {
             product: await product(),
           },
         ],
-        ...(await taxLocation(stripe, settings.stripeCustomerId, settings.paymentMethodId)),
+        ...(await taxLocation(
+          stripe,
+          settings.stripeCustomerId,
+          settings.paymentMethodId,
+        )),
       })
       const total = calculation.amount_total
-      const tax = calculation.tax_amount_exclusive + calculation.tax_amount_inclusive
-      await store.setPurchaseStripe(refill.id, { taxCents: tax, totalCents: total })
+      const tax =
+        calculation.tax_amount_exclusive + calculation.tax_amount_inclusive
+      await store.setPurchaseStripe(refill.id, {
+        taxCents: tax,
+        totalCents: total,
+      })
       const intent = await stripe.paymentIntents.create(
         {
           amount: total,
@@ -436,13 +494,17 @@ export const createPurchases = (config: PurchasesConfig) => {
         return `charged ${intent.id}`
       }
       throw new Error(
-        intent.last_payment_error?.message ?? `The charge stopped at ${intent.status}.`,
+        intent.last_payment_error?.message ??
+          `The charge stopped at ${intent.status}.`,
       )
     } catch (error) {
-      const declined = (error as { payment_intent?: { id?: string } }).payment_intent?.id
-      await failRefill(refill.id, intentId ?? declined ?? null, stripeFailure(error)).catch(
-        () => undefined,
-      )
+      const declined = (error as { payment_intent?: { id?: string } })
+        .payment_intent?.id
+      await failRefill(
+        refill.id,
+        intentId ?? declined ?? null,
+        stripeFailure(error),
+      ).catch(() => undefined)
       return `failed: ${stripeFailure(error)}`
     }
   }

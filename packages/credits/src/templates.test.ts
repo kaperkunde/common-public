@@ -3,7 +3,13 @@ import { join } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
-import { HASURA_ROOT, TEST_VARS, manifest, migrations, render } from "./test/database"
+import {
+  HASURA_ROOT,
+  TEST_VARS,
+  manifest,
+  migrations,
+  render,
+} from "./test/database"
 
 const files = (dir: string): string[] =>
   readdirSync(dir).flatMap((name) => {
@@ -39,6 +45,8 @@ describe("the templates", () => {
     migrations().forEach((migration) => {
       expect(render(migration.up, TEST_VARS)).not.toContain("{{")
     })
-    expect(() => render("{{nope}}", TEST_VARS)).toThrow(/Unknown template variable/)
+    expect(() => render("{{nope}}", TEST_VARS)).toThrow(
+      /Unknown template variable/,
+    )
   })
 })

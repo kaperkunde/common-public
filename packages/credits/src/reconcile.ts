@@ -54,10 +54,18 @@ export const periodOf = (at: string, width: "hour" | "day") => {
   const time = new Date(at)
   const start =
     width === "hour"
-      ? Date.UTC(time.getUTCFullYear(), time.getUTCMonth(), time.getUTCDate(), time.getUTCHours())
+      ? Date.UTC(
+          time.getUTCFullYear(),
+          time.getUTCMonth(),
+          time.getUTCDate(),
+          time.getUTCHours(),
+        )
       : Date.UTC(time.getUTCFullYear(), time.getUTCMonth(), time.getUTCDate())
   const end = start + (width === "hour" ? 3600 : 86400) * 1000
-  return { periodStart: new Date(start).toISOString(), periodEnd: new Date(end).toISOString() }
+  return {
+    periodStart: new Date(start).toISOString(),
+    periodEnd: new Date(end).toISOString(),
+  }
 }
 
 /** The ledger's rows priced at the prices in force when each was made, per stretch and model. */
@@ -128,15 +136,24 @@ export const reconcile = (
   ledger: readonly LedgerCost[],
   billed: (model: string) => boolean = () => true,
 ) => {
-  const keys = new Map<string, { periodStart: string; periodEnd: string; model: string }>()
-  report.costs.forEach((cost) => keys.set(`${cost.periodStart}|${cost.model}`, cost))
+  const keys = new Map<
+    string,
+    { periodStart: string; periodEnd: string; model: string }
+  >()
+  report.costs.forEach((cost) =>
+    keys.set(`${cost.periodStart}|${cost.model}`, cost),
+  )
   ledger
     .filter((cost) => billed(cost.model))
     .forEach((cost) => keys.set(`${cost.periodStart}|${cost.model}`, cost))
   return Array.from(keys.entries())
     .map(([key, at]): Reconciliation => {
-      const provider = report.costs.find((cost) => `${cost.periodStart}|${cost.model}` === key)
-      const ours = ledger.find((cost) => `${cost.periodStart}|${cost.model}` === key)
+      const provider = report.costs.find(
+        (cost) => `${cost.periodStart}|${cost.model}` === key,
+      )
+      const ours = ledger.find(
+        (cost) => `${cost.periodStart}|${cost.model}` === key,
+      )
       const providerCents = provider?.cents ?? 0
       const ledgerCents = ours?.cents ?? 0
       return {
@@ -144,7 +161,9 @@ export const reconcile = (
         periodEnd: at.periodEnd,
         model: at.model,
         report: report.report,
-        complete: report.refreshedAt === undefined || report.refreshedAt >= at.periodEnd,
+        complete:
+          report.refreshedAt === undefined ||
+          report.refreshedAt >= at.periodEnd,
         providerCents,
         ledgerCents,
         providerByKind: provider?.byKind ?? {},
@@ -154,7 +173,11 @@ export const reconcile = (
         ledgerCredits: ours?.credits ?? 0,
       }
     })
-    .sort((a, b) => a.periodStart.localeCompare(b.periodStart) || a.model.localeCompare(b.model))
+    .sort(
+      (a, b) =>
+        a.periodStart.localeCompare(b.periodStart) ||
+        a.model.localeCompare(b.model),
+    )
 }
 
 /** How far apart the two may drift, over a day, before the admin is told. */
@@ -174,28 +197,42 @@ export type DriftAlert = {
 }
 
 /** Each model whose complete stretches over the trailing day drift past the threshold. */
-export const driftAlerts = (rows: readonly Reconciliation[], now: Date = new Date()) => {
+export const driftAlerts = (
+  rows: readonly Reconciliation[],
+  now: Date = new Date(),
+) => {
   const since = new Date(now.getTime() - 24 * 3600 * 1000).toISOString()
   const byModel = new Map<string, Reconciliation[]>()
   rows
     .filter((row) => row.complete && row.periodStart >= since)
-    .forEach((row) => byModel.set(row.model, [...(byModel.get(row.model) ?? []), row]))
+    .forEach((row) =>
+      byModel.set(row.model, [...(byModel.get(row.model) ?? []), row]),
+    )
   const alerts: DriftAlert[] = []
   byModel.forEach((stretches, model) => {
-    const providerCents = stretches.reduce((sum, row) => sum + row.providerCents, 0)
+    const providerCents = stretches.reduce(
+      (sum, row) => sum + row.providerCents,
+      0,
+    )
     const ledgerCents = stretches.reduce((sum, row) => sum + row.ledgerCents, 0)
     const drift = driftOf(providerCents, ledgerCents)
     if (drift === null || Math.abs(drift) <= DRIFT_THRESHOLD) return
     if (Math.max(providerCents, ledgerCents) < DRIFT_MIN_CENTS) return
     const kinds = new Set(
-      stretches.flatMap((row) => [...Object.keys(row.providerByKind), ...Object.keys(row.ledgerByKind)]),
+      stretches.flatMap((row) => [
+        ...Object.keys(row.providerByKind),
+        ...Object.keys(row.ledgerByKind),
+      ]),
     )
     const apart = Array.from(kinds)
       .map((kind) => ({
         kind,
         gap: Math.abs(
           stretches.reduce(
-            (sum, row) => sum + (row.providerByKind[kind] ?? 0) - (row.ledgerByKind[kind] ?? 0),
+            (sum, row) =>
+              sum +
+              (row.providerByKind[kind] ?? 0) -
+              (row.ledgerByKind[kind] ?? 0),
             0,
           ),
         ),

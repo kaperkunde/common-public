@@ -155,13 +155,20 @@ describe("what the player is told", () => {
 
   it("says when the free credits held expire, and otherwise only that some may come", () => {
     expect(
-      freeCreditsText({ free: 10, purchased: 0, freeExpiresAt: future }, undefined, now),
+      freeCreditsText(
+        { free: 10, purchased: 0, freeExpiresAt: future },
+        undefined,
+        now,
+      ),
     ).toContain("expire at the end of 31 October 2026")
-    expect(freeCreditsText({ free: 0, purchased: 0 }, undefined, now)).toContain(
+    expect(
+      freeCreditsText({ free: 0, purchased: 0 }, undefined, now),
+    ).toContain("may become available")
+    expect(freeCreditsText(undefined, undefined, now)).toContain(
       "may become available",
     )
-    expect(freeCreditsText(undefined, undefined, now)).toContain("may become available")
-    expect(freeCreditsText({ free: 0, purchased: 0 }, undefined, now)).not.toMatch(/\d{4}/)
+    expect(
+      freeCreditsText({ free: 0, purchased: 0 }, undefined, now),
+    ).not.toMatch(/\d{4}/)
   })
 })
-

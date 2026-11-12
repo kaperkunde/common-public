@@ -47,7 +47,10 @@ export type DebitSplit = {
  * What `{{prefix}}spend` takes from a balance: free first, since it expires, then bought; only
  * when both are gone does free go below zero, by exactly what was missing.
  */
-export const debitSplit = (balance: CreditBalance, cost: number): DebitSplit => {
+export const debitSplit = (
+  balance: CreditBalance,
+  cost: number,
+): DebitSplit => {
   const fromFree = Math.min(Math.max(balance.free, 0), cost)
   const fromPurchased = Math.min(balance.purchased, cost - fromFree)
   const short = cost - fromFree - fromPurchased
