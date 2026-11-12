@@ -10,12 +10,21 @@ object_relationships:
 insert_permissions:
   - role: {{server_role}}
     permission:
-      check: {}
+      check:
+        _or:
+          - _and:
+              - source:
+                  _is_null: true
+              - credits:
+                  _is_null: true
+          - source:
+              _eq: own
       columns:
         - activity
         - cacheWrite1hTokens
         - cacheWriteTokens
         - cachedTokens
+        - credits
         - inferenceGeo
         - inputTokens
         - jobId
@@ -27,6 +36,7 @@ insert_permissions:
         - requests
         - scopeId
         - serviceTier
+        - source
         - speed
         - totalTokens
         - units

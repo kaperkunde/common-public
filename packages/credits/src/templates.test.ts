@@ -50,3 +50,30 @@ describe("the templates", () => {
     )
   })
 })
+
+describe("the usage ledger's metadata", () => {
+  const text = readFileSync(
+    join(HASURA_ROOT, "metadata", "tables", "usage.yaml.tmpl"),
+    "utf8",
+  )
+  const insert = text.slice(
+    text.indexOf("insert_permissions:"),
+    text.indexOf("select_permissions:"),
+  )
+
+  it("lets the server record a call on the user's own key through Hasura", () => {
+    expect(insert).toMatch(/^ {8}- source$/m)
+    expect(insert).toMatch(/^ {8}- credits$/m)
+  })
+
+  it("only as unconverted, or as own: never as already paid from a balance", () => {
+    expect(insert).toContain("_or:")
+    expect(insert).toMatch(/source:\n\s+_is_null: true/)
+    expect(insert).toMatch(/credits:\n\s+_is_null: true/)
+    expect(insert).toMatch(/source:\n\s+_eq: own/)
+    // Spend's own columns stay out of an insert.
+    expect(insert).not.toMatch(
+      /- (usd|freeCredits|purchasedCredits|priceFrom)$/m,
+    )
+  })
+})

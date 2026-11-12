@@ -7,7 +7,10 @@ USAGE_COLS = ["id","userId","scopeId","jobId","purpose","kind","model","activity
 
 # name -> (table name template, all columns, user columns or None, user filter ('own'|'all'), server writes, comment)
 TABLES = {
-  "usage": ("{{usage_table}}", USAGE_COLS, USAGE_COLS, "own", {"insert": [c for c in USAGE_COLS if c not in ("id","createdAt","credits","source","priceFrom","ratioFrom","usd","freeCredits","purchasedCredits","overdraftCredits","freeUsd")]},
+  "usage": ("{{usage_table}}", USAGE_COLS, USAGE_COLS, "own", {"insert": [c for c in USAGE_COLS if c not in ("id","createdAt","priceFrom","ratioFrom","usd","freeCredits","purchasedCredits","overdraftCredits","freeUsd")],
+             # A row is written unconverted for spend, or as the user's own key's at no credits
+             # (the table's CHECK holds own to 0); never as already paid from a balance.
+             "insert_check": "\n        _or:\n          - _and:\n              - source:\n                  _is_null: true\n              - credits:\n                  _is_null: true\n          - source:\n              _eq: own"},
             "One row per metered call: what it used and, once spent, what it cost in credits and dollars and where they came from."),
   "balances": ("{{prefix}}balances", ["userId","free","purchased","freeExpiresAt","notifiedFor","updatedAt"], ["userId","free","purchased","freeExpiresAt","updatedAt"], "own", {"update": ["notifiedFor"]},
             "A user's credits: what is left of the free ones and when they expire, and what was bought or granted. Moved only by the row-locked functions."),
@@ -61,7 +64,7 @@ for name, (table, allc, userc, filt, writes, comment) in TABLES.items():
     if name == "insert" and False: pass
     y += "insert_permissions:\n" if "insert" in writes else ""
     if "insert" in writes:
-        y += f"  - role: {{{{server_role}}}}\n    permission:\n      check: {{}}\n      columns:\n{cols(writes['insert'], 8)}    comment: The server's own writes. No other role ever writes here.\n"
+        y += f"  - role: {{{{server_role}}}}\n    permission:\n      check:{writes.get('insert_check', ' {}')}\n      columns:\n{cols(writes['insert'], 8)}    comment: The server's own writes. No other role ever writes here.\n"
     y += "select_permissions:\n"
     y += f"  - role: {{{{server_role}}}}\n    permission:\n      columns:\n{cols(allc, 8)}      filter: {{}}\n      allow_aggregations: true\n    comment: The server reads everything here.\n"
     if userc:
