@@ -3,7 +3,15 @@ import { dirname, join, resolve } from "node:path"
 
 import { STANDARD_VARS } from "./template"
 
-export type VarSpec = { description?: string; default?: string }
+/**
+ * What a variable's value may be, checked before anything is rendered.
+ * `identifier` (the default): a SQL/YAML name, letters, digits and
+ * underscores. `literal`: any text without quotes, semicolons, backslashes
+ * or newlines (a type name, a string). `integer`: whole digits.
+ */
+export type VarType = "identifier" | "literal" | "integer"
+
+export type VarSpec = { description?: string; default?: string; type?: VarType }
 
 export type PackageManifest = {
   name: string
@@ -132,10 +140,55 @@ export const resolvePackageDir = (root: string, name: string): string => {
   }
 }
 
+const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
+const QUALIFIED = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/
+const UNSAFE_LITERAL = /['"`;\\\n\r]/
+
+/** The standard variables that are not plain identifiers. */
+const STANDARD_TYPES: Record<string, { qualified?: boolean; empty?: boolean }> =
+  {
+    owner_table: { qualified: true },
+    prefix: { empty: true },
+  }
+
+/** Throws a PackageError naming the variable if its value is unsafe to render. */
+export const checkVarValue = (
+  pkg: string,
+  name: string,
+  value: string,
+  type: VarType = "identifier",
+): void => {
+  const fail = (why: string) => {
+    throw new PackageError(
+      `${pkg}: variable "${name}" ${why} (got ${JSON.stringify(value)})`,
+    )
+  }
+  const standard = STANDARD_TYPES[name]
+  if (type === "identifier") {
+    if (value === "" && standard?.empty) return
+    const pattern = standard?.qualified ? QUALIFIED : IDENTIFIER
+    if (!pattern.test(value)) {
+      fail(
+        standard?.qualified
+          ? "must be an identifier, optionally schema-qualified (a or a.b)"
+          : "must be an identifier: letters, digits and underscores, not starting with a digit",
+      )
+    }
+  } else if (type === "integer") {
+    if (!/^-?\d+$/.test(value)) fail("must be a whole number")
+  } else if (value === "" || UNSAFE_LITERAL.test(value)) {
+    fail(
+      "must be non-empty and contain no quotes, semicolons, backslashes or newlines",
+    )
+  }
+}
+
 /**
  * Every value a package's templates may use: the app's `vars`, else a
  * manifest default, else the standard default. A name nobody declared is an
- * error; so is a value for one.
+ * error. A default may itself use `{{other}}` (resolved after the app's own
+ * values are applied; a cycle is an error). Every value is validated against
+ * its type (see {@link VarType}) before anything is rendered.
  */
 export const resolveVars = (
   pkg: LoadedPackage,
@@ -151,14 +204,51 @@ export const resolveVars = (
         `${pkg.name}: kaperkunde.json sets "${name}", which the package does not declare`,
       )
     }
+    if (typeof given[name] !== "string") {
+      throw new PackageError(`${pkg.name}: variable "${name}" must be a string`)
+    }
   }
   const values: Record<string, string> = {}
-  for (const name of declared) {
-    const value =
+  const resolving: string[] = []
+  const resolve = (name: string): string | undefined => {
+    if (name in values) return values[name]
+    if (resolving.includes(name)) {
+      throw new PackageError(
+        `${pkg.name}: defaults refer to each other in a loop: ${[...resolving, name].join(" -> ")}`,
+      )
+    }
+    resolving.push(name)
+    const raw =
       given[name] ??
       pkg.manifest.vars[name]?.default ??
       (STANDARD_VARS as Record<string, string | undefined>)[name]
-    if (value !== undefined) values[name] = value
+    let value = raw
+    if (raw !== undefined && given[name] === undefined) {
+      value = raw.replace(
+        /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g,
+        (_m, other: string) => {
+          if (!declared.has(other)) {
+            throw new PackageError(
+              `${pkg.name}: the default of "${name}" uses {{${other}}}, which the package does not declare`,
+            )
+          }
+          const resolved = resolve(other)
+          if (resolved === undefined) {
+            throw new PackageError(
+              `${pkg.name}: the default of "${name}" uses {{${other}}}, which has no value`,
+            )
+          }
+          return resolved
+        },
+      )
+    }
+    resolving.pop()
+    if (value !== undefined) {
+      checkVarValue(pkg.name, name, value, pkg.manifest.vars[name]?.type)
+      values[name] = value
+    }
+    return value
   }
+  for (const name of declared) resolve(name)
   return { declared, values }
 }

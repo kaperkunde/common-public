@@ -16,7 +16,8 @@
     "lint-staged.mjs",
     "prettier.json",
     "server-only-stub.mjs",
-    "tsconfig"
+    "tsconfig",
+    "templates"
   ],
   "exports": {
     "./eslint": "./eslint.mjs",
@@ -34,10 +35,15 @@
       "types": "./dist/playwright.d.mts",
       "import": "./dist/playwright.mjs",
       "default": "./dist/playwright.mjs"
+    },
+    "./scaffold": {
+      "types": "./dist/scaffold.d.mts",
+      "import": "./dist/scaffold.mjs",
+      "default": "./dist/scaffold.mjs"
     }
   },
   "scripts": {
-    "build": "tsdown src/vitest.ts src/playwright.ts --format esm --dts --clean",
+    "build": "tsdown src/vitest.ts src/playwright.ts src/scaffold.ts src/scaffold-cli.ts --format esm --dts --clean",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "peerDependencies": {
@@ -72,10 +78,14 @@
     "next": "16.3.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "vitest": "5.0.2"
+    "vitest": "5.0.2",
+    "yaml": "2.9.1"
   },
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "bin": {
+    "kk-scaffold": "./dist/scaffold-cli.mjs"
   }
 }

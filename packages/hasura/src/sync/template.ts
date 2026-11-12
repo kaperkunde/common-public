@@ -1,6 +1,6 @@
 /** The variables every package accepts, with the defaults that exist. */
 export const STANDARD_VARS = {
-  prefix: undefined,
+  prefix: "",
   owner_table: undefined,
   owner_id_column: undefined,
   owner_id_type: undefined,

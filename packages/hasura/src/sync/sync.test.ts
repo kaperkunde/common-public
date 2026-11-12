@@ -80,10 +80,18 @@ describe("kk-hasura sync", () => {
   })
 
   it("errors on a variable the template uses but nothing sets", () => {
-    const s = setup(undefined, { vars: {} })
+    const s = setup(
+      {
+        migrations: {
+          "1788000000000_init": { up: "select {{owner_table}};", down: "x" },
+        },
+        tables: {},
+      },
+      { vars: {} },
+    )
     const result = s.run()
     expect(result.ok).toBe(false)
-    expect(result.lines.join("\n")).toContain("{{prefix}} has no value")
+    expect(result.lines.join("\n")).toContain("{{owner_table}} has no value")
     expect(existsSync(s.migrations)).toBe(false)
   })
 
@@ -133,6 +141,16 @@ describe("kk-hasura sync", () => {
       "1788000000000",
       "1788000000001",
     ])
+  })
+
+  it("refuses an unsafe variable value before writing anything", () => {
+    const s = setup(undefined, {
+      vars: { prefix: "credit_; drop table users;--" },
+    })
+    const result = s.run()
+    expect(result.ok).toBe(false)
+    expect(result.lines.join("\n")).toContain('variable "prefix"')
+    expect(existsSync(s.migrations)).toBe(false)
   })
 
   describe("drift detection", () => {
@@ -295,7 +313,10 @@ describe("kk-hasura sync", () => {
       )
       expect(s.run().ok).toBe(true)
       expect(
-        readFileSync(join(s.metadata, "tables/public_credit_usage.yaml"), "utf8"),
+        readFileSync(
+          join(s.metadata, "tables/public_credit_usage.yaml"),
+          "utf8",
+        ),
       ).toBe("table:\n  name: credit_usage\n  schema: public\n")
       const tables = readFileSync(
         join(s.metadata, "tables/tables.yaml"),

@@ -15,7 +15,8 @@
     },
     "scope_type": {
       "description": "SQL type of the scope id.",
-      "default": "text"
+      "default": "text",
+      "type": "literal"
     },
     "server_role": {
       "description": "The Hasura role that alone may call the queue's functions (the server's own).",

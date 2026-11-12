@@ -17,10 +17,12 @@ export {
   PackageError,
   loadPackage,
   resolvePackageDir,
+  checkVarValue,
   resolveVars,
   type LoadedPackage,
   type MigrationTemplate,
   type PackageManifest,
   type VarSpec,
+  type VarType,
 } from "./sync/package"
 export { STANDARD_VARS, TemplateError, renderTemplate } from "./sync/template"

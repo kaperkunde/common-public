@@ -2,3 +2,5 @@ pnpm-lock.yaml
 dist
 coverage
 .changeset/*.md
+packages/config/templates
+packages/*/hasura/**/*.tmpl

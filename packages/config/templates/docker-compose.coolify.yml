@@ -1,0 +1,108 @@
+# The whole {{name}} stack in one Coolify resource: Postgres, Hasura, a one-shot `migrate`
+# that applies the schema, and the app.
+#
+# Order: postgres (healthy) -> hasura (healthy) -> migrate (exits 0) -> {{name}}. A failed
+# migration makes `docker compose up` exit non-zero, so the deployment is marked failed and the
+# new app never starts against a half-migrated schema.
+#
+# Secrets are Coolify magic variables (SERVICE_PASSWORD_*, SERVICE_URL_*): they reach every
+# service in this resource and nothing outside it.
+
+services:
+  postgres:
+    image: postgres:{{postgres_version}}-alpine
+    restart: unless-stopped
+    # jit=off: Hasura's live queries are re-planned every second, and compiling them is the worst
+    # thing a server can do with that.
+    command: ["postgres", "-c", "jit=off", "-c", "max_connections=100"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_DB: {{db}}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d {{db}}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  hasura:
+    image: hasura/graphql-engine:{{hasura_version}}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SERVICE_URL_HASURA_8080:
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://postgres:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/{{db}}"
+      {{db_env}}: "postgres://postgres:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/{{db}}"
+      HASURA_GRAPHQL_ADMIN_SECRET: "${SERVICE_PASSWORD_64_HASURAADMIN}"
+      HASURA_GRAPHQL_JWT_SECRET: '{"type":"HS256","key":"${SERVICE_PASSWORD_64_HASURAJWT}"}'
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "false"
+      HASURA_GRAPHQL_DEV_MODE: "false"
+      HASURA_GRAPHQL_CORS_DOMAIN: "${{{name_upper}}_ORIGIN:-${SERVICE_URL_{{name_upper}}}}"
+      # The shared secret Hasura's event and cron triggers send to the app's hooks.
+      HOOK_SECRET: "${SERVICE_PASSWORD_64_HOOKSECRET}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  # Applies hasura/migrations and hasura/metadata and exits. `restart: "no"` also keeps Coolify
+  # from counting the exited container against the resource's status.
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/hasura.Dockerfile
+    restart: "no"
+    depends_on:
+      hasura:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        hasura-cli migrate apply --all-databases --skip-update-check &&
+        hasura-cli metadata apply --skip-update-check
+    environment:
+      HASURA_GRAPHQL_ENDPOINT: "http://hasura:8080"
+      HASURA_GRAPHQL_ADMIN_SECRET: "${SERVICE_PASSWORD_64_HASURAADMIN}"
+
+  {{name}}:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+      args:
+        # Inlined into the browser bundle at build time, so build arguments, not runtime variables.
+        NEXT_PUBLIC_HASURA_ENDPOINT: ${NEXT_PUBLIC_HASURA_ENDPOINT:-${SERVICE_URL_HASURA}/v1/graphql}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-${SERVICE_URL_{{name_upper}}}}
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    expose:
+      - "{{port}}"
+    environment:
+      SERVICE_URL_{{name_upper}}_{{port}}:
+      PORT: "{{port}}"
+      # The server's way in is the internal address, not the public one: a container reaching its
+      # own public name comes back through the proxy's certificate.
+      HASURA_ENDPOINT: "${HASURA_ENDPOINT:-http://hasura:8080/v1/graphql}"
+      HASURA_GRAPHQL_ADMIN_SECRET: "${SERVICE_PASSWORD_64_HASURAADMIN}"
+      HASURA_JWT_SECRET: "${SERVICE_PASSWORD_64_HASURAJWT}"
+      HOOK_SECRET: "${SERVICE_PASSWORD_64_HOOKSECRET}"
+      DATABASE_URL: "postgres://postgres:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/{{db}}"
+      BETTER_AUTH_SECRET: "${SERVICE_PASSWORD_64_BETTERAUTH}"
+      BETTER_AUTH_URL: "${SERVICE_URL_{{name_upper}}}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:{{port}}/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  pgdata:
