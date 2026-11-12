@@ -226,7 +226,7 @@ export type PoolStatus = {
 
 /** Every query this package makes, bound to one executor and one set of names. */
 export const createStore = (db: Executor, names: CreditNames = {}) => {
-  const { t, usage } = namesOf(names)
+  const { t, table, usage } = namesOf(names)
 
   const one = async <ROW>(sql: string, params: unknown[] = []) =>
     (await db.query<ROW>(sql, params))[0]
@@ -236,8 +236,8 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
       `SELECT p.*, coalesce((SELECT json_agg(json_build_object(
           'kind', k.kind, 'unit', k.unit, 'usdPerMillion', k."usdPerMillion",
           'derived', k.derived) ORDER BY k.kind)
-        FROM ${t("model_price_kinds")} k WHERE k."priceId" = p.id), '[]'::json) AS kinds
-       FROM ${t("model_prices")} p ${where}
+        FROM ${table("model_price_kinds")} k WHERE k."priceId" = p.id), '[]'::json) AS kinds
+       FROM ${table("model_prices")} p ${where}
        ORDER BY p.model, p."effectiveFrom" DESC`,
       params,
     )
@@ -303,7 +303,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
 
     balance: async (userId: string) => {
       const row = await one<Row>(
-        `SELECT * FROM ${t("balances")} WHERE "userId" = $1`,
+        `SELECT * FROM ${table("balances")} WHERE "userId" = $1`,
         [userId],
       )
       return row ? balanceOf(row) : undefined
@@ -408,7 +408,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     rates: async (): Promise<DollarRate[]> =>
       (
         await db.query<Row>(
-          `SELECT * FROM ${t("dollar_rates")} ORDER BY "effectiveFrom" DESC`,
+          `SELECT * FROM ${table("dollar_rates")} ORDER BY "effectiveFrom" DESC`,
         )
       ).map((row) => ({
         perDollar: num(row.perDollar),
@@ -417,7 +417,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
 
     addRate: async (perDollar: number, effectiveFrom?: string) => {
       await db.query(
-        `INSERT INTO ${t("dollar_rates")} ("perDollar", "effectiveFrom") VALUES ($1, coalesce($2::timestamptz, now()))`,
+        `INSERT INTO ${table("dollar_rates")} ("perDollar", "effectiveFrom") VALUES ($1, coalesce($2::timestamptz, now()))`,
         [perDollar, effectiveFrom ?? null],
       )
     },
@@ -425,7 +425,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     factors: async (): Promise<PriceFactor[]> =>
       (
         await db.query<Row>(
-          `SELECT * FROM ${t("price_factors")} ORDER BY "effectiveFrom" DESC`,
+          `SELECT * FROM ${table("price_factors")} ORDER BY "effectiveFrom" DESC`,
         )
       ).map((row) => ({
         model: (row.model as string | null) ?? null,
@@ -439,7 +439,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
       factor: Omit<PriceFactor, "effectiveFrom"> & { effectiveFrom?: string },
     ) => {
       await db.query(
-        `INSERT INTO ${t("price_factors")} (model, dimension, value, factor, "effectiveFrom")
+        `INSERT INTO ${table("price_factors")} (model, dimension, value, factor, "effectiveFrom")
          VALUES ($1, $2, $3, $4, coalesce($5::timestamptz, now()))`,
         [
           factor.model ?? null,
@@ -455,19 +455,20 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
 
     allotment: async () =>
       num(
-        (await one<Row>(`SELECT allotment FROM ${t("settings")} WHERE id`))
+        (await one<Row>(`SELECT allotment FROM ${table("settings")} WHERE id`))
           ?.allotment,
       ),
 
     setAllotment: async (allotment: number) => {
-      await db.query(`UPDATE ${t("settings")} SET allotment = $1 WHERE id`, [
-        allotment,
-      ])
+      await db.query(
+        `UPDATE ${table("settings")} SET allotment = $1 WHERE id`,
+        [allotment],
+      )
     },
 
     setPoolBudget: async (budgetUsd: number, adminEmail: string) => {
       await db.query(
-        `INSERT INTO ${t("pool_budgets")} ("budgetUsd", "adminEmail") VALUES ($1, $2)`,
+        `INSERT INTO ${table("pool_budgets")} ("budgetUsd", "adminEmail") VALUES ($1, $2)`,
         [budgetUsd, adminEmail],
       )
     },
@@ -477,14 +478,14 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
       const [budgets, pool, users, spent, granted, allotment, ratio] =
         await Promise.all([
           db.query<Row>(
-            `SELECT * FROM ${t("pool_budgets")} ORDER BY "effectiveFrom" DESC LIMIT 20`,
+            `SELECT * FROM ${table("pool_budgets")} ORDER BY "effectiveFrom" DESC LIMIT 20`,
           ),
           db.query<Row>(
-            `SELECT * FROM ${t("pool_periods")} WHERE "periodStart" = $1`,
+            `SELECT * FROM ${table("pool_periods")} WHERE "periodStart" = $1`,
             [period.start],
           ),
           db.query<Row>(
-            `SELECT count(DISTINCT "userId") AS n FROM ${t("free_grants")} WHERE "periodStart" = $1`,
+            `SELECT count(DISTINCT "userId") AS n FROM ${table("free_grants")} WHERE "periodStart" = $1`,
             [period.start],
           ),
           db.query<Row>(
@@ -493,13 +494,13 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
             [period.start, period.end],
           ),
           db.query<Row>(
-            `SELECT coalesce(sum(amount), 0) AS n FROM ${t("grants")}
+            `SELECT coalesce(sum(amount), 0) AS n FROM ${table("grants")}
              WHERE "createdAt" >= $1 AND "createdAt" < $2`,
             [period.start, period.end],
           ),
-          db.query<Row>(`SELECT allotment FROM ${t("settings")} WHERE id`),
+          db.query<Row>(`SELECT allotment FROM ${table("settings")} WHERE id`),
           db.query<Row>(
-            `SELECT "perDollar" FROM ${t("dollar_rates")} WHERE "effectiveFrom" <= now()
+            `SELECT "perDollar" FROM ${table("dollar_rates")} WHERE "effectiveFrom" <= now()
              ORDER BY "effectiveFrom" DESC LIMIT 1`,
           ),
         ])
@@ -553,7 +554,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
       },
     ) => {
       await db.query(
-        `INSERT INTO ${t("pool_periods")} ("periodStart", "providerCents", "ledgerCents", "driftFactor", "checkedAt")
+        `INSERT INTO ${table("pool_periods")} ("periodStart", "providerCents", "ledgerCents", "driftFactor", "checkedAt")
          VALUES ($1, $2, $3, $4, now())
          ON CONFLICT ("periodStart") DO UPDATE SET "providerCents" = excluded."providerCents",
            "ledgerCents" = excluded."ledgerCents", "driftFactor" = excluded."driftFactor",
@@ -578,13 +579,13 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
         over: '"notifiedOverAt"',
       }[notice]
       await db.query(
-        `INSERT INTO ${t("pool_periods")} ("periodStart") VALUES ($1) ON CONFLICT DO NOTHING`,
+        `INSERT INTO ${table("pool_periods")} ("periodStart") VALUES ($1) ON CONFLICT DO NOTHING`,
         [periodStart],
       )
       return (
         (
           await db.query(
-            `UPDATE ${t("pool_periods")} SET ${column} = now()
+            `UPDATE ${table("pool_periods")} SET ${column} = now()
              WHERE "periodStart" = $1 AND ${column} IS NULL RETURNING "periodStart"`,
             [periodStart],
           )
@@ -612,7 +613,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     grants: async (options: { userId?: string; limit?: number } = {}) =>
       (
         await db.query<Row>(
-          `SELECT * FROM ${t("grants")} WHERE ($1::text IS NULL OR "userId"::text = $1)
+          `SELECT * FROM ${table("grants")} WHERE ($1::text IS NULL OR "userId"::text = $1)
            ORDER BY "createdAt" DESC, id DESC LIMIT $2`,
           [options.userId ?? null, options.limit ?? 50],
         )
@@ -629,7 +630,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
 
     ownBackend: async (userId: string): Promise<OwnBackendRow | undefined> => {
       const row = await one<Row>(
-        `SELECT * FROM ${t("own_backends")} WHERE "userId" = $1`,
+        `SELECT * FROM ${table("own_backends")} WHERE "userId" = $1`,
         [userId],
       )
       if (!row) return undefined
@@ -656,7 +657,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
       },
     ) => {
       await db.query(
-        `INSERT INTO ${t("own_backends")}
+        `INSERT INTO ${table("own_backends")}
            ("userId", "baseUrl", "keyCiphertext", "keyLast4", models, "toolChoice", "tokenLimit", "order")
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT ("userId") DO UPDATE SET "baseUrl" = excluded."baseUrl",
@@ -677,9 +678,10 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     },
 
     deleteOwnBackend: async (userId: string) => {
-      await db.query(`DELETE FROM ${t("own_backends")} WHERE "userId" = $1`, [
-        userId,
-      ])
+      await db.query(
+        `DELETE FROM ${table("own_backends")} WHERE "userId" = $1`,
+        [userId],
+      )
     },
 
     /** The provider's tokens spent on a user's own key this calendar month. */
@@ -700,7 +702,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     claimOwnLimitNotice: async (userId: string, now: Date = new Date()) =>
       (
         await db.query(
-          `UPDATE ${t("own_backends")} SET "limitNotifiedFor" = $2
+          `UPDATE ${table("own_backends")} SET "limitNotifiedFor" = $2
            WHERE "userId" = $1 AND "limitNotifiedFor" IS DISTINCT FROM $2 RETURNING "userId"`,
           [userId, poolPeriod(now).start],
         )
@@ -725,7 +727,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     salePrices: async () =>
       (
         await db.query<Row>(
-          `SELECT * FROM ${t("sale_prices")} ORDER BY "effectiveFrom" DESC`,
+          `SELECT * FROM ${table("sale_prices")} ORDER BY "effectiveFrom" DESC`,
         )
       ).map((row) => ({
         currency: String(row.currency),
@@ -735,7 +737,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
 
     addSalePrice: async (currency: string, centsPerMillion: number) => {
       await db.query(
-        `INSERT INTO ${t("sale_prices")} (currency, "centsPerMillion") VALUES ($1, $2)`,
+        `INSERT INTO ${table("sale_prices")} (currency, "centsPerMillion") VALUES ($1, $2)`,
         [currency, centsPerMillion],
       )
     },
@@ -810,7 +812,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
       },
     ) => {
       await db.query(
-        `UPDATE ${t("purchases")} SET "stripeId" = coalesce($2, "stripeId"),
+        `UPDATE ${table("purchases")} SET "stripeId" = coalesce($2, "stripeId"),
            "taxCents" = coalesce($3, "taxCents"), "totalCents" = coalesce($4, "totalCents")
          WHERE id = $1`,
         [
@@ -825,7 +827,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     purchases: async (userId: string, limit = 50) =>
       (
         await db.query<Row>(
-          `SELECT * FROM ${t("purchases")} WHERE "userId" = $1
+          `SELECT * FROM ${table("purchases")} WHERE "userId" = $1
            ORDER BY "createdAt" DESC, id DESC LIMIT $2`,
           [userId, limit],
         )
@@ -833,7 +835,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
 
     autorefill: async (userId: string) => {
       const row = await one<Row>(
-        `SELECT * FROM ${t("autorefill")} WHERE "userId" = $1`,
+        `SELECT * FROM ${table("autorefill")} WHERE "userId" = $1`,
         [userId],
       )
       return row ? autorefillOf(row) : undefined
@@ -841,7 +843,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
 
     saveCustomer: async (userId: string, customerId: string) => {
       await db.query(
-        `INSERT INTO ${t("autorefill")} ("userId", "stripeCustomerId") VALUES ($1, $2)
+        `INSERT INTO ${table("autorefill")} ("userId", "stripeCustomerId") VALUES ($1, $2)
          ON CONFLICT ("userId") DO UPDATE SET "stripeCustomerId" = excluded."stripeCustomerId"`,
         [userId, customerId],
       )
@@ -854,7 +856,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
       label: string | null,
     ) => {
       await db.query(
-        `INSERT INTO ${t("autorefill")}
+        `INSERT INTO ${table("autorefill")}
            ("userId", "stripeCustomerId", "paymentMethodId", "paymentMethodLabel", "failedAt")
          VALUES ($1, $2, $3, $4, NULL)
          ON CONFLICT ("userId") DO UPDATE SET "stripeCustomerId" = excluded."stripeCustomerId",
@@ -876,13 +878,13 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     ) => {
       // Turning it on clears a failure; leaving it off keeps the record of one.
       await db.query(
-        `INSERT INTO ${t("autorefill")}
+        `INSERT INTO ${table("autorefill")}
            ("userId", enabled, "thresholdCredits", "amountCents", currency, "monthlyMaxCents")
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT ("userId") DO UPDATE SET enabled = excluded.enabled,
            "thresholdCredits" = excluded."thresholdCredits", "amountCents" = excluded."amountCents",
            currency = excluded.currency, "monthlyMaxCents" = excluded."monthlyMaxCents",
-           "failedAt" = CASE WHEN excluded.enabled THEN NULL ELSE ${t("autorefill")}."failedAt" END`,
+           "failedAt" = CASE WHEN excluded.enabled THEN NULL ELSE ${table("autorefill")}."failedAt" END`,
         [
           userId,
           settings.enabled,
@@ -899,7 +901,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     pendingProposals: async () =>
       (
         await db.query<Row>(
-          `SELECT * FROM ${t("price_proposals")} WHERE status = 'pending' ORDER BY model`,
+          `SELECT * FROM ${table("price_proposals")} WHERE status = 'pending' ORDER BY model`,
         )
       ).map((row) => ({
         id: num(row.id),
@@ -932,10 +934,10 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     }) => {
       await db.query(
         `WITH replaced AS (
-           UPDATE ${t("price_proposals")} SET status = 'replaced', "decidedAt" = now()
+           UPDATE ${table("price_proposals")} SET status = 'replaced', "decidedAt" = now()
            WHERE model = $1 AND status = 'pending' RETURNING id
          )
-         INSERT INTO ${t("price_proposals")}
+         INSERT INTO ${table("price_proposals")}
            (model, kinds, "longPromptUnits", "longPromptFactor", factors, sources, problems)
          SELECT $1, $2::jsonb, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb
          FROM (SELECT count(*) FROM replaced) r`,
@@ -958,7 +960,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
             .length > 0
         : (
             await db.query(
-              `UPDATE ${t("price_proposals")} SET status = 'dismissed', "decidedAt" = now()
+              `UPDATE ${table("price_proposals")} SET status = 'dismissed', "decidedAt" = now()
                WHERE id = $1 AND status = 'pending' RETURNING id`,
               [id],
             )
@@ -967,7 +969,7 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
     /** Marks a price as confirmed by a sync, now. */
     confirmPrice: async (priceId: number) => {
       await db.query(
-        `UPDATE ${t("model_prices")} SET "syncedAt" = now() WHERE id = $1`,
+        `UPDATE ${table("model_prices")} SET "syncedAt" = now() WHERE id = $1`,
         [priceId],
       )
     },

@@ -6,7 +6,7 @@
 -- writes a new price from that moment, so nothing already made is charged again. One proposal
 -- waits per model; a newer one replaces it.
 
-CREATE TABLE {{schema}}.{{prefix}}price_proposals (
+CREATE TABLE {{schema}}.{{table_price_proposals}} (
   id bigserial PRIMARY KEY,
   model text NOT NULL,
   -- The price proposed, as set_model_price takes it: [{"kind", "unit", "usdPerMillion"}].
@@ -28,12 +28,12 @@ CREATE TABLE {{schema}}.{{prefix}}price_proposals (
 );
 
 CREATE UNIQUE INDEX {{prefix}}price_proposals_one_pending
-  ON {{schema}}.{{prefix}}price_proposals (model) WHERE status = 'pending';
+  ON {{schema}}.{{table_price_proposals}} (model) WHERE status = 'pending';
 
 -- One stretch of time for one model checked against the provider's cost report: what it says
 -- the stretch cost, what the ledger comes to at the prices in force, and how far apart, by
 -- kind. A stretch checked again replaces its figures.
-CREATE TABLE {{schema}}.{{prefix}}cost_reconciliations (
+CREATE TABLE {{schema}}.{{table_cost_reconciliations}} (
   id bigserial PRIMARY KEY,
   "periodStart" timestamptz NOT NULL,
   "periodEnd" timestamptz NOT NULL,
@@ -57,17 +57,17 @@ CREATE TABLE {{schema}}.{{prefix}}cost_reconciliations (
 -- Applying a proposal: the price from now, its model's factors with it, the proposal marked.
 -- Answers the new price; nothing for a proposal no longer pending.
 CREATE FUNCTION {{schema}}.{{prefix}}apply_proposal(proposal_id bigint)
-RETURNS SETOF {{schema}}.{{prefix}}model_prices
+RETURNS SETOF {{schema}}.{{table_model_prices}}
 LANGUAGE plpgsql
 VOLATILE
 AS $$
 DECLARE
-  proposal {{schema}}.{{prefix}}price_proposals;
-  price {{schema}}.{{prefix}}model_prices;
+  proposal {{schema}}.{{table_price_proposals}};
+  price {{schema}}.{{table_model_prices}};
   entry jsonb;
 BEGIN
   PERFORM {{schema}}.{{prefix}}assert_server('Prices are set');
-  SELECT * INTO proposal FROM {{schema}}.{{prefix}}price_proposals p
+  SELECT * INTO proposal FROM {{schema}}.{{table_price_proposals}} p
     WHERE p.id = proposal_id FOR UPDATE;
   IF NOT FOUND OR proposal.status <> 'pending' THEN
     RETURN;
@@ -78,10 +78,10 @@ BEGIN
     now(), now()
   );
   FOR entry IN SELECT value FROM jsonb_array_elements(proposal.factors) LOOP
-    INSERT INTO {{schema}}.{{prefix}}price_factors (model, dimension, value, factor, "effectiveFrom")
+    INSERT INTO {{schema}}.{{table_price_factors}} (model, dimension, value, factor, "effectiveFrom")
       VALUES (proposal.model, entry ->> 'dimension', entry ->> 'value', (entry ->> 'factor')::numeric, now());
   END LOOP;
-  UPDATE {{schema}}.{{prefix}}price_proposals p SET status = 'applied', "decidedAt" = now()
+  UPDATE {{schema}}.{{table_price_proposals}} p SET status = 'applied', "decidedAt" = now()
     WHERE p.id = proposal_id;
   RETURN NEXT price;
 END;

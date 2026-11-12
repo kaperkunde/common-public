@@ -48,24 +48,24 @@ AS $$
 $$;
 
 -- What the deployment hands out. One row.
-CREATE TABLE {{schema}}.{{prefix}}settings (
+CREATE TABLE {{schema}}.{{table_settings}} (
   id boolean PRIMARY KEY DEFAULT true CONSTRAINT {{prefix}}settings_one_row CHECK (id),
   -- The most free credits one user is handed a month. Zero until the admin decides.
   allotment bigint NOT NULL DEFAULT 0 CONSTRAINT {{prefix}}settings_allotment_check CHECK (allotment >= 0),
   "updatedAt" timestamptz NOT NULL DEFAULT now()
 );
 
-INSERT INTO {{schema}}.{{prefix}}settings (id, allotment) VALUES (true, 0);
+INSERT INTO {{schema}}.{{table_settings}} (id, allotment) VALUES (true, 0);
 
 CREATE TRIGGER {{prefix}}settings_stamp
-  BEFORE INSERT OR UPDATE ON {{schema}}.{{prefix}}settings
+  BEFORE INSERT OR UPDATE ON {{schema}}.{{table_settings}}
   FOR EACH ROW EXECUTE FUNCTION {{schema}}.{{prefix}}stamp();
 
 -- One price of one model from a moment on: the version. Its kinds are rows of their own
 -- (model_price_kinds), so a model may be priced for any kind of usage -- prompt and answer
 -- tokens, cache reads and writes, characters or seconds of speech. A history, never updated:
 -- the newest that has begun is the one in force.
-CREATE TABLE {{schema}}.{{prefix}}model_prices (
+CREATE TABLE {{schema}}.{{table_model_prices}} (
   id bigserial PRIMARY KEY,
   model text NOT NULL,
   "effectiveFrom" timestamptz NOT NULL DEFAULT now(),
@@ -87,9 +87,9 @@ CREATE TABLE {{schema}}.{{prefix}}model_prices (
 -- left out but a fallback could work out is written here too, `derived`, when the price is set:
 -- a price version is whole and never changes, so a call is charged what it said on the day
 -- whatever happens to the fallbacks later.
-CREATE TABLE {{schema}}.{{prefix}}model_price_kinds (
+CREATE TABLE {{schema}}.{{table_model_price_kinds}} (
   "priceId" bigint NOT NULL
-    REFERENCES {{schema}}.{{prefix}}model_prices (id) ON DELETE CASCADE,
+    REFERENCES {{schema}}.{{table_model_prices}} (id) ON DELETE CASCADE,
   kind text NOT NULL
     CONSTRAINT {{prefix}}model_price_kinds_kind_check CHECK (kind ~ '^[a-z][a-z0-9_]{0,39}$'),
   -- What one unit is, in words: `token`, `char`, `second`. For the screens.
@@ -107,14 +107,14 @@ CREATE TABLE {{schema}}.{{prefix}}model_price_kinds (
 -- that version (`derived`); a change here is a default for prices set from then on, and never
 -- reprices a call already made. Data, so an app may change or remove the defaults; a kind a
 -- version neither sets nor derived is unpriced, and a call that used it cannot be charged.
-CREATE TABLE {{schema}}.{{prefix}}kind_fallbacks (
+CREATE TABLE {{schema}}.{{table_kind_fallbacks}} (
   kind text PRIMARY KEY,
   "baseKind" text NOT NULL,
   multiple numeric NOT NULL CONSTRAINT {{prefix}}kind_fallbacks_multiple_check CHECK (multiple >= 0),
   CONSTRAINT {{prefix}}kind_fallbacks_not_self CHECK (kind <> "baseKind")
 );
 
-INSERT INTO {{schema}}.{{prefix}}kind_fallbacks (kind, "baseKind", multiple) VALUES
+INSERT INTO {{schema}}.{{table_kind_fallbacks}} (kind, "baseKind", multiple) VALUES
   ('cache_read', 'input', 0.1),
   ('cache_write', 'input', 1.25),
   ('cache_write_1h', 'input', 2);
@@ -122,7 +122,7 @@ INSERT INTO {{schema}}.{{prefix}}kind_fallbacks (kind, "baseKind", multiple) VAL
 -- Multiples a request is priced at for one value of one of its dimensions -- where it ran, a
 -- batch, fast mode. `model` null holds for every model; a model's own row wins over that. Any
 -- value with no row is 1x. A history like the prices.
-CREATE TABLE {{schema}}.{{prefix}}price_factors (
+CREATE TABLE {{schema}}.{{table_price_factors}} (
   id bigserial PRIMARY KEY,
   model text NULL,
   dimension text NOT NULL
@@ -133,10 +133,10 @@ CREATE TABLE {{schema}}.{{prefix}}price_factors (
 );
 
 CREATE UNIQUE INDEX {{prefix}}price_factors_key
-  ON {{schema}}.{{prefix}}price_factors (coalesce(model, ''), dimension, value, "effectiveFrom");
+  ON {{schema}}.{{table_price_factors}} (coalesce(model, ''), dimension, value, "effectiveFrom");
 
 -- How many credits a dollar of a provider's price comes to, from a moment on.
-CREATE TABLE {{schema}}.{{prefix}}dollar_rates (
+CREATE TABLE {{schema}}.{{table_dollar_rates}} (
   "perDollar" numeric NOT NULL CONSTRAINT {{prefix}}dollar_rates_positive CHECK ("perDollar" > 0),
   "effectiveFrom" timestamptz NOT NULL DEFAULT now() PRIMARY KEY
 );
@@ -200,7 +200,7 @@ CREATE INDEX {{usage_table}}_user_source_idx
   ON {{schema}}.{{usage_table}} ("userId", source, "createdAt");
 
 -- One user's credits. Absent until they first ask for anything.
-CREATE TABLE {{schema}}.{{prefix}}balances (
+CREATE TABLE {{schema}}.{{table_balances}} (
   "userId" {{owner_id_type}} NOT NULL PRIMARY KEY
     REFERENCES {{schema}}."{{owner_table}}" ("{{owner_id_column}}") ON UPDATE CASCADE ON DELETE CASCADE,
   -- What is left of the free credits; below zero only by an overdraft, forgiven at expiry.
@@ -215,19 +215,19 @@ CREATE TABLE {{schema}}.{{prefix}}balances (
 );
 
 CREATE TRIGGER {{prefix}}balances_stamp
-  BEFORE INSERT OR UPDATE ON {{schema}}.{{prefix}}balances
+  BEFORE INSERT OR UPDATE ON {{schema}}.{{table_balances}}
   FOR EACH ROW EXECUTE FUNCTION {{schema}}.{{prefix}}stamp();
 
 -- What the admin will spend on free credits a month, in US dollars, from a moment on. No row
 -- at all is a budget of nothing.
-CREATE TABLE {{schema}}.{{prefix}}pool_budgets (
+CREATE TABLE {{schema}}.{{table_pool_budgets}} (
   "effectiveFrom" timestamptz NOT NULL DEFAULT now() PRIMARY KEY,
   "budgetUsd" numeric NOT NULL CONSTRAINT {{prefix}}pool_budgets_budget_check CHECK ("budgetUsd" >= 0),
   "adminEmail" text NOT NULL
 );
 
 -- One month of the pool: what has come out of it. The row a grant locks.
-CREATE TABLE {{schema}}.{{prefix}}pool_periods (
+CREATE TABLE {{schema}}.{{table_pool_periods}} (
   "periodStart" timestamptz NOT NULL PRIMARY KEY,
   "grantedCredits" bigint NOT NULL DEFAULT 0,
   "grantedUsd" numeric NOT NULL DEFAULT 0,
@@ -250,11 +250,11 @@ CREATE TABLE {{schema}}.{{prefix}}pool_periods (
 );
 
 CREATE TRIGGER {{prefix}}pool_periods_stamp
-  BEFORE INSERT OR UPDATE ON {{schema}}.{{prefix}}pool_periods
+  BEFORE INSERT OR UPDATE ON {{schema}}.{{table_pool_periods}}
   FOR EACH ROW EXECUTE FUNCTION {{schema}}.{{prefix}}stamp();
 
 -- Every handout of free credits: what the pool paid, to whom, in which month.
-CREATE TABLE {{schema}}.{{prefix}}free_grants (
+CREATE TABLE {{schema}}.{{table_free_grants}} (
   id bigserial PRIMARY KEY,
   "userId" {{owner_id_type}} NOT NULL
     REFERENCES {{schema}}."{{owner_table}}" ("{{owner_id_column}}") ON UPDATE CASCADE ON DELETE CASCADE,
@@ -268,11 +268,11 @@ CREATE TABLE {{schema}}.{{prefix}}free_grants (
   "createdAt" timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX {{prefix}}free_grants_user_period ON {{schema}}.{{prefix}}free_grants ("userId", "periodStart");
-CREATE INDEX {{prefix}}free_grants_period ON {{schema}}.{{prefix}}free_grants ("periodStart");
+CREATE INDEX {{prefix}}free_grants_user_period ON {{schema}}.{{table_free_grants}} ("userId", "periodStart");
+CREATE INDEX {{prefix}}free_grants_period ON {{schema}}.{{table_free_grants}} ("periodStart");
 
 -- The admin granting credits, or taking some back: who, how many, why, and which admin.
-CREATE TABLE {{schema}}.{{prefix}}grants (
+CREATE TABLE {{schema}}.{{table_grants}} (
   id bigserial PRIMARY KEY,
   "userId" {{owner_id_type}} NOT NULL
     REFERENCES {{schema}}."{{owner_table}}" ("{{owner_id_column}}") ON UPDATE CASCADE ON DELETE CASCADE,
@@ -283,15 +283,15 @@ CREATE TABLE {{schema}}.{{prefix}}grants (
   "createdAt" timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX {{prefix}}grants_user_created ON {{schema}}.{{prefix}}grants ("userId", "createdAt" DESC);
-CREATE INDEX {{prefix}}grants_created ON {{schema}}.{{prefix}}grants ("createdAt" DESC);
+CREATE INDEX {{prefix}}grants_user_created ON {{schema}}.{{table_grants}} ("userId", "createdAt" DESC);
+CREATE INDEX {{prefix}}grants_created ON {{schema}}.{{table_grants}} ("createdAt" DESC);
 
 -- A user's own model: an endpoint and a key of their own, which their calls may run on instead
 -- of -- or as well as -- the deployment's and its credits. The key is sealed by the app before
 -- it is written (`@kaperkunde/security`'s secret box) and never selectable by any role a user
 -- or an agent reaches. What it costs is the provider's tokens, never credits; the one limit is
 -- the user's, per calendar month.
-CREATE TABLE {{schema}}.{{prefix}}own_backends (
+CREATE TABLE {{schema}}.{{table_own_backends}} (
   "userId" {{owner_id_type}} NOT NULL PRIMARY KEY
     REFERENCES {{schema}}."{{owner_table}}" ("{{owner_id_column}}") ON UPDATE CASCADE ON DELETE CASCADE,
   "baseUrl" text NOT NULL
@@ -316,7 +316,7 @@ CREATE TABLE {{schema}}.{{prefix}}own_backends (
 );
 
 CREATE TRIGGER {{prefix}}own_backends_stamp
-  BEFORE INSERT OR UPDATE ON {{schema}}.{{prefix}}own_backends
+  BEFORE INSERT OR UPDATE ON {{schema}}.{{table_own_backends}}
   FOR EACH ROW EXECUTE FUNCTION {{schema}}.{{prefix}}stamp();
 
 -- A price set whole, in one statement: the version and its kinds. `kinds` is
@@ -333,12 +333,12 @@ CREATE FUNCTION {{schema}}.{{prefix}}set_model_price(
   synced_at timestamptz DEFAULT NULL,
   effective_from timestamptz DEFAULT now()
 )
-RETURNS SETOF {{schema}}.{{prefix}}model_prices
+RETURNS SETOF {{schema}}.{{table_model_prices}}
 LANGUAGE plpgsql
 VOLATILE
 AS $$
 DECLARE
-  price {{schema}}.{{prefix}}model_prices;
+  price {{schema}}.{{table_model_prices}};
   entry jsonb;
 BEGIN
   PERFORM {{schema}}.{{prefix}}assert_server('Prices are set');
@@ -357,7 +357,7 @@ BEGIN
       USING ERRCODE = 'check_violation';
   END IF;
 
-  INSERT INTO {{schema}}.{{prefix}}model_prices
+  INSERT INTO {{schema}}.{{table_model_prices}}
     (model, "effectiveFrom", "longPromptUnits", "longPromptFactor", source, "syncedAt")
   VALUES (
     trim(price_model), coalesce(effective_from, now()), long_prompt_units, long_prompt_factor,
@@ -367,21 +367,21 @@ BEGIN
 
   FOR entry IN SELECT value FROM jsonb_array_elements(kinds)
       WHERE coalesce((value ->> 'derived')::boolean, false) IS NOT TRUE LOOP
-    INSERT INTO {{schema}}.{{prefix}}model_price_kinds ("priceId", kind, unit, "usdPerMillion")
+    INSERT INTO {{schema}}.{{table_model_price_kinds}} ("priceId", kind, unit, "usdPerMillion")
     VALUES (
       price.id, entry ->> 'kind', coalesce(entry ->> 'unit', 'token'),
       (entry ->> 'usdPerMillion')::numeric
     );
   END LOOP;
 
-  INSERT INTO {{schema}}.{{prefix}}model_price_kinds
+  INSERT INTO {{schema}}.{{table_model_price_kinds}}
     ("priceId", kind, unit, "usdPerMillion", derived)
   SELECT price.id, f.kind, b.unit, b."usdPerMillion" * f.multiple, true
-    FROM {{schema}}.{{prefix}}kind_fallbacks f
-    JOIN {{schema}}.{{prefix}}model_price_kinds b
+    FROM {{schema}}.{{table_kind_fallbacks}} f
+    JOIN {{schema}}.{{table_model_price_kinds}} b
       ON b."priceId" = price.id AND b.kind = f."baseKind" AND NOT b.derived
     WHERE NOT EXISTS (
-      SELECT 1 FROM {{schema}}.{{prefix}}model_price_kinds k
+      SELECT 1 FROM {{schema}}.{{table_model_price_kinds}} k
         WHERE k."priceId" = price.id AND k.kind = f.kind
     );
 
@@ -391,11 +391,11 @@ $$;
 
 -- The price of a model in force at a moment: the newest version that had begun.
 CREATE FUNCTION {{schema}}.{{prefix}}price_at(price_model text, at timestamptz)
-RETURNS {{schema}}.{{prefix}}model_prices
+RETURNS {{schema}}.{{table_model_prices}}
 LANGUAGE sql
 STABLE
 AS $$
-  SELECT * FROM {{schema}}.{{prefix}}model_prices p
+  SELECT * FROM {{schema}}.{{table_model_prices}} p
     WHERE p.model = price_model AND p."effectiveFrom" <= at
     ORDER BY p."effectiveFrom" DESC
     LIMIT 1
@@ -412,7 +412,7 @@ LANGUAGE plpgsql
 STABLE
 AS $$
 DECLARE
-  price {{schema}}.{{prefix}}model_prices;
+  price {{schema}}.{{table_model_prices}};
 BEGIN
   price := {{schema}}.{{prefix}}price_at(price_model, at);
   IF price.id IS NULL THEN
@@ -433,7 +433,7 @@ RETURNS numeric
 LANGUAGE sql
 STABLE
 AS $$
-  SELECT k."usdPerMillion" FROM {{schema}}.{{prefix}}model_price_kinds k
+  SELECT k."usdPerMillion" FROM {{schema}}.{{table_model_price_kinds}} k
     WHERE k."priceId" = price_id AND k.kind = price_kind
 $$;
 
@@ -446,11 +446,11 @@ LANGUAGE sql
 STABLE
 AS $$
   SELECT coalesce(
-    (SELECT f.factor FROM {{schema}}.{{prefix}}price_factors f
+    (SELECT f.factor FROM {{schema}}.{{table_price_factors}} f
       WHERE f.model = price_model AND f.dimension = factor_dimension
         AND f.value = factor_value AND f."effectiveFrom" <= at
       ORDER BY f."effectiveFrom" DESC LIMIT 1),
-    (SELECT f.factor FROM {{schema}}.{{prefix}}price_factors f
+    (SELECT f.factor FROM {{schema}}.{{table_price_factors}} f
       WHERE f.model IS NULL AND f.dimension = factor_dimension
         AND f.value = factor_value AND f."effectiveFrom" <= at
       ORDER BY f."effectiveFrom" DESC LIMIT 1),
@@ -460,7 +460,7 @@ $$;
 
 -- One kind's dollars for a quantity, refusing a kind nobody priced.
 CREATE FUNCTION {{schema}}.{{prefix}}kind_cost(
-  price {{schema}}.{{prefix}}model_prices, price_kind text, quantity numeric
+  price {{schema}}.{{table_model_prices}}, price_kind text, quantity numeric
 )
 RETURNS numeric
 LANGUAGE plpgsql
@@ -485,7 +485,7 @@ $$;
 -- is not prompt and answer (`units`). Every count is held inside the one above it whatever a
 -- provider reports. `callUsd` in pricing.ts is the same arithmetic.
 CREATE FUNCTION {{schema}}.{{prefix}}call_usd(
-  usage {{schema}}.{{usage_table}}, price {{schema}}.{{prefix}}model_prices
+  usage {{schema}}.{{usage_table}}, price {{schema}}.{{table_model_prices}}
 )
 RETURNS numeric
 LANGUAGE plpgsql
@@ -583,18 +583,18 @@ DECLARE
   budget numeric;
   left_usd numeric;
 BEGIN
-  SELECT s.allotment INTO allotment FROM {{schema}}.{{prefix}}settings s WHERE s.id;
-  SELECT coalesce(sum(g.credits), 0) INTO taken FROM {{schema}}.{{prefix}}free_grants g
+  SELECT s.allotment INTO allotment FROM {{schema}}.{{table_settings}} s WHERE s.id;
+  SELECT coalesce(sum(g.credits), 0) INTO taken FROM {{schema}}.{{table_free_grants}} g
     WHERE g."userId" = user_id AND g."periodStart" = period;
   IF coalesce(allotment, 0) - taken <= 0 THEN
     RETURN 0;
   END IF;
-  SELECT r."perDollar" INTO per_dollar FROM {{schema}}.{{prefix}}dollar_rates r
+  SELECT r."perDollar" INTO per_dollar FROM {{schema}}.{{table_dollar_rates}} r
     WHERE r."effectiveFrom" <= now() ORDER BY r."effectiveFrom" DESC LIMIT 1;
   IF per_dollar IS NULL THEN
     RETURN 0;
   END IF;
-  SELECT b."budgetUsd" INTO budget FROM {{schema}}.{{prefix}}pool_budgets b
+  SELECT b."budgetUsd" INTO budget FROM {{schema}}.{{table_pool_budgets}} b
     WHERE b."effectiveFrom" <= now() ORDER BY b."effectiveFrom" DESC LIMIT 1;
   left_usd := coalesce(budget, 0) - (granted + overdraft) * drift;
   IF left_usd <= 0 THEN
@@ -619,14 +619,14 @@ $$;
 CREATE FUNCTION {{schema}}.{{prefix}}admit(
   user_id {{owner_id_type}}, price_model text DEFAULT NULL, needed text[] DEFAULT NULL
 )
-RETURNS SETOF {{schema}}.{{prefix}}balances
+RETURNS SETOF {{schema}}.{{table_balances}}
 LANGUAGE plpgsql
 VOLATILE
 AS $$
 DECLARE
-  balance {{schema}}.{{prefix}}balances;
-  pool {{schema}}.{{prefix}}pool_periods;
-  ratio {{schema}}.{{prefix}}dollar_rates;
+  balance {{schema}}.{{table_balances}};
+  pool {{schema}}.{{table_pool_periods}};
+  ratio {{schema}}.{{table_dollar_rates}};
   period timestamptz := {{schema}}.{{prefix}}period(now());
   given bigint;
   missing text[];
@@ -640,40 +640,40 @@ BEGIN
     END IF;
   END IF;
 
-  INSERT INTO {{schema}}.{{prefix}}balances ("userId") VALUES (user_id)
+  INSERT INTO {{schema}}.{{table_balances}} ("userId") VALUES (user_id)
     ON CONFLICT ("userId") DO NOTHING;
-  SELECT * INTO balance FROM {{schema}}.{{prefix}}balances b WHERE b."userId" = user_id FOR UPDATE;
+  SELECT * INTO balance FROM {{schema}}.{{table_balances}} b WHERE b."userId" = user_id FOR UPDATE;
 
   IF balance."freeExpiresAt" IS NOT NULL AND balance."freeExpiresAt" <= now() THEN
-    UPDATE {{schema}}.{{prefix}}balances b SET free = 0, "freeExpiresAt" = NULL
+    UPDATE {{schema}}.{{table_balances}} b SET free = 0, "freeExpiresAt" = NULL
       WHERE b."userId" = user_id
       RETURNING * INTO balance;
   END IF;
 
   IF balance.free + balance.purchased <= 0 THEN
-    INSERT INTO {{schema}}.{{prefix}}pool_periods ("periodStart") VALUES (period)
+    INSERT INTO {{schema}}.{{table_pool_periods}} ("periodStart") VALUES (period)
       ON CONFLICT ("periodStart") DO NOTHING;
-    SELECT * INTO pool FROM {{schema}}.{{prefix}}pool_periods p
+    SELECT * INTO pool FROM {{schema}}.{{table_pool_periods}} p
       WHERE p."periodStart" = period FOR UPDATE;
     given := {{schema}}.{{prefix}}pool_could_give(
       user_id, period, pool."grantedUsd", pool."overdraftUsd", pool."driftFactor"
     );
     IF given > 0 THEN
-      SELECT * INTO ratio FROM {{schema}}.{{prefix}}dollar_rates r
+      SELECT * INTO ratio FROM {{schema}}.{{table_dollar_rates}} r
         WHERE r."effectiveFrom" <= now() ORDER BY r."effectiveFrom" DESC LIMIT 1;
-      INSERT INTO {{schema}}.{{prefix}}free_grants ("userId", "periodStart", credits, usd, "ratioFrom")
+      INSERT INTO {{schema}}.{{table_free_grants}} ("userId", "periodStart", credits, usd, "ratioFrom")
         VALUES (user_id, period, given, given / ratio."perDollar", ratio."effectiveFrom");
-      UPDATE {{schema}}.{{prefix}}pool_periods p
+      UPDATE {{schema}}.{{table_pool_periods}} p
         SET "grantedCredits" = p."grantedCredits" + given,
             "grantedUsd" = p."grantedUsd" + given / ratio."perDollar"
         WHERE p."periodStart" = period;
-      UPDATE {{schema}}.{{prefix}}balances b
+      UPDATE {{schema}}.{{table_balances}} b
         SET free = given, "freeExpiresAt" = period + interval '1 month'
         WHERE b."userId" = user_id;
     END IF;
   END IF;
 
-  RETURN QUERY SELECT * FROM {{schema}}.{{prefix}}balances b WHERE b."userId" = user_id;
+  RETURN QUERY SELECT * FROM {{schema}}.{{table_balances}} b WHERE b."userId" = user_id;
 END;
 $$;
 
@@ -688,8 +688,8 @@ LANGUAGE plpgsql
 STABLE
 AS $$
 DECLARE
-  balance {{schema}}.{{prefix}}balances;
-  pool {{schema}}.{{prefix}}pool_periods;
+  balance {{schema}}.{{table_balances}};
+  pool {{schema}}.{{table_pool_periods}};
   period timestamptz := {{schema}}.{{prefix}}period(now());
   free_now bigint := 0;
   bought bigint := 0;
@@ -699,7 +699,7 @@ BEGIN
   )) > 0 THEN
     RETURN false;
   END IF;
-  SELECT * INTO balance FROM {{schema}}.{{prefix}}balances b WHERE b."userId" = user_id;
+  SELECT * INTO balance FROM {{schema}}.{{table_balances}} b WHERE b."userId" = user_id;
   IF FOUND THEN
     bought := balance.purchased;
     IF balance."freeExpiresAt" IS NULL OR balance."freeExpiresAt" > now() THEN
@@ -709,7 +709,7 @@ BEGIN
   IF free_now + bought > 0 THEN
     RETURN true;
   END IF;
-  SELECT * INTO pool FROM {{schema}}.{{prefix}}pool_periods p WHERE p."periodStart" = period;
+  SELECT * INTO pool FROM {{schema}}.{{table_pool_periods}} p WHERE p."periodStart" = period;
   RETURN {{schema}}.{{prefix}}pool_could_give(
     user_id, period,
     coalesce(pool."grantedUsd", 0), coalesce(pool."overdraftUsd", 0),
@@ -730,9 +730,9 @@ VOLATILE
 AS $$
 DECLARE
   usage {{schema}}.{{usage_table}};
-  price {{schema}}.{{prefix}}model_prices;
-  ratio {{schema}}.{{prefix}}dollar_rates;
-  balance {{schema}}.{{prefix}}balances;
+  price {{schema}}.{{table_model_prices}};
+  ratio {{schema}}.{{table_dollar_rates}};
+  balance {{schema}}.{{table_balances}};
   period timestamptz := {{schema}}.{{prefix}}period(now());
   dollars numeric;
   cost bigint;
@@ -755,7 +755,7 @@ BEGIN
   IF price.id IS NULL THEN
     RAISE EXCEPTION 'The model % had no price when call % was made', usage.model, usage_id;
   END IF;
-  SELECT * INTO ratio FROM {{schema}}.{{prefix}}dollar_rates r
+  SELECT * INTO ratio FROM {{schema}}.{{table_dollar_rates}} r
     WHERE r."effectiveFrom" <= usage."createdAt"
     ORDER BY r."effectiveFrom" DESC
     LIMIT 1;
@@ -766,12 +766,12 @@ BEGIN
   dollars := {{schema}}.{{prefix}}call_usd(usage, price);
   cost := ceil(round(dollars * ratio."perDollar", 9));
 
-  INSERT INTO {{schema}}.{{prefix}}balances ("userId") VALUES (usage."userId")
+  INSERT INTO {{schema}}.{{table_balances}} ("userId") VALUES (usage."userId")
     ON CONFLICT ("userId") DO NOTHING;
-  SELECT * INTO balance FROM {{schema}}.{{prefix}}balances b
+  SELECT * INTO balance FROM {{schema}}.{{table_balances}} b
     WHERE b."userId" = usage."userId" FOR UPDATE;
   IF balance."freeExpiresAt" IS NOT NULL AND balance."freeExpiresAt" <= now() THEN
-    UPDATE {{schema}}.{{prefix}}balances b SET free = 0, "freeExpiresAt" = NULL
+    UPDATE {{schema}}.{{table_balances}} b SET free = 0, "freeExpiresAt" = NULL
       WHERE b."userId" = usage."userId"
       RETURNING * INTO balance;
   END IF;
@@ -780,7 +780,7 @@ BEGIN
   from_purchased := least(balance.purchased, cost - from_free);
   short := cost - from_free - from_purchased;
 
-  UPDATE {{schema}}.{{prefix}}balances b
+  UPDATE {{schema}}.{{table_balances}} b
     SET free = b.free - from_free - short, purchased = b.purchased - from_purchased,
         "freeExpiresAt" = CASE
           WHEN short > 0 THEN coalesce(b."freeExpiresAt", period + interval '1 month')
@@ -789,9 +789,9 @@ BEGIN
     WHERE b."userId" = usage."userId";
 
   IF short > 0 AND cost > 0 THEN
-    INSERT INTO {{schema}}.{{prefix}}pool_periods ("periodStart") VALUES (period)
+    INSERT INTO {{schema}}.{{table_pool_periods}} ("periodStart") VALUES (period)
       ON CONFLICT ("periodStart") DO NOTHING;
-    UPDATE {{schema}}.{{prefix}}pool_periods p
+    UPDATE {{schema}}.{{table_pool_periods}} p
       SET "overdraftUsd" = p."overdraftUsd" + dollars * short / cost
       WHERE p."periodStart" = period;
   END IF;
@@ -818,12 +818,12 @@ $$;
 CREATE FUNCTION {{schema}}.{{prefix}}grant(
   user_id {{owner_id_type}}, amount bigint, reason text, admin_email text
 )
-RETURNS SETOF {{schema}}.{{prefix}}balances
+RETURNS SETOF {{schema}}.{{table_balances}}
 LANGUAGE plpgsql
 VOLATILE
 AS $$
 DECLARE
-  balance {{schema}}.{{prefix}}balances;
+  balance {{schema}}.{{table_balances}};
 BEGIN
   PERFORM {{schema}}.{{prefix}}assert_server('Credits are granted');
 
@@ -846,9 +846,9 @@ BEGIN
       USING ERRCODE = 'check_violation';
   END IF;
 
-  INSERT INTO {{schema}}.{{prefix}}balances ("userId") VALUES (user_id)
+  INSERT INTO {{schema}}.{{table_balances}} ("userId") VALUES (user_id)
     ON CONFLICT ("userId") DO NOTHING;
-  SELECT * INTO balance FROM {{schema}}.{{prefix}}balances b WHERE b."userId" = user_id FOR UPDATE;
+  SELECT * INTO balance FROM {{schema}}.{{table_balances}} b WHERE b."userId" = user_id FOR UPDATE;
 
   IF balance.purchased + amount < 0 THEN
     RAISE EXCEPTION 'User % has % bought or granted; a correction of % would take them below nothing.',
@@ -856,18 +856,18 @@ BEGIN
       USING ERRCODE = 'check_violation';
   END IF;
 
-  UPDATE {{schema}}.{{prefix}}balances b SET purchased = b.purchased + amount WHERE b."userId" = user_id;
-  INSERT INTO {{schema}}.{{prefix}}grants ("userId", amount, reason, "adminEmail")
+  UPDATE {{schema}}.{{table_balances}} b SET purchased = b.purchased + amount WHERE b."userId" = user_id;
+  INSERT INTO {{schema}}.{{table_grants}} ("userId", amount, reason, "adminEmail")
     VALUES (user_id, amount, trim(reason), trim(admin_email));
 
-  RETURN QUERY SELECT * FROM {{schema}}.{{prefix}}balances b WHERE b."userId" = user_id;
+  RETURN QUERY SELECT * FROM {{schema}}.{{table_balances}} b WHERE b."userId" = user_id;
 END;
 $$;
 
 -- Claiming the telling of one month's "out of credits": the where clause is the claim, so two
 -- refusals at once tell the user once. Answers the row only for the call that claimed it.
 CREATE FUNCTION {{schema}}.{{prefix}}claim_out_notice(user_id {{owner_id_type}})
-RETURNS SETOF {{schema}}.{{prefix}}balances
+RETURNS SETOF {{schema}}.{{table_balances}}
 LANGUAGE plpgsql
 VOLATILE
 AS $$
@@ -876,7 +876,7 @@ DECLARE
 BEGIN
   PERFORM {{schema}}.{{prefix}}assert_server('Notices are claimed');
   RETURN QUERY
-    UPDATE {{schema}}.{{prefix}}balances b SET "notifiedFor" = period
+    UPDATE {{schema}}.{{table_balances}} b SET "notifiedFor" = period
       WHERE b."userId" = user_id AND b."notifiedFor" IS DISTINCT FROM period
       RETURNING b.*;
 END;

@@ -4,7 +4,6 @@
  * server-only checks. Skipped unless CREDITS_TEST_DATABASE_URL names a Postgres to use.
  */
 
-import type pg from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { createCredits, CreditsRefusedError } from "./credits"
@@ -15,7 +14,7 @@ import { databaseUrl, freshDatabase } from "./test/database"
 const MONTH = `date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`
 
 describe.skipIf(!databaseUrl)("the credit SQL", () => {
-  let pool: pg.Pool
+  let pool: Awaited<ReturnType<typeof freshDatabase>>
   let store: ReturnType<typeof createStore>
   let credits: ReturnType<typeof createCredits>
   const told: string[] = []
@@ -569,14 +568,106 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
   })
 
   it("rolls back whole", async () => {
-    const { migrations, render, TEST_VARS } = await import("./test/database")
-    for (const migration of migrations().reverse()) {
-      await pool.query(render(migration.down, TEST_VARS))
+    for (const migration of [...pool.migrations].reverse()) {
+      await pool.query(migration.down)
     }
     const left = await pool.query(
       `SELECT count(*)::int AS n FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
        WHERE n.nspname = 'public' AND c.relname LIKE 'credit_%'`,
     )
     expect(left.rows[0].n).toBe(0)
+    const functions = await pool.query(
+      `SELECT count(*)::int AS n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public' AND p.proname LIKE 'credit_%'`,
+    )
+    expect(functions.rows[0].n).toBe(0)
   })
 })
+
+describe.skipIf(!databaseUrl)(
+  "the credit SQL under an app's own table names",
+  () => {
+    // An app adopting the package with tables it already has: unprefixed price tables, its own
+    // ledger, a renamed sale-price table, and every other table on its own prefix.
+    const tables = {
+      model_prices: "model_prices",
+      model_price_kinds: "model_price_kinds",
+      price_factors: "price_factors",
+      stripe_events: "stripe_events",
+      sale_prices: "app_token_prices",
+      own_backends: "ai_backends",
+    } as const
+    let pool: Awaited<ReturnType<typeof freshDatabase>>
+
+    beforeAll(async () => {
+      pool = await freshDatabase("kk_credits_names_test", {
+        owner_table: "account",
+        prefix: "app_",
+        usage_table: "ai_usage",
+        ...Object.fromEntries(
+          Object.entries(tables).map(([table, name]) => [
+            `table_${table}`,
+            name,
+          ]),
+        ),
+      })
+    })
+
+    afterAll(async () => {
+      await pool?.end()
+    })
+
+    it("prices, admits, spends and credits through the mapped names", async () => {
+      const db = pgExecutor(pool, { role: "server" })
+      const names = { prefix: "app_", usageTable: "ai_usage", tables }
+      const store = createStore(db, names)
+      const credits = createCredits({ db, names })
+      await pool.query(`INSERT INTO public.account (id) VALUES ('ash')`)
+      await store.addRate(1_000_000, "2020-01-01T00:00:00Z")
+      await store.grant("ash", 1_000_000, "a playtest", "admin@example.com")
+      await store.setModelPrice({
+        model: "m",
+        kinds: [
+          { kind: "input", usdPerMillion: 1 },
+          { kind: "output", usdPerMillion: 5 },
+        ],
+        effectiveFrom: "2020-01-01T00:00:00Z",
+      })
+      expect((await credits.admit("ash", { model: "m" })).ok).toBe(true)
+      const row = await credits.onUsage({
+        userId: "ash",
+        model: "m",
+        purpose: "chat",
+        requests: [{ inputTokens: 100_000, outputTokens: 20_000 }],
+      })
+      expect(row.credits).toBe(200_000)
+      expect((await store.balance("ash"))?.purchased).toBe(800_000)
+      await store.addSalePrice("eur", 250)
+      const purchase = await store.purchaseOpen("ash", "eur", 500)
+      expect(
+        await store.credit({
+          eventId: "evt_1",
+          eventType: "checkout.session.completed",
+          purchaseId: purchase.id,
+          userId: "ash",
+          credits: purchase.credits,
+        }),
+      ).toBe(true)
+      const present = await pool.query(
+        `SELECT array_agg(relname::text ORDER BY relname) AS names FROM pg_class
+       WHERE relkind = 'r' AND relnamespace = 'public'::regnamespace`,
+      )
+      expect(present.rows[0].names).toEqual(
+        expect.arrayContaining([
+          "model_prices",
+          "app_token_prices",
+          "ai_backends",
+          "ai_usage",
+          "app_balances",
+          "stripe_events",
+        ]),
+      )
+      expect(present.rows[0].names).not.toContain("app_model_prices")
+    })
+  },
+)

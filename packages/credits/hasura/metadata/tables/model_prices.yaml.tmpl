@@ -1,5 +1,5 @@
 table:
-  name: {{prefix}}model_prices
+  name: {{table_model_prices}}
   schema: {{schema}}
 configuration:
   comment: "One price version of one model, from a moment on; its kinds are model_price_kinds. Set through set_model_price."
@@ -9,7 +9,7 @@ array_relationships:
       foreign_key_constraint_on:
         column: priceId
         table:
-          name: {{prefix}}model_price_kinds
+          name: {{table_model_price_kinds}}
           schema: {{schema}}
 select_permissions:
   - role: {{server_role}}

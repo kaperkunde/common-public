@@ -47,7 +47,28 @@ describe("the pg executor", () => {
 
 describe("the names", () => {
   it("qualify every object, and refuse anything but a plain identifier", () => {
-    expect(namesOf().t("balances")).toBe("public.credit_balances")
+    expect(namesOf().t("admit")).toBe("public.credit_admit")
+    expect(namesOf().table("balances")).toBe("public.credit_balances")
+    expect(namesOf().usage).toBe("public.credit_usage")
+    expect(namesOf({ prefix: "lore_" }).usage).toBe("public.lore_usage")
+    // An app keeping its own table names maps each one; the rest keep the prefix.
+    const adopted = namesOf({
+      prefix: "lore_",
+      tables: {
+        model_prices: "model_prices",
+        sale_prices: "lore_token_prices",
+      },
+    })
+    expect(adopted.table("model_prices")).toBe("public.model_prices")
+    expect(adopted.table("sale_prices")).toBe("public.lore_token_prices")
+    expect(adopted.table("balances")).toBe("public.lore_balances")
+    expect(adopted.t("spend")).toBe("public.lore_spend")
+    expect(() => namesOf({ tables: { balances: "x; DROP" } })).toThrow(
+      /plain SQL identifier/,
+    )
+    expect(() => namesOf({ tables: { nope: "x" } as never })).toThrow(
+      /No credit table/,
+    )
     expect(namesOf({ prefix: "lore_", usageTable: "ai_usage" }).usage).toBe(
       "public.ai_usage",
     )

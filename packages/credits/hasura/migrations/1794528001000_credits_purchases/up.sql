@@ -24,7 +24,7 @@ AS $$
 $$;
 
 -- What a million credits cost in a currency, from a moment on.
-CREATE TABLE {{schema}}.{{prefix}}sale_prices (
+CREATE TABLE {{schema}}.{{table_sale_prices}} (
   currency text NOT NULL
     CONSTRAINT {{prefix}}sale_prices_currency_check CHECK ({{schema}}.{{prefix}}two_decimal_currency(currency)),
   "centsPerMillion" bigint NOT NULL
@@ -35,7 +35,7 @@ CREATE TABLE {{schema}}.{{prefix}}sale_prices (
 
 -- Every Stripe event that has credited anything, by Stripe's id. Inserted first, in the same
 -- transaction as the credit, so a replay finds its id taken and grants nothing.
-CREATE TABLE {{schema}}.{{prefix}}stripe_events (
+CREATE TABLE {{schema}}.{{table_stripe_events}} (
   id text PRIMARY KEY,
   type text NOT NULL,
   "purchaseId" bigint NULL,
@@ -43,7 +43,7 @@ CREATE TABLE {{schema}}.{{prefix}}stripe_events (
 );
 
 -- One purchase or automatic refill: what was asked for, at which price, and what became of it.
-CREATE TABLE {{schema}}.{{prefix}}purchases (
+CREATE TABLE {{schema}}.{{table_purchases}} (
   id bigserial PRIMARY KEY,
   "userId" {{owner_id_type}} NOT NULL
     REFERENCES {{schema}}."{{owner_table}}" ("{{owner_id_column}}") ON UPDATE CASCADE ON DELETE CASCADE,
@@ -64,10 +64,10 @@ CREATE TABLE {{schema}}.{{prefix}}purchases (
   "paidAt" timestamptz NULL
 );
 
-CREATE INDEX {{prefix}}purchases_user_created ON {{schema}}.{{prefix}}purchases ("userId", "createdAt" DESC);
+CREATE INDEX {{prefix}}purchases_user_created ON {{schema}}.{{table_purchases}} ("userId", "createdAt" DESC);
 
 -- A user's automatic refill: off until they turn it on.
-CREATE TABLE {{schema}}.{{prefix}}autorefill (
+CREATE TABLE {{schema}}.{{table_autorefill}} (
   "userId" {{owner_id_type}} NOT NULL PRIMARY KEY
     REFERENCES {{schema}}."{{owner_table}}" ("{{owner_id_column}}") ON UPDATE CASCADE ON DELETE CASCADE,
   enabled boolean NOT NULL DEFAULT false,
@@ -90,16 +90,16 @@ CREATE TABLE {{schema}}.{{prefix}}autorefill (
 );
 
 CREATE TRIGGER {{prefix}}autorefill_stamp
-  BEFORE INSERT OR UPDATE ON {{schema}}.{{prefix}}autorefill
+  BEFORE INSERT OR UPDATE ON {{schema}}.{{table_autorefill}}
   FOR EACH ROW EXECUTE FUNCTION {{schema}}.{{prefix}}stamp();
 
 -- The price of a million credits in a currency at a moment.
 CREATE FUNCTION {{schema}}.{{prefix}}sale_price_at(price_currency text, at timestamptz)
-RETURNS {{schema}}.{{prefix}}sale_prices
+RETURNS {{schema}}.{{table_sale_prices}}
 LANGUAGE sql
 STABLE
 AS $$
-  SELECT * FROM {{schema}}.{{prefix}}sale_prices p
+  SELECT * FROM {{schema}}.{{table_sale_prices}} p
     WHERE p.currency = price_currency AND p."effectiveFrom" <= at
     ORDER BY p."effectiveFrom" DESC
     LIMIT 1
@@ -119,12 +119,12 @@ $$;
 CREATE FUNCTION {{schema}}.{{prefix}}purchase_open(
   user_id {{owner_id_type}}, purchase_currency text, amount_cents bigint
 )
-RETURNS SETOF {{schema}}.{{prefix}}purchases
+RETURNS SETOF {{schema}}.{{table_purchases}}
 LANGUAGE plpgsql
 VOLATILE
 AS $$
 DECLARE
-  price {{schema}}.{{prefix}}sale_prices;
+  price {{schema}}.{{table_sale_prices}};
 BEGIN
   PERFORM {{schema}}.{{prefix}}assert_server('Credits are sold');
   IF amount_cents IS NULL OR amount_cents < {{min_purchase_cents}} THEN
@@ -138,7 +138,7 @@ BEGIN
   END IF;
 
   RETURN QUERY
-    INSERT INTO {{schema}}.{{prefix}}purchases
+    INSERT INTO {{schema}}.{{table_purchases}}
       ("userId", kind, currency, "amountCents", credits, "priceFrom")
     VALUES (
       user_id, 'purchase', purchase_currency, amount_cents,
@@ -154,19 +154,19 @@ $$;
 -- `refillDecision` in billing.ts is the same rule. Locked on the settings row; the claim is
 -- `pending`. A claim whose charge never reached Stripe within the hour is given up on.
 CREATE FUNCTION {{schema}}.{{prefix}}refill_claim(user_id {{owner_id_type}})
-RETURNS SETOF {{schema}}.{{prefix}}purchases
+RETURNS SETOF {{schema}}.{{table_purchases}}
 LANGUAGE plpgsql
 VOLATILE
 AS $$
 DECLARE
-  settings {{schema}}.{{prefix}}autorefill;
-  balance {{schema}}.{{prefix}}balances;
-  price {{schema}}.{{prefix}}sale_prices;
+  settings {{schema}}.{{table_autorefill}};
+  balance {{schema}}.{{table_balances}};
+  price {{schema}}.{{table_sale_prices}};
   spent bigint;
 BEGIN
   PERFORM {{schema}}.{{prefix}}assert_server('Credits are sold');
 
-  SELECT * INTO settings FROM {{schema}}.{{prefix}}autorefill a WHERE a."userId" = user_id FOR UPDATE;
+  SELECT * INTO settings FROM {{schema}}.{{table_autorefill}} a WHERE a."userId" = user_id FOR UPDATE;
   IF NOT FOUND OR NOT settings.enabled
     OR settings."paymentMethodId" IS NULL OR settings."stripeCustomerId" IS NULL THEN
     RETURN;
@@ -174,24 +174,24 @@ BEGIN
 
   IF settings.pending THEN
     IF EXISTS (
-      SELECT 1 FROM {{schema}}.{{prefix}}purchases p
+      SELECT 1 FROM {{schema}}.{{table_purchases}} p
       WHERE p."userId" = user_id AND p.kind = 'refill' AND p.status = 'pending'
         AND (p."stripeId" IS NOT NULL OR p."createdAt" > now() - interval '1 hour')
     ) THEN
       RETURN;
     END IF;
-    UPDATE {{schema}}.{{prefix}}purchases p SET status = 'abandoned'
+    UPDATE {{schema}}.{{table_purchases}} p SET status = 'abandoned'
       WHERE p."userId" = user_id AND p.kind = 'refill' AND p.status = 'pending';
   END IF;
 
-  SELECT * INTO balance FROM {{schema}}.{{prefix}}balances b WHERE b."userId" = user_id;
+  SELECT * INTO balance FROM {{schema}}.{{table_balances}} b WHERE b."userId" = user_id;
   IF NOT FOUND
     OR (balance.free > 0 AND (balance."freeExpiresAt" IS NULL OR balance."freeExpiresAt" > now()))
     OR balance.purchased >= settings."thresholdCredits" THEN
     RETURN;
   END IF;
 
-  SELECT coalesce(sum(p."amountCents"), 0) INTO spent FROM {{schema}}.{{prefix}}purchases p
+  SELECT coalesce(sum(p."amountCents"), 0) INTO spent FROM {{schema}}.{{table_purchases}} p
     WHERE p."userId" = user_id AND p.kind = 'refill' AND p.currency = settings.currency
       AND p.status IN ('pending', 'paid')
       AND p."createdAt" >= {{schema}}.{{prefix}}period(now());
@@ -204,10 +204,10 @@ BEGIN
     RETURN;
   END IF;
 
-  UPDATE {{schema}}.{{prefix}}autorefill a SET pending = true WHERE a."userId" = user_id;
+  UPDATE {{schema}}.{{table_autorefill}} a SET pending = true WHERE a."userId" = user_id;
 
   RETURN QUERY
-    INSERT INTO {{schema}}.{{prefix}}purchases
+    INSERT INTO {{schema}}.{{table_purchases}}
       ("userId", kind, currency, "amountCents", credits, "priceFrom")
     VALUES (
       user_id, 'refill', settings.currency, settings."amountCents",
@@ -232,23 +232,23 @@ CREATE FUNCTION {{schema}}.{{prefix}}credit(
   tax_cents bigint,
   total_cents bigint
 )
-RETURNS SETOF {{schema}}.{{prefix}}purchases
+RETURNS SETOF {{schema}}.{{table_purchases}}
 LANGUAGE plpgsql
 VOLATILE
 AS $$
 DECLARE
-  purchase {{schema}}.{{prefix}}purchases;
+  purchase {{schema}}.{{table_purchases}};
 BEGIN
   PERFORM {{schema}}.{{prefix}}assert_server('Credits are credited');
 
-  INSERT INTO {{schema}}.{{prefix}}stripe_events (id, type, "purchaseId")
+  INSERT INTO {{schema}}.{{table_stripe_events}} (id, type, "purchaseId")
     VALUES (event_id, event_type, purchase_id)
     ON CONFLICT (id) DO NOTHING;
   IF NOT FOUND THEN
     RETURN;
   END IF;
 
-  SELECT * INTO purchase FROM {{schema}}.{{prefix}}purchases p WHERE p.id = purchase_id FOR UPDATE;
+  SELECT * INTO purchase FROM {{schema}}.{{table_purchases}} p WHERE p.id = purchase_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Stripe event % names purchase %, which does not exist', event_id, purchase_id;
   END IF;
@@ -259,7 +259,7 @@ BEGIN
     RETURN;
   END IF;
 
-  UPDATE {{schema}}.{{prefix}}purchases p
+  UPDATE {{schema}}.{{table_purchases}} p
     SET status = 'paid', "paidAt" = now(), failure = NULL,
         "stripeId" = coalesce(stripe_id, p."stripeId"),
         "taxCents" = coalesce(tax_cents, p."taxCents"),
@@ -267,15 +267,15 @@ BEGIN
     WHERE p.id = purchase_id;
 
   IF purchase.kind = 'refill' THEN
-    UPDATE {{schema}}.{{prefix}}autorefill a SET pending = false WHERE a."userId" = purchase."userId";
+    UPDATE {{schema}}.{{table_autorefill}} a SET pending = false WHERE a."userId" = purchase."userId";
   END IF;
 
-  INSERT INTO {{schema}}.{{prefix}}balances ("userId") VALUES (purchase."userId")
+  INSERT INTO {{schema}}.{{table_balances}} ("userId") VALUES (purchase."userId")
     ON CONFLICT ("userId") DO NOTHING;
-  UPDATE {{schema}}.{{prefix}}balances b SET purchased = b.purchased + purchase.credits
+  UPDATE {{schema}}.{{table_balances}} b SET purchased = b.purchased + purchase.credits
     WHERE b."userId" = purchase."userId";
 
-  RETURN QUERY SELECT * FROM {{schema}}.{{prefix}}purchases p WHERE p.id = purchase_id;
+  RETURN QUERY SELECT * FROM {{schema}}.{{table_purchases}} p WHERE p.id = purchase_id;
 END;
 $$;
 
@@ -283,29 +283,29 @@ $$;
 -- Answers the settings row only for the call that turned it off, so the user is told once. A
 -- purchase already paid is left as it is.
 CREATE FUNCTION {{schema}}.{{prefix}}refill_failed(purchase_id bigint, stripe_id text, reason text)
-RETURNS SETOF {{schema}}.{{prefix}}autorefill
+RETURNS SETOF {{schema}}.{{table_autorefill}}
 LANGUAGE plpgsql
 VOLATILE
 AS $$
 DECLARE
-  purchase {{schema}}.{{prefix}}purchases;
+  purchase {{schema}}.{{table_purchases}};
 BEGIN
   PERFORM {{schema}}.{{prefix}}assert_server('Credits are sold');
 
-  SELECT * INTO purchase FROM {{schema}}.{{prefix}}purchases p WHERE p.id = purchase_id FOR UPDATE;
+  SELECT * INTO purchase FROM {{schema}}.{{table_purchases}} p WHERE p.id = purchase_id FOR UPDATE;
   IF NOT FOUND OR purchase.status = 'paid' THEN
     RETURN;
   END IF;
 
-  UPDATE {{schema}}.{{prefix}}purchases p
+  UPDATE {{schema}}.{{table_purchases}} p
     SET status = 'failed', failure = left(reason, 500),
         "stripeId" = coalesce(stripe_id, p."stripeId")
     WHERE p.id = purchase_id;
 
-  UPDATE {{schema}}.{{prefix}}autorefill a SET pending = false WHERE a."userId" = purchase."userId";
+  UPDATE {{schema}}.{{table_autorefill}} a SET pending = false WHERE a."userId" = purchase."userId";
 
   RETURN QUERY
-    UPDATE {{schema}}.{{prefix}}autorefill a SET enabled = false, "failedAt" = now()
+    UPDATE {{schema}}.{{table_autorefill}} a SET enabled = false, "failedAt" = now()
       WHERE a."userId" = purchase."userId" AND a.enabled
       RETURNING a.*;
 END;

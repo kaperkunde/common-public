@@ -108,6 +108,9 @@ importers:
         specifier: workspace:^
         version: link:../next-kit
     devDependencies:
+      '@kaperkunde/hasura':
+        specifier: workspace:^
+        version: link:../hasura
       '@kaperkunde/ui':
         specifier: workspace:^
         version: link:../ui
