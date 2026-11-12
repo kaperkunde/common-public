@@ -1,0 +1,63 @@
+table:
+  name: {{table_cost_reconciliations}}
+  schema: {{schema}}
+configuration:
+  comment: "One stretch of one model checked against the provider's cost report."
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check: {}
+      columns:
+        - complete
+        - drift
+        - ledgerByKind
+        - ledgerCalls
+        - ledgerCents
+        - ledgerCredits
+        - model
+        - periodEnd
+        - periodStart
+        - providerByKind
+        - providerCents
+        - report
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - checkedAt
+        - complete
+        - drift
+        - id
+        - ledgerByKind
+        - ledgerCalls
+        - ledgerCents
+        - ledgerCredits
+        - model
+        - notifiedAt
+        - periodEnd
+        - periodStart
+        - providerByKind
+        - providerCents
+        - report
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+update_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - checkedAt
+        - complete
+        - drift
+        - ledgerByKind
+        - ledgerCalls
+        - ledgerCents
+        - ledgerCredits
+        - notifiedAt
+        - periodEnd
+        - providerByKind
+        - providerCents
+      filter: {}
+      check: null
+    comment: The server's bookkeeping. Balances and money move only in the row-locked functions.

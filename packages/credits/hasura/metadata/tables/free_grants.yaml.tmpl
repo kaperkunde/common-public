@@ -1,0 +1,36 @@
+table:
+  name: {{table_free_grants}}
+  schema: {{schema}}
+configuration:
+  comment: "Every handout of free credits from the pool."
+object_relationships:
+  - name: owner
+    using:
+      foreign_key_constraint_on: userId
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - createdAt
+        - credits
+        - id
+        - kind
+        - periodStart
+        - ratioFrom
+        - usd
+        - userId
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+  - role: {{user_role}}
+    permission:
+      columns:
+        - createdAt
+        - credits
+        - id
+        - periodStart
+        - userId
+      filter:
+        userId:
+          _eq: X-Hasura-User-Id
+    comment: "A user's own rows, and nobody else's. Never widen it, and never give any AI role a permission here."

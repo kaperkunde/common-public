@@ -1,0 +1,118 @@
+table:
+  name: {{usage_table}}
+  schema: {{schema}}
+configuration:
+  comment: "One row per metered call: what it used and, once spent, what it cost in credits and dollars and where they came from."
+object_relationships:
+  - name: owner
+    using:
+      foreign_key_constraint_on: userId
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check:
+        _or:
+          - _and:
+              - source:
+                  _is_null: true
+              - credits:
+                  _is_null: true
+          - source:
+              _eq: own
+      columns:
+        - activity
+        - cacheWrite1hTokens
+        - cacheWriteTokens
+        - cachedTokens
+        - credits
+        - inferenceGeo
+        - inputTokens
+        - jobId
+        - kind
+        - model
+        - outputTokens
+        - purpose
+        - reasoningTokens
+        - requests
+        - scopeId
+        - serviceTier
+        - source
+        - speed
+        - totalTokens
+        - units
+        - userId
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - activity
+        - cacheWrite1hTokens
+        - cacheWriteTokens
+        - cachedTokens
+        - createdAt
+        - credits
+        - freeCredits
+        - freeUsd
+        - id
+        - inferenceGeo
+        - inputTokens
+        - jobId
+        - kind
+        - model
+        - outputTokens
+        - overdraftCredits
+        - priceFrom
+        - purchasedCredits
+        - purpose
+        - ratioFrom
+        - reasoningTokens
+        - requests
+        - scopeId
+        - serviceTier
+        - source
+        - speed
+        - totalTokens
+        - units
+        - usd
+        - userId
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+  - role: {{user_role}}
+    permission:
+      columns:
+        - activity
+        - cacheWrite1hTokens
+        - cacheWriteTokens
+        - cachedTokens
+        - createdAt
+        - credits
+        - freeCredits
+        - freeUsd
+        - id
+        - inferenceGeo
+        - inputTokens
+        - jobId
+        - kind
+        - model
+        - outputTokens
+        - overdraftCredits
+        - priceFrom
+        - purchasedCredits
+        - purpose
+        - ratioFrom
+        - reasoningTokens
+        - requests
+        - scopeId
+        - serviceTier
+        - source
+        - speed
+        - totalTokens
+        - units
+        - usd
+        - userId
+      filter:
+        userId:
+          _eq: X-Hasura-User-Id
+    comment: "A user's own rows, and nobody else's. Never widen it, and never give any AI role a permission here."

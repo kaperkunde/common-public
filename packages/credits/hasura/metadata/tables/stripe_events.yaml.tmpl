@@ -1,0 +1,16 @@
+table:
+  name: {{table_stripe_events}}
+  schema: {{schema}}
+configuration:
+  comment: "Every Stripe event that credited anything, so a replay credits nothing."
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - id
+        - purchaseId
+        - receivedAt
+        - type
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.

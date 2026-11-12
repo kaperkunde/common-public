@@ -1,0 +1,47 @@
+table:
+  name: {{table_price_proposals}}
+  schema: {{schema}}
+configuration:
+  comment: "Prices proposed by a sync, waiting for the admin."
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check: {}
+      columns:
+        - factors
+        - kinds
+        - longPromptFactor
+        - longPromptUnits
+        - model
+        - problems
+        - sources
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - decidedAt
+        - factors
+        - id
+        - kinds
+        - longPromptFactor
+        - longPromptUnits
+        - model
+        - notifiedAt
+        - problems
+        - proposedAt
+        - sources
+        - status
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+update_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - decidedAt
+        - notifiedAt
+        - status
+      filter: {}
+      check: null
+    comment: The server's bookkeeping. Balances and money move only in the row-locked functions.

@@ -1,0 +1,23 @@
+table:
+  name: {{table_settings}}
+  schema: {{schema}}
+configuration:
+  comment: "What the deployment hands out: the most free credits one user gets a month."
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - allotment
+        - id
+        - updatedAt
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+update_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - allotment
+      filter: {}
+      check: null
+    comment: The server's bookkeeping. Balances and money move only in the row-locked functions.

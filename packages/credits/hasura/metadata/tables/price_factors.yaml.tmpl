@@ -1,0 +1,29 @@
+table:
+  name: {{table_price_factors}}
+  schema: {{schema}}
+configuration:
+  comment: "Multiples a request is priced at for one value of one of its dimensions."
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check: {}
+      columns:
+        - dimension
+        - effectiveFrom
+        - factor
+        - model
+        - value
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - dimension
+        - effectiveFrom
+        - factor
+        - id
+        - model
+        - value
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.

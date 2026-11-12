@@ -1,0 +1,60 @@
+table:
+  name: {{table_purchases}}
+  schema: {{schema}}
+configuration:
+  comment: "One purchase or automatic refill, opened before Stripe is asked and paid only by the webhook."
+object_relationships:
+  - name: owner
+    using:
+      foreign_key_constraint_on: userId
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - amountCents
+        - createdAt
+        - credits
+        - currency
+        - failure
+        - id
+        - kind
+        - paidAt
+        - priceFrom
+        - status
+        - stripeId
+        - taxCents
+        - totalCents
+        - userId
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+  - role: {{user_role}}
+    permission:
+      columns:
+        - amountCents
+        - createdAt
+        - credits
+        - currency
+        - failure
+        - id
+        - kind
+        - paidAt
+        - priceFrom
+        - status
+        - taxCents
+        - totalCents
+        - userId
+      filter:
+        userId:
+          _eq: X-Hasura-User-Id
+    comment: "A user's own rows, and nobody else's. Never widen it, and never give any AI role a permission here."
+update_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - stripeId
+        - taxCents
+        - totalCents
+      filter: {}
+      check: null
+    comment: The server's bookkeeping. Balances and money move only in the row-locked functions.

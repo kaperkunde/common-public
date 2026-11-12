@@ -1,0 +1,23 @@
+table:
+  name: {{table_pool_budgets}}
+  schema: {{schema}}
+configuration:
+  comment: "What the admin spends on free credits a month, in US dollars, from a moment on."
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check: {}
+      columns:
+        - adminEmail
+        - budgetUsd
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - adminEmail
+        - budgetUsd
+        - effectiveFrom
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
