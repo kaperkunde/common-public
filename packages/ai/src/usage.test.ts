@@ -18,6 +18,7 @@ describe("requestOf", () => {
       cachedTokens: 60,
       cacheWriteTokens: 10,
       cacheWrite1hTokens: 0,
+      reasoningTokens: 0,
     })
   })
 

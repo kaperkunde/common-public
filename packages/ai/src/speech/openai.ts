@@ -26,10 +26,12 @@ export const openaiSpeech = <C = unknown>(
   )
   return {
     name: "openai",
-    synthesize: ({ text, voice, format = "mp3", signal }) =>
-      metered(
+    synthesize: (input) => {
+      const { text, voice, format = "mp3" } = input
+      const signal = input.signal
+      return metered(
         options,
-        { adapter: "openai", model: options.model, voice, text },
+        { adapter: "openai", model: options.model, voice, text, input },
         async () => {
           const response = await (options.fetch ?? fetch)(
             `${base}/audio/speech`,
@@ -64,6 +66,7 @@ export const openaiSpeech = <C = unknown>(
             mime: MIME[format],
           }
         },
-      ),
+      )
+    },
   }
 }

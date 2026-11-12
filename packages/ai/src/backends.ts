@@ -13,19 +13,19 @@ import type { LlmConfig } from "./config"
  * Pure: the app asks its database and the network what each can do, and the
  * screens draw from the same rules.
  */
-export type BackendSource = "hosted" | "own"
+export type BackendSource = "deployment" | "own"
 
 export type BackendOrder =
-  "hosted_then_own" | "own_then_hosted" | "hosted_only" | "own_only"
+  "deployment_then_own" | "own_then_deployment" | "deployment_only" | "own_only"
 
 /** What a saved back end starts as: the person brought a key, so it is tried first. */
-export const DEFAULT_ORDER: BackendOrder = "own_then_hosted"
+export const DEFAULT_ORDER: BackendOrder = "own_then_deployment"
 
 export const BACKEND_ORDERS: readonly BackendOrder[] = [
-  "own_then_hosted",
-  "hosted_then_own",
+  "own_then_deployment",
+  "deployment_then_own",
   "own_only",
-  "hosted_only",
+  "deployment_only",
 ]
 
 export const isBackendOrder = (value: unknown): value is BackendOrder =>
@@ -36,14 +36,14 @@ export const backendSequence = (
   order: BackendOrder | null | undefined,
 ): BackendSource[] => {
   switch (order) {
-    case "hosted_then_own":
-      return ["hosted", "own"]
-    case "own_then_hosted":
-      return ["own", "hosted"]
+    case "deployment_then_own":
+      return ["deployment", "own"]
+    case "own_then_deployment":
+      return ["own", "deployment"]
     case "own_only":
       return ["own"]
     default:
-      return ["hosted"]
+      return ["deployment"]
   }
 }
 
@@ -54,11 +54,11 @@ export const orderFor = (
 ): BackendOrder =>
   source === "own"
     ? fallback
-      ? "own_then_hosted"
+      ? "own_then_deployment"
       : "own_only"
     : fallback
-      ? "hosted_then_own"
-      : "hosted_only"
+      ? "deployment_then_own"
+      : "deployment_only"
 
 export const sourceOfOrder = (
   order: BackendOrder | null | undefined,
@@ -113,9 +113,9 @@ export const chooseBackend = async <T>(
   return { ok: false, refusals }
 }
 
-/** Whether a refusal is the hosted back end's credit run out. */
+/** Whether a refusal is the deployment back end's credit run out. */
 export const outOfCredit = (refusal: Refusal) =>
-  refusal.source === "hosted" && refusal.reason === "out"
+  refusal.source === "deployment" && refusal.reason === "out"
 
 /**
  * Which refusal to answer with when nothing could serve: credit run out beats
@@ -195,7 +195,7 @@ export const ownVerdict = (
 }
 
 /** Whether the deployment's model can be asked for this one at all, before any balance. */
-export const hostedOffers = (
+export const deploymentOffers = (
   config: Pick<LlmConfig, "enabled" | "models">,
   model: string,
 ): Verdict<true> => {
@@ -203,7 +203,7 @@ export const hostedOffers = (
     return {
       ok: false,
       refusal: {
-        source: "hosted",
+        source: "deployment",
         reason: "off",
         message: "This service has no model of its own configured.",
       },
@@ -213,7 +213,7 @@ export const hostedOffers = (
     return {
       ok: false,
       refusal: {
-        source: "hosted",
+        source: "deployment",
         reason: "unlisted",
         message: `${model} is not one of this service's models.`,
       },
@@ -250,7 +250,7 @@ export const modelForPlayer = (
 ) => {
   const sequence = backendSequence(own?.order)
   const offered = (source: BackendSource) =>
-    source === "hosted" ? config.models : (own?.models ?? [])
+    source === "deployment" ? config.models : (own?.models ?? [])
   if (chosen && sequence.some((source) => offered(source).includes(chosen))) {
     return chosen
   }
@@ -268,11 +268,11 @@ export const pickedModel = (
 ): { model: string; source: BackendSource } => {
   const model = modelForPlayer(chosen, config, own)
   const offered = (source: BackendSource) =>
-    source === "hosted" ? config.models : (own?.models ?? [])
+    source === "deployment" ? config.models : (own?.models ?? [])
   const source = backendSequence(own?.order).find((each) =>
     offered(each).includes(model),
   )
-  return { model, source: source ?? "hosted" }
+  return { model, source: source ?? "deployment" }
 }
 
 /** Every model a person may pick between, each with the back ends that serve it in order. */
@@ -287,12 +287,12 @@ export const pickableModels = (
   return all.map((model) => ({
     model,
     sources: sequence.filter((source) =>
-      source === "hosted"
+      source === "deployment"
         ? deploymentModels.includes(model)
         : (own?.models ?? []).includes(model),
     ),
     offeredElsewhere: [
-      ...(deploymentModels.includes(model) ? ["hosted" as const] : []),
+      ...(deploymentModels.includes(model) ? ["deployment" as const] : []),
       ...((own?.models ?? []).includes(model) ? ["own" as const] : []),
     ].filter((source) => !sequence.includes(source)),
   }))

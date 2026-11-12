@@ -86,7 +86,7 @@ them into your app with your names.
 ```
 hasura/manifest.json    { "name": "@kaperkunde/<pkg>", "vars": { "<var>": { "description", "default"? } } }
 hasura/migrations/<13-digit version>_<snake_name>/up.sql, down.sql
-hasura/metadata/tables/<name>.yaml.tmpl     (optional; file names may use {{vars}})
+hasura/metadata/tables/<name>.yaml.tmpl     (optional; the name is logical: the rendered file is named <schema>_<table>.yaml from its table.name)
 hasura/metadata/functions.yaml.tmpl         (optional; a YAML list of function entries)
 ```
 

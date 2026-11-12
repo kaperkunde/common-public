@@ -9,7 +9,7 @@ import {
   chooseBackend,
   fallbackOfOrder,
   finalRefusal,
-  hostedOffers,
+  deploymentOffers,
   isBackendOrder,
   modelForPlayer,
   modelOnSource,
@@ -28,12 +28,18 @@ import {
 const config = { enabled: true, models: ["h1", "h2"], defaultModel: "h1" }
 
 describe("orders", () => {
-  it("walks the order, and a person with none has the hosted back end", () => {
-    expect(backendSequence("own_then_hosted")).toEqual(["own", "hosted"])
-    expect(backendSequence("hosted_then_own")).toEqual(["hosted", "own"])
+  it("walks the order, and a person with none has the deployment back end", () => {
+    expect(backendSequence("own_then_deployment")).toEqual([
+      "own",
+      "deployment",
+    ])
+    expect(backendSequence("deployment_then_own")).toEqual([
+      "deployment",
+      "own",
+    ])
     expect(backendSequence("own_only")).toEqual(["own"])
-    expect(backendSequence("hosted_only")).toEqual(["hosted"])
-    expect(backendSequence(null)).toEqual(["hosted"])
+    expect(backendSequence("deployment_only")).toEqual(["deployment"])
+    expect(backendSequence(null)).toEqual(["deployment"])
   })
   it("round-trips through orderFor", () => {
     for (const order of BACKEND_ORDERS) {
@@ -46,7 +52,7 @@ describe("orders", () => {
 
 describe("chooseBackend", () => {
   const refusal = (
-    source: "hosted" | "own",
+    source: "deployment" | "own",
     reason: Refusal["reason"],
   ): Refusal => ({
     source,
@@ -55,7 +61,7 @@ describe("chooseBackend", () => {
   })
   it("takes the first that can serve and asks no more", async () => {
     const asked: string[] = []
-    const chosen = await chooseBackend("own_then_hosted", (source) => {
+    const chosen = await chooseBackend("own_then_deployment", (source) => {
       asked.push(source)
       return { ok: true, value: source }
     })
@@ -63,16 +69,16 @@ describe("chooseBackend", () => {
     expect(asked).toEqual(["own"])
   })
   it("falls to the next and remembers what it passed over", async () => {
-    const chosen = await chooseBackend("own_then_hosted", async (source) =>
+    const chosen = await chooseBackend("own_then_deployment", async (source) =>
       source === "own"
         ? { ok: false, refusal: refusal("own", "over_limit") }
         : { ok: true, value: 1 },
     )
-    expect(chosen).toMatchObject({ ok: true, source: "hosted" })
+    expect(chosen).toMatchObject({ ok: true, source: "deployment" })
     expect(chosen.ok && chosen.passedOver).toHaveLength(1)
   })
   it("reports every refusal when nothing can serve", async () => {
-    const chosen = await chooseBackend("own_then_hosted", (source) => ({
+    const chosen = await chooseBackend("own_then_deployment", (source) => ({
       ok: false,
       refusal: refusal(source, "off"),
     }))
@@ -81,14 +87,14 @@ describe("chooseBackend", () => {
   })
 
   it("answers with credit run out first, then the soonest date, then the first", () => {
-    const out = refusal("hosted", "out")
+    const out = refusal("deployment", "out")
     expect(outOfCredit(out)).toBe(true)
     expect(finalRefusal([refusal("own", "off"), out])).toBe(out)
     const late = { ...refusal("own", "over_limit"), until: "2026-12-01" }
-    const soon = { ...refusal("hosted", "unlisted"), until: "2026-11-20" }
+    const soon = { ...refusal("deployment", "unlisted"), until: "2026-11-20" }
     expect(finalRefusal([late, soon])).toBe(soon)
     const first = refusal("own", "off")
-    expect(finalRefusal([first, refusal("hosted", "unlisted")])).toBe(first)
+    expect(finalRefusal([first, refusal("deployment", "unlisted")])).toBe(first)
     expect(finalRefusal([])).toBeUndefined()
   })
 })
@@ -127,20 +133,22 @@ describe("verdicts", () => {
     expect(!v.ok && v.refusal.message).toBe("limit 1")
   })
   it("says whether the hosted model can be asked for at all", () => {
-    expect(hostedOffers({ enabled: false, models: [] }, "m")).toMatchObject({
-      ok: false,
-      refusal: { reason: "off" },
-    })
-    expect(hostedOffers(config, "zzz")).toMatchObject({
+    expect(deploymentOffers({ enabled: false, models: [] }, "m")).toMatchObject(
+      {
+        ok: false,
+        refusal: { reason: "off" },
+      },
+    )
+    expect(deploymentOffers(config, "zzz")).toMatchObject({
       ok: false,
       refusal: { reason: "unlisted" },
     })
-    expect(hostedOffers(config, "h2").ok).toBe(true)
+    expect(deploymentOffers(config, "h2").ok).toBe(true)
   })
 })
 
 describe("model choice", () => {
-  const own = { models: ["o1"], order: "own_then_hosted" as const }
+  const own = { models: ["o1"], order: "own_then_deployment" as const }
   it("falls to what a back end offers", () => {
     expect(modelOnSource("a", ["a", "b"])).toBe("a")
     expect(modelOnSource("z", ["a", "b"], "b")).toBe("b")
@@ -161,7 +169,7 @@ describe("model choice", () => {
     })
     expect(pickedModel("h1", config, own)).toEqual({
       model: "h1",
-      source: "hosted",
+      source: "deployment",
     })
   })
   it("lists every model with its back ends and the ones the order leaves out", () => {
@@ -170,7 +178,7 @@ describe("model choice", () => {
       order: "own_only",
     })
     expect(list).toEqual([
-      { model: "h1", sources: ["own"], offeredElsewhere: ["hosted"] },
+      { model: "h1", sources: ["own"], offeredElsewhere: ["deployment"] },
       { model: "o1", sources: ["own"], offeredElsewhere: [] },
     ])
   })
@@ -211,11 +219,11 @@ describe("availability", () => {
   const own = {
     baseUrl: "https://api.example.com/v1",
     models: ["m"],
-    order: "own_then_hosted" as const,
+    order: "own_then_deployment" as const,
   }
   it("counts a usable own back end, and either alone is an AI", () => {
     expect(ownBackendUsable(own, false)).toBe(true)
-    expect(ownBackendUsable({ ...own, order: "hosted_only" }, false)).toBe(
+    expect(ownBackendUsable({ ...own, order: "deployment_only" }, false)).toBe(
       false,
     )
     expect(ownBackendUsable({ ...own, models: [] }, false)).toBe(false)

@@ -18,7 +18,7 @@ afterEach(async () => {
 })
 
 const backend = () => ({
-  source: "hosted",
+  source: "deployment",
   baseURL: "",
   apiKey: "sekret-key",
   toolChoice: "auto" as const,
@@ -57,18 +57,64 @@ describe("runModel", () => {
       kind: "llm",
       context: { user: "u1" },
       model: "fake-small",
-      source: "hosted",
+      source: "deployment",
       attempt: 0,
     })
     expect(rows[0]!.usage?.inputTokens).toBe(100)
     expect(rows[0]!.usage?.outputTokens).toBe(20)
-    expect(rows[0]!.requests.requests).toHaveLength(1)
-    expect(rows[0]!.requests.requests[0]).toMatchObject({
+    expect(rows[0]!.requests).toHaveLength(1)
+    expect(rows[0]!.requests[0]).toMatchObject({
       inputTokens: 100,
       outputTokens: 20,
     })
     expect(rows[0]!.failure).toBeUndefined()
     expect(llm.seen()[0]?.prompt).toContain("Hi")
+  })
+
+  it("hands userId, purpose, scope, job and activity to both hooks, with the credits-shaped row", async () => {
+    const rows: LlmUsageRow<Ctx>[] = []
+    const before = vi.fn()
+    await runner({ beforeCall: before, onUsage: (row) => void rows.push(row) })(
+      base({
+        userId: "u9",
+        purpose: "chat",
+        scopeId: "s1",
+        jobId: "j1",
+        activity: "Chatting",
+      }),
+    )
+    expect(before).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "u9",
+        model: "fake-small",
+        source: "deployment",
+        purpose: "chat",
+      }),
+    )
+    expect(rows[0]).toMatchObject({
+      userId: "u9",
+      purpose: "chat",
+      scopeId: "s1",
+      jobId: "j1",
+      activity: "Chatting",
+    })
+    expect(rows[0]!.requests[0]).toMatchObject({
+      reasoningTokens: 0,
+      cacheWrite1hTokens: 0,
+    })
+    expect(rows[0]!.call.requests).toBe(rows[0]!.requests)
+  })
+
+  it("lets a refusal with a code propagate without a fallback", async () => {
+    const refusal = Object.assign(new Error("out"), { code: "OUT_OF_CREDITS" })
+    await expect(
+      runner({
+        beforeCall: () => {
+          throw refusal
+        },
+      })(base({ fallbackModel: "fake-large" })),
+    ).rejects.toBe(refusal)
+    expect(llm.seen()).toHaveLength(0)
   })
 
   it("sends the instructions, with shared ones first", async () => {
@@ -107,12 +153,15 @@ describe("runModel", () => {
   it("tells beforeCall which back end was chosen", async () => {
     const seen = vi.fn()
     await runner({ beforeCall: seen })(base())
-    expect(seen).toHaveBeenCalledWith({
-      context: { user: "u1" },
-      model: "fake-small",
-      attempt: 0,
-      backend: expect.objectContaining({ source: "hosted" }),
-    })
+    expect(seen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: { user: "u1" },
+        model: "fake-small",
+        attempt: 0,
+        source: "deployment",
+        backend: expect.objectContaining({ source: "deployment" }),
+      }),
+    )
   })
 
   it("runs on the model the back end names when it does not offer the asked one", async () => {
@@ -227,7 +276,7 @@ describe("runModel", () => {
       kind: "call",
       label: "greet",
       model: "fake-small",
-      source: "hosted",
+      source: "deployment",
       usageRef: "42",
       usage: { input: 100, output: 20 },
     })
@@ -269,7 +318,7 @@ describe("runModel", () => {
       stopWhen: ({ steps }) => steps.length >= 3,
     })
     expect(result.text).toBe("done")
-    expect(rows[0]!.requests.requests).toHaveLength(2)
+    expect(rows[0]!.requests).toHaveLength(2)
     expect(traces[0]!.steps).toHaveLength(2)
     expect(traces[0]!.steps[0]!.calls[0]).toEqual({
       tool: "lookup",

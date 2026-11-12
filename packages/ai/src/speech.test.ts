@@ -51,6 +51,60 @@ describe("fakeSpeech", () => {
     expect(view.getUint32(40, true)).toBe(audio.length - 44)
   })
 
+  it("reports units, accounting fields and source, and asks beforeCall first", async () => {
+    const rows: SpeechUsageRow[] = []
+    const beforeCall = vi.fn()
+    const speech = fakeSpeech({
+      beforeCall,
+      onUsage: (row) => void rows.push(row),
+    })
+    await speech.synthesize({
+      text: "abcd",
+      voice: "v",
+      userId: "u1",
+      purpose: "narration",
+      scopeId: "s",
+      jobId: "j",
+      source: "own",
+    })
+    expect(beforeCall).toHaveBeenCalledWith({
+      userId: "u1",
+      model: undefined,
+      source: "own",
+      purpose: "narration",
+      units: 4,
+    })
+    expect(rows[0]).toMatchObject({
+      kind: "tts_chars",
+      units: 4,
+      userId: "u1",
+      purpose: "narration",
+      scopeId: "s",
+      jobId: "j",
+      source: "own",
+    })
+    const refusing = fakeSpeech({
+      beforeCall: () => {
+        throw new Error("no credit")
+      },
+      onUsage: (row) => void rows.push(row),
+    })
+    rows.length = 0
+    await expect(
+      refusing.synthesize({ text: "x", voice: "v" }),
+    ).rejects.toThrow("no credit")
+    expect(rows).toEqual([])
+    expect(
+      (
+        await fakeSpeech({ onUsage: (row) => void rows.push(row) }).synthesize({
+          text: "x",
+          voice: "v",
+        })
+      ).chars,
+    ).toBe(1)
+    expect(rows.at(-1)!.source).toBe("deployment")
+  })
+
   it("fails on demand, still reporting the failed call", async () => {
     const onUsage = vi.fn()
     const speech = fakeSpeech({ failWith: "down", onUsage })

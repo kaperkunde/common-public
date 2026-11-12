@@ -8,9 +8,13 @@ export type RequestTokens = {
   cacheWriteTokens: number
   /** Of the write, what is kept an hour rather than five minutes. */
   cacheWrite1hTokens: number
+  /** Reasoning tokens, part of `outputTokens`, where the provider says. */
+  reasoningTokens: number
   inferenceGeo?: string
   speed?: string
   serviceTier?: string
+  /** Any further pricing dimensions the app wants to carry. */
+  dimensions?: Record<string, string>
 }
 
 /** As much of an SDK step as this reads. */
@@ -18,6 +22,7 @@ export type StepUsageLike = {
   usage?: {
     inputTokens?: number | null
     outputTokens?: number | null
+    outputTokenDetails?: { reasoningTokens?: number | null }
     inputTokenDetails?: {
       cacheReadTokens?: number | null
       cacheWriteTokens?: number | null
@@ -67,6 +72,7 @@ export const requestOf = (step: StepUsageLike): RequestTokens => {
       count(creation?.ephemeral_1h_input_tokens),
       written,
     ),
+    reasoningTokens: count(step.usage?.outputTokenDetails?.reasoningTokens),
     ...(geo ? { inferenceGeo: geo } : {}),
     ...(speed ? { speed } : {}),
     ...(tier ? { serviceTier: tier } : {}),

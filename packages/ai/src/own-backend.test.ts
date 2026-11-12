@@ -94,21 +94,21 @@ describe("guardedFetch", () => {
 
 describe("resolveByOrder", () => {
   const backend = {
-    source: "hosted",
+    source: "deployment",
     baseURL: "h",
     toolChoice: "required" as const,
   }
   it("returns the chosen back end", async () => {
-    const chosen = await resolveByOrder("hosted_only", () => ({
+    const chosen = await resolveByOrder("deployment_only", () => ({
       ok: true,
       value: backend,
     }))
     expect(chosen.value).toBe(backend)
-    expect(chosen.source).toBe("hosted")
+    expect(chosen.source).toBe("deployment")
   })
   it("throws the final refusal, fallback-worthy only for an unlisted or unpriced model", async () => {
     const refuse =
-      (reason: "out" | "unlisted") => (source: "hosted" | "own") => ({
+      (reason: "out" | "unlisted") => (source: "deployment" | "own") => ({
         ok: false as const,
         refusal: {
           source,
@@ -117,16 +117,17 @@ describe("resolveByOrder", () => {
           until: undefined,
         },
       })
-    const out = await resolveByOrder("own_then_hosted", refuse("out")).catch(
-      (e) => e,
-    )
+    const out = await resolveByOrder(
+      "own_then_deployment",
+      refuse("out"),
+    ).catch((e) => e)
     expect(out).toMatchObject({
-      message: "hosted out",
+      message: "deployment out",
       reason: "out",
       fallbackWorthy: false,
     })
     const unlisted = await resolveByOrder(
-      "hosted_only",
+      "deployment_only",
       refuse("unlisted"),
     ).catch((e) => e)
     expect(unlisted.fallbackWorthy).toBe(true)

@@ -11,7 +11,7 @@ import { wholeInstructions, markCachePrefix } from "./cache"
 import { fallbackWorthy } from "./fallback"
 import { chatModel, type ResolvedBackend } from "./provider"
 import { fitCall, tracedCall, type StepLike, type TraceCall } from "./trace"
-import { requestsOf, type CallRequests } from "./usage"
+import { requestsOf, type CallRequests, type RequestTokens } from "./usage"
 
 /** How the tool call is asked for, which the instructions word to match. */
 export type AskShape = { toolChoice: "auto" | "required" }
@@ -20,6 +20,13 @@ export type AskShape = { toolChoice: "auto" | "required" }
 export type ModelRun<TOOLS extends ToolSet, C> = {
   /** Whatever the hooks need to know: who it is for, what it is for. Passed through untouched. */
   context: C
+  /** Who it is for, what for, and where it belongs: handed to `beforeCall` and `onUsage` as fields. */
+  userId?: string
+  purpose?: string
+  scopeId?: string
+  jobId?: string
+  /** A line of words about what the call is doing. */
+  activity?: string
   /** A short name for the trace. */
   label?: string
   model: string
@@ -53,6 +60,10 @@ export type ModelRun<TOOLS extends ToolSet, C> = {
 /** What `beforeCall` is told once the back end is chosen. */
 export type CallContext<C> = {
   context: C
+  userId?: string
+  purpose?: string
+  /** The back end's source: `deployment` or `own`. */
+  source: string
   model: string
   /** 0 for the model asked for, 1 for the fallback. */
   attempt: 0 | 1
@@ -63,6 +74,11 @@ export type CallContext<C> = {
 export type LlmUsageRow<C> = {
   kind: "llm"
   context: C
+  userId?: string
+  purpose?: string
+  scopeId?: string
+  jobId?: string
+  activity?: string
   /** The model that actually ran. */
   model: string
   /** The backend's `source`. */
@@ -71,7 +87,9 @@ export type LlmUsageRow<C> = {
   /** The provider's own total for the call, when it said. */
   usage?: LanguageModelUsage
   /** Each request as the provider billed it. */
-  requests: CallRequests
+  requests: RequestTokens[]
+  /** The same, with the call-level totals (hour-long writes; geo, speed, tier of the first). */
+  call: CallRequests
   startedAt: number
   ms: number
   failure?: string
@@ -81,6 +99,14 @@ export type LlmUsageRow<C> = {
 export type SpeechUsageRow<C = unknown> = {
   kind: "tts_chars"
   context?: C
+  userId?: string
+  purpose?: string
+  scopeId?: string
+  jobId?: string
+  activity?: string
+  source: string
+  /** Characters sent: what the call is metered in. */
+  units: number
   adapter: string
   model?: string
   voice: string
@@ -204,6 +230,9 @@ export const createRunModel = <C>(hooks: ModelRunnerHooks<C>): RunModel<C> => {
         : asked
     await hooks.beforeCall?.({
       context: run.context,
+      userId: run.userId,
+      purpose: run.purpose,
+      source: backend.source,
       model: run.model,
       attempt: attemptNo,
       backend,
@@ -289,11 +318,17 @@ export const createRunModel = <C>(hooks: ModelRunnerHooks<C>): RunModel<C> => {
       const row: LlmUsageRow<C> = {
         kind: "llm",
         context: run.context,
+        userId: run.userId,
+        purpose: run.purpose,
+        scopeId: run.scopeId,
+        jobId: run.jobId,
+        activity: run.activity,
         model: run.model,
         source: backend.source,
         attempt: attemptNo,
         usage,
-        requests,
+        requests: requests.requests,
+        call: requests,
         startedAt: started,
         ms: Date.now() - started,
         ...(failure ? { failure } : {}),

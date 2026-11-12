@@ -94,16 +94,15 @@ describe("modelRoles", () => {
 describe("offeredModels", () => {
   it("offers the deployment's priced models and the person's own, as the order allows", () => {
     const args = { deployment: ["a", "b"], priced: ["a"], own: ["c", "a"] }
-    expect(offeredModels({ ...args, sequence: ["hosted", "own"] })).toEqual([
-      "a",
-      "c",
-    ])
+    expect(offeredModels({ ...args, sequence: ["deployment", "own"] })).toEqual(
+      ["a", "c"],
+    )
     expect(offeredModels({ ...args, sequence: ["own"] })).toEqual(["c", "a"])
-    expect(offeredModels({ ...args, sequence: ["hosted"] })).toEqual(["a"])
+    expect(offeredModels({ ...args, sequence: ["deployment"] })).toEqual(["a"])
   })
   it("offers everything the deployment lists when nothing is priced", () => {
     expect(
-      offeredModels({ deployment: ["a", "b"], sequence: ["hosted"] }),
+      offeredModels({ deployment: ["a", "b"], sequence: ["deployment"] }),
     ).toEqual(["a", "b"])
   })
 })

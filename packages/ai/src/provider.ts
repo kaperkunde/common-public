@@ -8,7 +8,7 @@ import { LlmOffError, type LlmProvider, type ToolChoiceMode } from "./config"
 
 /**
  * What a call is made with, once a back end has been chosen. `source` is the
- * app's own label for who pays ("hosted", "own", ...).
+ * app's own label for who pays ("deployment", "own", ...).
  */
 export type ResolvedBackend = {
   source: string

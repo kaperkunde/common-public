@@ -116,10 +116,10 @@ export const offeredModels = ({
   /** Models the app has a price for; omit when everything the deployment lists is offered. */
   priced?: readonly string[]
   own?: readonly string[]
-  sequence: readonly ("hosted" | "own")[]
+  sequence: readonly ("deployment" | "own")[]
 }) =>
   [
-    ...(sequence.includes("hosted")
+    ...(sequence.includes("deployment")
       ? deployment.filter((model) => !priced || priced.includes(model))
       : []),
     ...(sequence.includes("own") ? (own ?? []) : []),

@@ -60,18 +60,24 @@ export const fakeSpeech = <C = unknown>(
   options: FakeSpeechOptions<C> = {},
 ): Speech => ({
   name: "fake",
-  synthesize: ({ text, voice, format = "mp3" }) =>
-    metered(options, { adapter: "fake", voice, text }, async () => {
-      if (options.failWith) throw new SpeechError(options.failWith)
-      const seconds = text.length / (options.charsPerSecond ?? 15)
-      const audio =
-        format === "wav"
-          ? silentWav(Math.min(seconds, 2))
-          : silentMp3(Math.max(1, Math.min(Math.ceil(seconds / 0.026), 40)))
-      return {
-        audio,
-        mime: MIME[format as SpeechFormat] ?? MIME.mp3,
-        seconds,
-      }
-    }),
+  synthesize: (input) => {
+    const { text, voice, format = "mp3" } = input
+    return metered(
+      options,
+      { adapter: "fake", voice, text, input },
+      async () => {
+        if (options.failWith) throw new SpeechError(options.failWith)
+        const seconds = text.length / (options.charsPerSecond ?? 15)
+        const audio =
+          format === "wav"
+            ? silentWav(Math.min(seconds, 2))
+            : silentMp3(Math.max(1, Math.min(Math.ceil(seconds / 0.026), 40)))
+        return {
+          audio,
+          mime: MIME[format as SpeechFormat] ?? MIME.mp3,
+          seconds,
+        }
+      },
+    )
+  },
 })

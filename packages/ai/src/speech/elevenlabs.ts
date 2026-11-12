@@ -27,10 +27,12 @@ export const elevenlabsSpeech = <C = unknown>(
   )
   return {
     name: "elevenlabs",
-    synthesize: ({ text, voice, format = "mp3", signal }) =>
-      metered(
+    synthesize: (input) => {
+      const { text, voice, format = "mp3" } = input
+      const signal = input.signal
+      return metered(
         options,
-        { adapter: "elevenlabs", model: options.model, voice, text },
+        { adapter: "elevenlabs", model: options.model, voice, text, input },
         async () => {
           if (format !== "mp3") {
             throw new SpeechError(
@@ -66,6 +68,7 @@ export const elevenlabsSpeech = <C = unknown>(
             mime: MIME.mp3,
           }
         },
-      ),
+      )
+    },
   }
 }

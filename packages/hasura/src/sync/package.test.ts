@@ -27,7 +27,7 @@ describe("loadPackage", () => {
       "1788000000000",
       "1788000000001",
     ])
-    expect(pkg.tables.map((t) => t.file)).toEqual(["{{prefix}}usage.yaml"])
+    expect(pkg.tables.map((t) => t.file)).toEqual(["usage.yaml"])
     expect(pkg.functions).toContain("function")
   })
 

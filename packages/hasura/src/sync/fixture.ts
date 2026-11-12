@@ -43,7 +43,7 @@ export const makePackage = (dir: string, options: FixtureOptions = {}) => {
     write(join(dir, "hasura", "migrations", dirName, "down.sql"), down)
   }
   const tables = options.tables ?? {
-    "{{prefix}}usage.yaml.tmpl":
+    "usage.yaml.tmpl":
       "table:\n  name: {{prefix}}{{usage_table}}\n  schema: {{schema}}\n",
   }
   for (const [file, text] of Object.entries(tables)) {

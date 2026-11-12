@@ -268,18 +268,20 @@ export const planSync = (options: SyncOptions): SyncPlan => {
       }
 
       for (const table of pkg.tables) {
-        const file = renderTemplate(
-          table.file,
-          declared,
-          values,
-          metaWhere(`file name ${table.file}`),
-        )
         const rendered = renderTemplate(
           table.text,
           declared,
           values,
-          metaWhere(file),
+          metaWhere(table.file),
         )
+        // The output is named by the table it describes, as Hasura's CLI does.
+        const meta = parseDocument(rendered).toJSON() as {
+          table?: { name?: string; schema?: string }
+        } | null
+        if (!meta?.table?.name) {
+          throw new Error(`${metaWhere(table.file)}: has no table.name`)
+        }
+        const file = `${meta.table.schema ?? "public"}_${meta.table.name}.yaml`
         const path = join(metadataDir, "tables", file)
         const key = `tables/${file}`
         if (decide(key, rendered, read(path)) === "write") {

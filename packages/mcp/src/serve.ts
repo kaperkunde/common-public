@@ -1,17 +1,20 @@
 import type {
   CallToolResult,
   McpServer,
+  ProtocolError,
   ServerContext,
 } from "@modelcontextprotocol/server"
 
 import {
   applyAliases,
   publishedSchema,
+  type InvalidArgsMode,
   type LogNames,
   type Tool,
   type ToolContext,
 } from "./define"
 import { awaitPatiently } from "./long"
+import { invalidArgumentsError } from "./protocol-error"
 import {
   DEFAULT_META_KEYS,
   errorOutcome,
@@ -90,6 +93,11 @@ export type ServeOptions<App = unknown, Note = undefined> = {
   ) => Promise<CallToolResult>
   /** Hears about faults; console.error and console.info by default. */
   report?: (event: ServeEvent) => void
+  /**
+   * How arguments that do not fit are answered, for tools that do not say
+   * (see ToolSpec.invalidArgs). `"tool-result"` by default.
+   */
+  invalidArgs?: InvalidArgsMode
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -292,6 +300,8 @@ export function serveTool<App = unknown, Note = undefined>(
 ): Promise<CallToolResult> {
   const meta = options.meta ?? DEFAULT_META_KEYS
   const report = options.report ?? defaultReport
+  const protocolErrors =
+    (tool.invalidArgs ?? options.invalidArgs) === "protocol-error"
   const scope =
     options.scope ??
     ((run: (note: Note) => Promise<CallToolResult>) => run(undefined as Note))
@@ -313,6 +323,8 @@ export function serveTool<App = unknown, Note = undefined>(
     const names: LogNames = {}
     let notes: string[] = []
     let outcome: Outcome
+    // Set when arguments did not fit and this tool answers that as a -32602.
+    let invalid: ProtocolError | undefined
 
     try {
       const renamed = applyAliases(isRecord(sent) ? sent : {}, tool.aliases)
@@ -326,6 +338,10 @@ export function serveTool<App = unknown, Note = undefined>(
           })
 
       if (problems.length > 0) {
+        if (protocolErrors) {
+          invalid = await invalidArgumentsError(tool.name, problems)
+        }
+
         outcome = toolError(
           argumentsRefusal(tool.name, problems, {
             lead: "nothing was done",
@@ -359,6 +375,13 @@ export function serveTool<App = unknown, Note = undefined>(
               })
             : await work
         } else {
+          if (protocolErrors) {
+            invalid = await invalidArgumentsError(
+              tool.name,
+              zodProblems(parsed.error.issues),
+            )
+          }
+
           outcome = toolError(
             argumentsRefusal(tool.name, zodProblems(parsed.error.issues), {
               lead: "nothing was done",
@@ -423,6 +446,10 @@ export function serveTool<App = unknown, Note = undefined>(
       note,
     })
 
+    if (invalid) {
+      throw invalid
+    }
+
     return result
   })
 }
@@ -433,6 +460,12 @@ export function registerTool<App = unknown, Note = undefined>(
   tool: Tool<App>,
   options: ServeOptions<App, Note> = {},
 ): void {
+  if (wantsProtocolErrors(tool, options)) {
+    throw new Error(
+      `The tool ${tool.name} answers bad arguments as a protocol error, which McpServer.registerTool cannot do: register it with registerTools.`,
+    )
+  }
+
   const output = tool.output
     ? publishedSchema(() => tool.outputSchema()!)
     : undefined
@@ -451,7 +484,74 @@ export function registerTool<App = unknown, Note = undefined>(
   )
 }
 
-/** Registers every tool, refusing a name given twice before any is. */
+/** Whether a tool answers arguments that do not fit as a protocol error. */
+function wantsProtocolErrors<App, Note>(
+  tool: Tool<App>,
+  options: ServeOptions<App, Note>,
+): boolean {
+  return (tool.invalidArgs ?? options.invalidArgs) === "protocol-error"
+}
+
+/**
+ * Serves `tools/list` and `tools/call` itself, on the server under the
+ * McpServer. `McpServer.registerTool` turns anything a handler throws into a
+ * tool result, so a tool that answers bad arguments with a JSON-RPC -32602
+ * (`invalidArgs: "protocol-error"`) cannot be registered through it. Once
+ * these are set, McpServer's own registerTool throws: one way in, not two.
+ */
+function registerToolsOnProtocol<App, Note>(
+  server: McpServer,
+  tools: ReadonlyArray<Tool<App>>,
+  options: ServeOptions<App, Note>,
+): void {
+  const byName = new Map(tools.map((tool) => [tool.name, tool]))
+  const inner = server.server
+
+  inner.assertCanSetRequestHandler("tools/list")
+  inner.assertCanSetRequestHandler("tools/call")
+  inner.registerCapabilities({ tools: { listChanged: false } })
+  inner.setRequestHandler(
+    "tools/list",
+    () =>
+      ({
+        tools: tools.map((tool) => ({
+          name: tool.name,
+          title: tool.title,
+          description: tool.description,
+          inputSchema: tool.inputSchema(),
+          ...(tool.output ? { outputSchema: tool.outputSchema() } : {}),
+          annotations: tool.annotations,
+          ...(tool.meta ? { _meta: tool.meta } : {}),
+        })),
+      }) as never,
+  )
+  inner.setRequestHandler("tools/call", async (request, ctx) => {
+    const tool = byName.get(request.params.name)
+
+    if (!tool) {
+      const { ProtocolError, ProtocolErrorCode } =
+        await import("@modelcontextprotocol/server")
+      throw new ProtocolError(
+        ProtocolErrorCode.InvalidParams,
+        `There is no tool ${request.params.name}. It has: ${[...byName.keys()].join(", ")}.`,
+      )
+    }
+
+    const result = await serveTool(tool, request.params.arguments, ctx, options)
+
+    return inner.projectCallToolResult(
+      result,
+      tool.output ? tool.outputSchema() : undefined,
+    ) as never
+  })
+}
+
+/**
+ * Registers every tool, refusing a name given twice before any is. If any
+ * tool answers bad arguments as a protocol error, all are served by this
+ * package's own `tools/list` and `tools/call` (see
+ * registerToolsOnProtocol).
+ */
 export function registerTools<App = unknown, Note = undefined>(
   server: McpServer,
   tools: ReadonlyArray<Tool<App>>,
@@ -465,6 +565,11 @@ export function registerTools<App = unknown, Note = undefined>(
     }
 
     seen.add(tool.name)
+  }
+
+  if (tools.some((tool) => wantsProtocolErrors(tool, options))) {
+    registerToolsOnProtocol(server, tools, options)
+    return
   }
 
   for (const tool of tools) {

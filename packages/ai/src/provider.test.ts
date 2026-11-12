@@ -4,7 +4,7 @@ import { LlmOffError } from "./config"
 import { chatModel, providerCacheSize } from "./provider"
 
 const backend = (extra: object = {}) => ({
-  source: "hosted",
+  source: "deployment",
   baseURL: "http://h/v1",
   apiKey: "k",
   ...extra,

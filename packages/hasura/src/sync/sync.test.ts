@@ -295,7 +295,7 @@ describe("kk-hasura sync", () => {
       )
       expect(s.run().ok).toBe(true)
       expect(
-        readFileSync(join(s.metadata, "tables/credit_usage.yaml"), "utf8"),
+        readFileSync(join(s.metadata, "tables/public_credit_usage.yaml"), "utf8"),
       ).toBe("table:\n  name: credit_usage\n  schema: public\n")
       const tables = readFileSync(
         join(s.metadata, "tables/tables.yaml"),
@@ -303,7 +303,7 @@ describe("kk-hasura sync", () => {
       )
       expect(tables).toContain("# mine")
       expect(tables).toContain("public_users.yaml")
-      expect(tables).toContain("!include credit_usage.yaml")
+      expect(tables).toContain("!include public_credit_usage.yaml")
       const functions = readFileSync(join(s.metadata, "functions.yaml"), "utf8")
       expect(functions).toContain("# existing")
       expect(functions).toContain("name: other")
@@ -313,7 +313,7 @@ describe("kk-hasura sync", () => {
         "functions/public.credit_spend",
       )
       expect(s.lock().packages["@k/credits"]!.metadata).toHaveProperty(
-        "tables/credit_usage.yaml",
+        "tables/public_credit_usage.yaml",
       )
     })
 
@@ -325,7 +325,7 @@ describe("kk-hasura sync", () => {
         join(s.metadata, "tables/tables.yaml"),
         "utf8",
       )
-      expect(tables.match(/credit_usage\.yaml/g)).toHaveLength(1)
+      expect(tables.match(/public_credit_usage\.yaml/g)).toHaveLength(1)
       const functions = readFileSync(join(s.metadata, "functions.yaml"), "utf8")
       expect(functions.match(/credit_spend/g)).toHaveLength(1)
       expect(s.run(true).ok).toBe(true)
@@ -354,7 +354,7 @@ describe("kk-hasura sync", () => {
     it("fails when a synced table file was edited", () => {
       const s = setup(undefined, { vars })
       s.run()
-      write(join(s.metadata, "tables/credit_usage.yaml"), "table: {}\n")
+      write(join(s.metadata, "tables/public_credit_usage.yaml"), "table: {}\n")
       const check = s.run(true)
       expect(check.ok).toBe(false)
       expect(check.lines.join("\n")).toContain(
@@ -381,7 +381,7 @@ describe("kk-hasura sync", () => {
     it("refuses to overwrite a table file it did not write", () => {
       const s = setup(undefined, { vars })
       write(
-        join(s.metadata, "tables/credit_usage.yaml"),
+        join(s.metadata, "tables/public_credit_usage.yaml"),
         "table: {name: other}\n",
       )
       const result = s.run()

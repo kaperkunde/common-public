@@ -71,7 +71,7 @@ export {
   chooseBackend,
   fallbackOfOrder,
   finalRefusal,
-  hostedOffers,
+  deploymentOffers,
   isBackendOrder,
   modelForPlayer,
   modelOnSource,
