@@ -1,0 +1,56 @@
+- function:
+    name: {{prefix}}{{jobs_table}}_enqueue
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: Asking for a scope to be looked at. The server alone; the function refuses any other role again itself.
+- function:
+    name: {{prefix}}{{jobs_table}}_claim
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: Taking the next due job, one per scope, under a lease. The server alone.
+- function:
+    name: {{prefix}}{{jobs_table}}_heartbeat
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: Renewing a running job's lease. The server alone.
+- function:
+    name: {{prefix}}{{jobs_table}}_finish
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: Finishing a running job as done, failed or paused. The server alone.
+- function:
+    name: {{prefix}}{{jobs_table}}_mark_attempt
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: Saying what a running pass has started on. The server alone.
+- function:
+    name: {{prefix}}{{jobs_table}}_reclaim
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: Failing jobs whose lease ran out and asking for their scopes again. The server alone.
+- function:
+    name: {{prefix}}{{jobs_table}}_sweep
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: Clearing long-finished jobs and listing what is due. The server alone.

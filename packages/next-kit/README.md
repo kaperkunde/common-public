@@ -18,3 +18,29 @@ export async function rename(_: ActionState, form: FormData) {
   })
 }
 ```
+
+## Env and health
+
+```ts
+// env.ts: fails at boot naming each bad variable, never its value
+import { defineEnv } from "@kaperkunde/next-kit"
+import { z } from "zod"
+export const env = defineEnv(
+  z.object({
+    DATABASE_URL: z.string().url(),
+    PORT: z.coerce.number().default(3000),
+  }),
+)
+
+// app/api/health/route.ts: 200 {status:"ok"} or 503 naming the failing checks (never why)
+import { healthRoute } from "@kaperkunde/next-kit"
+export const dynamic = "force-dynamic"
+export const GET = healthRoute({
+  checks: { db: () => db.query("select 1") },
+  timeoutMs: 3000,
+})
+```
+
+`defineEnv(schema, source = process.env)` takes any zod object schema (no zod
+dependency here) and throws `EnvError` with `problems`. `healthRoute({ checks, timeoutMs })`
+runs checks in parallel; a check passes unless it throws, returns `false` or times out.

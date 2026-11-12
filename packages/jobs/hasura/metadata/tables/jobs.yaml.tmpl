@@ -1,0 +1,10 @@
+table:
+  name: {{prefix}}{{jobs_table}}
+  schema: {{schema}}
+configuration:
+  comment: The job queue. Written only through its functions, as the server; read by the server alone.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns: "*"
+      filter: {}

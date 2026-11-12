@@ -59,3 +59,52 @@ registerTools(server, [moveEvents], {
 The app keeps what is its own: its error class, its log, its scopes and
 which connection sees which tool, the reasons and links it asks the owner
 for (`needsOwnerSchema`, `ownerLinkIn`), its placeholders, and its route.
+
+## Bad arguments: `invalidArgs`
+
+By default arguments that do not fit come back as a tool result with `isError`,
+which an assistant reads and retries. Set `invalidArgs: "protocol-error"` on a
+tool (or on `registerTools`' options) to answer them as a JSON-RPC -32602
+instead, whose message and `data: { tool, issues }` name every path, the
+unknown keys and the keys allowed there (`issuesOf`, `invalidArgumentsError`).
+`McpServer.registerTool` turns anything a handler throws into a tool result, so
+any tool in this mode makes `registerTools` serve `tools/list` and `tools/call`
+itself on the server (a single `registerTool` of such a tool throws, pointing
+at `registerTools`).
+
+## `@kaperkunde/mcp/next`: the route plumbing
+
+For an app whose MCP route sits behind Better Auth's OAuth provider. Scope
+names, audiences, tool names and words are yours. Peers (all optional, only
+for this subpath): `@kaperkunde/auth`, `@kaperkunde/security`, `jose`.
+
+| Export                                                                                                                                        | What it gives                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `toWebRequest`, `sendWebResponse`, `headerPairs`, `noStore`                                                                                   | The Node bridge for a pages-router API route (Next hands `IncomingMessage`/`ServerResponse` with the body parsed; chunks are flushed past compression so progress streams). An app-router route is handed web `Request`/`Response` already; `noStore` adds the header.                                                                                                                                                                                                      |
+| `createBearerVerifier({ verifyToken, loadConsent })`                                                                                          | `Authorization` header to `{ userId, clientId, scopes }` or undefined: token verified, then the consent row asked again on every request and the scopes narrowed to it, so Disconnect takes effect at once.                                                                                                                                                                                                                                                                 |
+| `jwksVerifier({ jwks, issuer, audience })`                                                                                                    | A `verifyToken` against the provider's key set (read from its own table, `auth.api.getJwks()`, not fetched from your public URL), via `jose`, kept a minute.                                                                                                                                                                                                                                                                                                                |
+| `createDoor({ verifyBearer, resolve, resourceMetadataUrl, scopes, rateLimit, buckets?, classifier? })`                                        | `admit(header, body)`, `admitNode(req, res)` (pages) and `admitWeb(request)` (app router): who is asking (verified, walked to your caller by `resolve`, held to your gate), then limited per person in two buckets, reads and writes (`DEFAULT_BUCKETS` 600 and 120 a minute). Refusals carry the `WWW-Authenticate` challenge and the 429 carries `Retry-After` and `retryAfterSeconds`, `bucket`, `limit`. `rateLimit` fits `checkRateLimit` from `@kaperkunde/security`. |
+| `requestKind`, `rpcIdOf`, `tooManyBody`                                                                                                       | The pure sorting and refusal shape. Tools named `list_`, `get_`, `read_` or in `classifier.readTools` read; unknown tools count as writes.                                                                                                                                                                                                                                                                                                                                  |
+| `protectedResourceMetadata`, `mcpUrl`, `scopesOf`, `describeScopes`, `webAddress`, `isAuthorizeQuery`, `resumeAuthorizeUrl`, `consentRequest` | The RFC 9728 document and the consent and login screens' helpers.                                                                                                                                                                                                                                                                                                                                                                                                           |
+
+```ts
+const door = createDoor({
+  verifyBearer: createBearerVerifier({
+    verifyToken: jwksVerifier({
+      jwks: () => auth.api.getJwks(),
+      issuer,
+      audience: mcpResource,
+    }),
+    loadConsent: async (userId, clientId) =>
+      (await findConsent(userId, clientId))?.scopes ?? null,
+  }),
+  resolve: async ({ userId }) => {
+    const user = await userFor(userId)
+    return user ? { ok: true, caller: user, rateKey: user.id } : undefined
+  },
+  resourceMetadataUrl,
+  scopes: ["app:read", "app:write"],
+  rateLimit: (key, limit) => checkRateLimit(key, limit),
+})
+// app router: const admitted = await door.admitWeb(request); if ("response" in admitted) return admitted.response
+```

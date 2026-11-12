@@ -3,3 +3,5 @@ dist
 coverage
 .changeset/*.md
 packages/credits/src/fixtures
+packages/config/templates
+packages/*/hasura/**/*.tmpl
