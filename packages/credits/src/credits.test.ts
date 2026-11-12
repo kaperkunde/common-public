@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { CreditsRefusedError, ledgerRowOf } from "./credits"
+import { CreditsRefusedError, kindsNeeded, ledgerRowOf } from "./credits"
 
 describe("a hook's usage as a ledger row", () => {
   it("sums an LLM call's requests and keeps them for pricing", () => {
@@ -68,5 +68,19 @@ describe("a hook's usage as a ledger row", () => {
     const error = new CreditsRefusedError("OUT_OF_CREDITS", "none left")
     expect(error.code).toBe("OUT_OF_CREDITS")
     expect(error).toBeInstanceOf(Error)
+  })
+})
+
+describe("the kinds a call needs priced", () => {
+  it("asks input and output of a prompt-and-answer call, and the unit kind of a metered one", () => {
+    expect(kindsNeeded()).toEqual(["input", "output"])
+    expect(kindsNeeded("llm")).toEqual(["input", "output"])
+    expect(kindsNeeded("tts_chars")).toEqual(["tts_chars"])
+    expect(kindsNeeded(["llm", "tts_chars", "tts_chars"])).toEqual([
+      "input",
+      "output",
+      "tts_chars",
+    ])
+    expect(kindsNeeded([])).toEqual(["input", "output"])
   })
 })

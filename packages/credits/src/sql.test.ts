@@ -19,6 +19,7 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
   let store: ReturnType<typeof createStore>
   let credits: ReturnType<typeof createCredits>
   const told: string[] = []
+  const logged: string[] = []
 
   beforeAll(async () => {
     pool = await freshDatabase("kk_credits_test")
@@ -29,6 +30,9 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
       unit: { one: "lore token", many: "lore tokens" },
       onOutOfCredits: (userId) => {
         told.push(userId)
+      },
+      log: (message) => {
+        logged.push(message)
       },
     })
     await pool.query(
@@ -162,15 +166,91 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
     })
     expect(row.kind).toBe("tts_chars")
     expect(row.credits).toBe(30_000)
+    // A model priced for one kind is not admitted for another, nor for a prompt-and-answer
+    // call: admitting it would let the call run and land unpriced.
+    const seconds = await credits.admit("ash", {
+      model: "voice",
+      kind: "tts_seconds",
+    })
+    expect(seconds.ok ? undefined : seconds.code).toBe("UNPRICED")
+    expect(seconds.ok ? "" : seconds.message).toContain("tts_seconds")
+    const chat = await credits.admit("ash", { model: "voice" })
+    expect(chat.ok ? "" : chat.message).toContain("input, output")
+    expect(
+      (await credits.admit("ash", { model: "voice", kind: "tts_chars" })).ok,
+    ).toBe(true)
+    expect(
+      await store.wouldAdmit("ash", { model: "voice", kinds: ["tts_seconds"] }),
+    ).toBe(false)
+    expect(
+      (await credits.wouldAdmit("ash", { model: "voice", kind: "tts_chars" }))
+        .ok,
+    ).toBe(true)
+    expect(
+      (await credits.wouldAdmit("ash", { model: "voice", kind: "tts_seconds" }))
+        .ok,
+    ).toBe(false)
+    // The database refuses it too, before anything is handed out.
     await expect(
-      credits.onUsage({
-        userId: "ash",
-        model: "voice",
-        purpose: "speech",
-        kind: "tts_seconds",
-        units: 10,
-      }),
+      store.admit("ash", { model: "voice", kinds: ["tts_seconds"] }),
     ).rejects.toThrow(/no price for tts_seconds/)
+
+    // A call that ran anyway is kept on the ledger unconverted rather than lost or free...
+    const unspent = await credits.onUsage({
+      userId: "ash",
+      model: "voice",
+      purpose: "speech",
+      kind: "tts_seconds",
+      units: 10,
+    })
+    expect(unspent.credits).toBeNull()
+    expect(logged.at(-1)).toMatch(/could not be spent yet/)
+    expect((await store.pendingUsage()).map((row) => row.id)).toContain(
+      unspent.id,
+    )
+    const first = await credits.spendPending()
+    expect(first.stillPending.map((row) => row.id)).toContain(unspent.id)
+    expect(first.stillPending[0]?.error).toMatch(/no price for tts_seconds/)
+    // ...and spent once a price covers it, at that price.
+    await store.setModelPrice({
+      model: "voice",
+      kinds: [
+        { kind: "tts_chars", unit: "char", usdPerMillion: 15 },
+        { kind: "tts_seconds", unit: "second", usdPerMillion: 100_000 },
+      ],
+      effectiveFrom: "2020-01-02T00:00:00Z",
+    })
+    const before = await store.balance("ash")
+    const second = await credits.spendPending()
+    expect(second.stillPending).toEqual([])
+    const charged = second.spent.find((row) => row.id === unspent.id)
+    expect(charged?.credits).toBe(1_000_000)
+    expect((await store.pendingUsage()).length).toBe(0)
+    const after = await store.balance("ash")
+    expect(
+      (before?.free ?? 0) +
+        (before?.purchased ?? 0) -
+        (after?.free ?? 0) -
+        (after?.purchased ?? 0),
+    ).toBe(1_000_000)
+    // Nothing left: spending pending again changes nothing.
+    expect((await credits.spendPending()).spent).toEqual([])
+  })
+
+  it("refuses a price that sets input without output, or the reverse", async () => {
+    await expect(
+      store.setModelPrice({
+        model: "half",
+        kinds: [{ kind: "input", usdPerMillion: 1 }],
+      }),
+    ).rejects.toThrow(/input and output together/)
+    await expect(
+      store.setModelPrice({
+        model: "half",
+        kinds: [{ kind: "output", usdPerMillion: 1 }],
+      }),
+    ).rejects.toThrow(/input and output together/)
+    expect(await store.priceNow("half")).toBeUndefined()
   })
 
   it("multiplies by a request's factors and its long-prompt tier", async () => {

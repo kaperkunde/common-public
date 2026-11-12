@@ -86,6 +86,29 @@ export const ledgerRowOf = (input: UsageInput): LedgerInsert => {
 
 export type AdmitRefusal = "OUT_OF_CREDITS" | "UNPRICED" | "OWN_LIMIT"
 
+/**
+ * The price kinds a call will need: `input` and `output` for a prompt-and-answer call (no kind,
+ * or `llm`), the kind itself (or each of several) for a metered one. Pure.
+ */
+export const kindsNeeded = (kind?: string | readonly string[]): string[] => {
+  const kinds = typeof kind === "string" ? [kind] : [...(kind ?? [])]
+  const needed = kinds.flatMap((one) =>
+    one === "llm" ? ["input", "output"] : [one],
+  )
+  return needed.length > 0 ? Array.from(new Set(needed)) : ["input", "output"]
+}
+
+/** What `admit` asks about a call. */
+export type AdmitContext = {
+  model: string
+  source?: "deployment" | "own"
+  /**
+   * The price kind the call will use: none (or `llm`) for a prompt-and-answer call, which needs
+   * `input` and `output`; `tts_chars` and the like for a metered call; several for both.
+   */
+  kind?: string | readonly string[]
+}
+
 /** Thrown by `beforeCall`, for a hook that refuses a call by throwing. */
 export class CreditsRefusedError extends Error {
   readonly code: AdmitRefusal
@@ -148,9 +171,15 @@ export const createCredits = (config: CreditsConfig) => {
    * what hands them out, so ask only when credits are what the call will run on. On their own
    * key: their monthly limit is not yet reached.
    */
+  const unpriced = (model: string, missing: readonly string[]) =>
+    fail(
+      "UNPRICED" as const,
+      `${model} has no price set here for ${missing.join(", ")} yet, so it cannot be used. Choose another model.`,
+    )
+
   const admit = async (
     userId: string,
-    context: { model: string; source?: "deployment" | "own" },
+    context: AdmitContext,
   ): Promise<Result<Admission, AdmitRefusal>> => {
     if (context.source === "own") {
       const backend = await store.ownBackend(userId)
@@ -170,25 +199,34 @@ export const createCredits = (config: CreditsConfig) => {
       }
       return ok({ source: "own" as const })
     }
-    if (!(await store.priceNow(context.model))) {
-      return fail(
-        "UNPRICED",
-        `${context.model} has no price set here yet, so it cannot be used. Choose another model.`,
-      )
-    }
-    const balance = await store.admit(userId)
+    const call = { model: context.model, kinds: kindsNeeded(context.kind) }
+    const missing = await store.missingKinds(call)
+    if (missing.length > 0) return unpriced(context.model, missing)
+    const balance = await store.admit(userId, call)
     if (admitted(balance)) return ok({ balance, source: "deployment" as const })
     const message = outOfCreditsMessage(unit)
     await tellOut(userId, message)
     return fail("OUT_OF_CREDITS", message)
   }
 
+  /**
+   * Whether `admit` would admit a call on credits now, changing nothing and handing nothing
+   * out: what a paused job asks before it tries again.
+   */
+  const wouldAdmit = async (
+    userId: string,
+    context: Omit<AdmitContext, "source">,
+  ): Promise<Result<{ kinds: string[] }, "OUT_OF_CREDITS" | "UNPRICED">> => {
+    const call = { model: context.model, kinds: kindsNeeded(context.kind) }
+    const missing = await store.missingKinds(call)
+    if (missing.length > 0) return unpriced(context.model, missing)
+    return (await store.wouldAdmit(userId, call))
+      ? ok({ kinds: call.kinds })
+      : fail("OUT_OF_CREDITS", outOfCreditsMessage(unit))
+  }
+
   /** `admit` for a hook that refuses by throwing `CreditsRefusedError`. */
-  const beforeCall = async (context: {
-    userId: string
-    model: string
-    source?: "deployment" | "own"
-  }) => {
+  const beforeCall = async (context: AdmitContext & { userId: string }) => {
     const verdict = await admit(context.userId, context)
     if (!verdict.ok)
       throw new CreditsRefusedError(verdict.code, verdict.message)
@@ -202,23 +240,70 @@ export const createCredits = (config: CreditsConfig) => {
   /** Converts one ledger row into credits and takes them from its user. Idempotent. */
   const spend = (usageId: number) => store.spend(usageId)
 
+  const askAfterSpend = (userId: string) => {
+    if (!config.afterSpend) return
+    Promise.resolve()
+      .then(() => config.afterSpend?.(userId))
+      .catch((error) => log("Auto-refill could not be asked about", error))
+  }
+
   /**
    * The ledger and the spend in one, for a hook's `onUsage`: written, then (unless it ran on
    * the user's own key) converted and taken, then `afterSpend` asked without waiting on it.
+   * The call has already happened, so a spend that fails (a kind nobody priced) is logged and
+   * the row handed back unconverted (`credits` null), for `spendPending` to take later; only a
+   * failure to write the row at all is thrown.
    */
   const onUsage = async (input: UsageInput): Promise<UsageRow> => {
     const row = await recordUsage(input)
     if (input.source === "own") return row
-    const spent = await spend(row.id)
-    if (config.afterSpend) {
-      Promise.resolve()
-        .then(() => config.afterSpend?.(input.userId))
-        .catch((error) => log("Auto-refill could not be asked about", error))
+    try {
+      const spent = await spend(row.id)
+      askAfterSpend(input.userId)
+      return spent
+    } catch (error) {
+      log(`Call ${row.id} is on the ledger but could not be spent yet`, error)
+      return row
     }
-    return spent
   }
 
-  return { store, unit, admit, beforeCall, recordUsage, spend, onUsage }
+  /**
+   * Spends every ledger row that was written and never converted -- a spend refused for a
+   * kind nobody priced, or a process that stopped between the write and the spend -- once its
+   * price covers it. Call it from a cron (every few minutes is plenty): it is what keeps an
+   * unpriced call from running free. A row that still cannot be priced stays pending and is
+   * named in `stillPending`; nothing is thrown for it.
+   */
+  const spendPending = async (options: { limit?: number } = {}) => {
+    const rows = await store.pendingUsage(options.limit ?? 100)
+    const spent: UsageRow[] = []
+    const stillPending: { id: number; model: string; error: string }[] = []
+    for (const row of rows) {
+      try {
+        spent.push(await spend(row.id))
+      } catch (error) {
+        stillPending.push({
+          id: row.id,
+          model: row.model,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+    new Set(spent.map((row) => row.userId)).forEach(askAfterSpend)
+    return { spent, stillPending }
+  }
+
+  return {
+    store,
+    unit,
+    admit,
+    wouldAdmit,
+    beforeCall,
+    recordUsage,
+    spend,
+    onUsage,
+    spendPending,
+  }
 }
 
 export type Credits = ReturnType<typeof createCredits>

@@ -1,9 +1,11 @@
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}pending_usage(integer);
 DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}claim_out_notice({{owner_id_type}});
 DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}grant({{owner_id_type}}, bigint, text, text);
 DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}spend(bigint);
-DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}would_admit({{owner_id_type}});
-DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}admit({{owner_id_type}});
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}would_admit({{owner_id_type}}, text, text[]);
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}admit({{owner_id_type}}, text, text[]);
 DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}pool_could_give({{owner_id_type}}, timestamptz, numeric, numeric, numeric);
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}missing_kinds(text, text[], timestamptz);
 DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}call_usd({{schema}}.{{usage_table}}, {{schema}}.{{prefix}}model_prices);
 DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}kind_cost({{schema}}.{{prefix}}model_prices, text, numeric);
 DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}factor_at(text, text, text, timestamptz);

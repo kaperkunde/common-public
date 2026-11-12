@@ -188,6 +188,7 @@ CREATE TABLE {{schema}}.{{usage_table}} (
 );
 
 CREATE INDEX {{usage_table}}_user_created_idx ON {{schema}}.{{usage_table}} ("userId", "createdAt");
+CREATE INDEX {{usage_table}}_pending_idx ON {{schema}}.{{usage_table}} (id) WHERE credits IS NULL;
 CREATE INDEX {{usage_table}}_user_source_idx
   ON {{schema}}.{{usage_table}} ("userId", source, "createdAt");
 
@@ -339,6 +340,13 @@ BEGIN
       USING ERRCODE = 'check_violation';
   END IF;
 
+  -- A prompt-and-answer price says both halves: one with input and no output (or the reverse)
+  -- would let a call through admit and then leave it unpriced on the ledger.
+  IF (kinds @> '[{"kind": "input"}]') <> (kinds @> '[{"kind": "output"}]') THEN
+    RAISE EXCEPTION 'A price of % sets input and output together, or neither.', price_model
+      USING ERRCODE = 'check_violation';
+  END IF;
+
   INSERT INTO {{schema}}.{{prefix}}model_prices
     (model, "effectiveFrom", "longPromptUnits", "longPromptFactor", source, "syncedAt")
   VALUES (
@@ -369,6 +377,31 @@ AS $$
     WHERE p.model = price_model AND p."effectiveFrom" <= at
     ORDER BY p."effectiveFrom" DESC
     LIMIT 1
+$$;
+
+-- The kinds of `needed` the price of a model in force at a moment cannot charge: every one of
+-- them where the model has no price at all, none where the call can be priced. What admit and
+-- would_admit ask before a call, so a call is never let through to land unpriced on the ledger.
+CREATE FUNCTION {{schema}}.{{prefix}}missing_kinds(
+  price_model text, needed text[], at timestamptz DEFAULT now()
+)
+RETURNS text[]
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+  price {{schema}}.{{prefix}}model_prices;
+BEGIN
+  price := {{schema}}.{{prefix}}price_at(price_model, at);
+  IF price.id IS NULL THEN
+    RETURN coalesce(needed, ARRAY[]::text[]);
+  END IF;
+  RETURN coalesce(
+    (SELECT array_agg(n ORDER BY n) FROM unnest(needed) n
+      WHERE {{schema}}.{{prefix}}kind_usd(price.id, n) IS NULL),
+    ARRAY[]::text[]
+  );
+END;
 $$;
 
 -- What one kind costs under a price, in dollars per million units: its own row, or its
@@ -562,8 +595,15 @@ $$;
 -- expiring at the month's end, its dollars taken from the pool in the same breath. Answers the
 -- balance; anything above zero is admitted.
 --
+-- Given a model and the kinds the call will use (`input` and `output` for a prompt-and-answer
+-- call, the unit kind for a metered one), a call the price in force cannot charge is refused
+-- first, before anything is handed out: it would otherwise run, land on the ledger unpriced,
+-- and leave the balance as it was.
+--
 -- Locks the balance, then the month's pool: the order spend takes them in.
-CREATE FUNCTION {{schema}}.{{prefix}}admit(user_id {{owner_id_type}})
+CREATE FUNCTION {{schema}}.{{prefix}}admit(
+  user_id {{owner_id_type}}, price_model text DEFAULT NULL, needed text[] DEFAULT NULL
+)
 RETURNS SETOF {{schema}}.{{prefix}}balances
 LANGUAGE plpgsql
 VOLATILE
@@ -574,8 +614,16 @@ DECLARE
   ratio {{schema}}.{{prefix}}dollar_rates;
   period timestamptz := {{schema}}.{{prefix}}period(now());
   given bigint;
+  missing text[];
 BEGIN
   PERFORM {{schema}}.{{prefix}}assert_server('Credits are handed out');
+  IF price_model IS NOT NULL THEN
+    missing := {{schema}}.{{prefix}}missing_kinds(price_model, coalesce(needed, ARRAY['input', 'output']));
+    IF cardinality(missing) > 0 THEN
+      RAISE EXCEPTION 'The model % has no price for %.', price_model, array_to_string(missing, ', ')
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
 
   INSERT INTO {{schema}}.{{prefix}}balances ("userId") VALUES (user_id)
     ON CONFLICT ("userId") DO NOTHING;
@@ -615,8 +663,11 @@ END;
 $$;
 
 -- Whether admit would admit a user now, changing nothing: what a paused job asks before it
--- tries again.
-CREATE FUNCTION {{schema}}.{{prefix}}would_admit(user_id {{owner_id_type}})
+-- tries again. Given a model (and the kinds, as admit takes them), false where the price in
+-- force cannot charge the call.
+CREATE FUNCTION {{schema}}.{{prefix}}would_admit(
+  user_id {{owner_id_type}}, price_model text DEFAULT NULL, needed text[] DEFAULT NULL
+)
 RETURNS boolean
 LANGUAGE plpgsql
 STABLE
@@ -628,6 +679,11 @@ DECLARE
   free_now bigint := 0;
   bought bigint := 0;
 BEGIN
+  IF price_model IS NOT NULL AND cardinality({{schema}}.{{prefix}}missing_kinds(
+    price_model, coalesce(needed, ARRAY['input', 'output'])
+  )) > 0 THEN
+    RETURN false;
+  END IF;
   SELECT * INTO balance FROM {{schema}}.{{prefix}}balances b WHERE b."userId" = user_id;
   IF FOUND THEN
     bought := balance.purchased;
@@ -808,5 +864,24 @@ BEGIN
     UPDATE {{schema}}.{{prefix}}balances b SET "notifiedFor" = period
       WHERE b."userId" = user_id AND b."notifiedFor" IS DISTINCT FROM period
       RETURNING b.*;
+END;
+$$;
+
+-- The calls written to the ledger and never converted: spend refused them (a kind nobody
+-- priced, no ratio yet) or the process stopped between the write and the spend. Oldest first.
+-- The app hands them to spend again from a cron (`spendPending`); a row still unpriced stays
+-- here until a price covers it.
+CREATE FUNCTION {{schema}}.{{prefix}}pending_usage(max_rows integer DEFAULT 100)
+RETURNS SETOF {{schema}}.{{usage_table}}
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+  PERFORM {{schema}}.{{prefix}}assert_server('The unspent ledger is read');
+  RETURN QUERY
+    SELECT * FROM {{schema}}.{{usage_table}} u
+      WHERE u.credits IS NULL
+      ORDER BY u.id
+      LIMIT greatest(coalesce(max_rows, 100), 1);
 END;
 $$;

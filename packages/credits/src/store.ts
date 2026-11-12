@@ -89,6 +89,9 @@ const usageOf = (row: Row): UsageRow => ({
   createdAt: String(iso(row.createdAt)),
 })
 
+/** A call as admission asks about its price: the model, and the kinds it will use. */
+export type PricedCallAsk = { model: string; kinds: readonly string[] }
+
 /** What the ledger is handed for one call, already split into its columns. */
 export type LedgerInsert = {
   userId: string
@@ -255,21 +258,47 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
   return {
     // --- balances, admission and spending ---------------------------------------------
 
-    /** Admits a user, handing out free credits from the pool if they had none. */
-    admit: async (userId: string) =>
+    /**
+     * Admits a user, handing out free credits from the pool if they had none. Given the call's
+     * model and the kinds it will use, the database refuses (throws) a call its price cannot
+     * charge before anything is handed out; ask `missingKinds` first to refuse in words.
+     */
+    admit: async (userId: string, call?: PricedCallAsk) =>
       balanceOf(
-        (await one<Row>(`SELECT * FROM ${t("admit")}($1)`, [userId])) as Row,
+        (await one<Row>(`SELECT * FROM ${t("admit")}($1, $2, $3::text[])`, [
+          userId,
+          call?.model ?? null,
+          call ? [...call.kinds] : null,
+        ])) as Row,
       ),
 
-    wouldAdmit: async (userId: string) =>
+    /** Whether admit would admit a user now, changing nothing; false for an unpriced call. */
+    wouldAdmit: async (userId: string, call?: PricedCallAsk) =>
       Boolean(
         (
           await one<{ admit: boolean }>(
-            `SELECT ${t("would_admit")}($1) AS admit`,
-            [userId],
+            `SELECT ${t("would_admit")}($1, $2, $3::text[]) AS admit`,
+            [userId, call?.model ?? null, call ? [...call.kinds] : null],
           )
         )?.admit,
       ),
+
+    /** The kinds of a call the model's price in force cannot charge; empty when it can. */
+    missingKinds: async (call: PricedCallAsk) =>
+      (
+        (
+          await one<{ missing: string[] | null }>(
+            `SELECT ${t("missing_kinds")}($1, $2::text[]) AS missing`,
+            [call.model, [...call.kinds]],
+          )
+        )?.missing ?? []
+      ).map(String),
+
+    /** Ledger rows written and never converted, oldest first: what `spendPending` retries. */
+    pendingUsage: async (limit = 100) =>
+      (
+        await db.query<Row>(`SELECT * FROM ${t("pending_usage")}($1)`, [limit])
+      ).map(usageOf),
 
     balance: async (userId: string) => {
       const row = await one<Row>(
