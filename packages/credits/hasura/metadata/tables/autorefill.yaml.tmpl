@@ -1,0 +1,77 @@
+table:
+  name: {{prefix}}autorefill
+  schema: {{schema}}
+configuration:
+  comment: "A user's automatic refill. The user reads which card by its label, never Stripe's ids."
+object_relationships:
+  - name: owner
+    using:
+      foreign_key_constraint_on: userId
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check: {}
+      columns:
+        - amountCents
+        - currency
+        - enabled
+        - failedAt
+        - monthlyMaxCents
+        - paymentMethodId
+        - paymentMethodLabel
+        - stripeCustomerId
+        - thresholdCredits
+        - userId
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - amountCents
+        - currency
+        - enabled
+        - failedAt
+        - monthlyMaxCents
+        - paymentMethodId
+        - paymentMethodLabel
+        - pending
+        - stripeCustomerId
+        - thresholdCredits
+        - updatedAt
+        - userId
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+  - role: {{user_role}}
+    permission:
+      columns:
+        - amountCents
+        - currency
+        - enabled
+        - failedAt
+        - monthlyMaxCents
+        - paymentMethodLabel
+        - pending
+        - thresholdCredits
+        - updatedAt
+        - userId
+      filter:
+        userId:
+          _eq: X-Hasura-User-Id
+    comment: "A user's own rows, and nobody else's. Never widen it, and never give any AI role a permission here."
+update_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - amountCents
+        - currency
+        - enabled
+        - failedAt
+        - monthlyMaxCents
+        - paymentMethodId
+        - paymentMethodLabel
+        - stripeCustomerId
+        - thresholdCredits
+      filter: {}
+      check: null
+    comment: The server's bookkeeping. Balances and money move only in the row-locked functions.

@@ -1,0 +1,42 @@
+table:
+  name: {{prefix}}balances
+  schema: {{schema}}
+configuration:
+  comment: "A user's credits: what is left of the free ones and when they expire, and what was bought or granted. Moved only by the row-locked functions."
+object_relationships:
+  - name: owner
+    using:
+      foreign_key_constraint_on: userId
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - free
+        - freeExpiresAt
+        - notifiedFor
+        - purchased
+        - updatedAt
+        - userId
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+  - role: {{user_role}}
+    permission:
+      columns:
+        - free
+        - freeExpiresAt
+        - purchased
+        - updatedAt
+        - userId
+      filter:
+        userId:
+          _eq: X-Hasura-User-Id
+    comment: "A user's own rows, and nobody else's. Never widen it, and never give any AI role a permission here."
+update_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - notifiedFor
+      filter: {}
+      check: null
+    comment: The server's bookkeeping. Balances and money move only in the row-locked functions.

@@ -1,0 +1,49 @@
+table:
+  name: {{prefix}}pool_periods
+  schema: {{schema}}
+configuration:
+  comment: "One month of the pool: what has come out of it. Granted and overdraft amounts move only in admit and spend."
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check: {}
+      columns:
+        - checkedAt
+        - driftFactor
+        - ledgerCents
+        - periodStart
+        - providerCents
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - checkedAt
+        - driftFactor
+        - grantedCredits
+        - grantedUsd
+        - ledgerCents
+        - notifiedEmptyAt
+        - notifiedLowAt
+        - notifiedOverAt
+        - overdraftUsd
+        - periodStart
+        - providerCents
+        - updatedAt
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+update_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - checkedAt
+        - driftFactor
+        - ledgerCents
+        - notifiedEmptyAt
+        - notifiedLowAt
+        - notifiedOverAt
+        - providerCents
+      filter: {}
+      check: null
+    comment: The server's bookkeeping. Balances and money move only in the row-locked functions.

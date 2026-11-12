@@ -1,0 +1,34 @@
+table:
+  name: {{prefix}}grants
+  schema: {{schema}}
+configuration:
+  comment: "The admin granting credits or taking some back. The user reads their own, never which admin."
+object_relationships:
+  - name: owner
+    using:
+      foreign_key_constraint_on: userId
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - adminEmail
+        - amount
+        - createdAt
+        - id
+        - reason
+        - userId
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+  - role: {{user_role}}
+    permission:
+      columns:
+        - amount
+        - createdAt
+        - id
+        - reason
+        - userId
+      filter:
+        userId:
+          _eq: X-Hasura-User-Id
+    comment: "A user's own rows, and nobody else's. Never widen it, and never give any AI role a permission here."

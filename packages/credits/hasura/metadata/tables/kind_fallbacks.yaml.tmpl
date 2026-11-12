@@ -1,0 +1,38 @@
+table:
+  name: {{prefix}}kind_fallbacks
+  schema: {{schema}}
+configuration:
+  comment: "A kind a price leaves out, worked out from another."
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check: {}
+      columns:
+        - baseKind
+        - kind
+        - multiple
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - baseKind
+        - kind
+        - multiple
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+update_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - baseKind
+        - multiple
+      filter: {}
+      check: null
+    comment: The server's bookkeeping. Balances and money move only in the row-locked functions.
+delete_permissions:
+  - role: {{server_role}}
+    permission:
+      filter: {}
+    comment: The server alone.
