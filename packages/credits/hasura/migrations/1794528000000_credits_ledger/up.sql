@@ -83,7 +83,10 @@ CREATE TABLE {{schema}}.{{prefix}}model_prices (
   CONSTRAINT {{prefix}}model_prices_model_from_key UNIQUE (model, "effectiveFrom")
 );
 
--- What one kind of usage costs under a price: US dollars per million units.
+-- What one kind of usage costs under a price: US dollars per million units. A kind the admin
+-- left out but a fallback could work out is written here too, `derived`, when the price is set:
+-- a price version is whole and never changes, so a call is charged what it said on the day
+-- whatever happens to the fallbacks later.
 CREATE TABLE {{schema}}.{{prefix}}model_price_kinds (
   "priceId" bigint NOT NULL
     REFERENCES {{schema}}.{{prefix}}model_prices (id) ON DELETE CASCADE,
@@ -94,12 +97,16 @@ CREATE TABLE {{schema}}.{{prefix}}model_price_kinds (
     CONSTRAINT {{prefix}}model_price_kinds_unit_check CHECK (length(unit) BETWEEN 1 AND 40),
   "usdPerMillion" numeric NOT NULL
     CONSTRAINT {{prefix}}model_price_kinds_usd_check CHECK ("usdPerMillion" >= 0),
+  -- Worked out from a fallback when the price was set, rather than set by whoever set it.
+  derived boolean NOT NULL DEFAULT false,
   PRIMARY KEY ("priceId", kind)
 );
 
 -- A kind a price leaves out, worked out from another: a cache read a tenth of a fresh prompt
--- token, and so on. Data, so an app may change or remove the defaults; a kind with neither a
--- price nor a fallback is unpriced, and a call that used it cannot be charged.
+-- token, and so on. Read only when a price is set, which writes the kinds it works out onto
+-- that version (`derived`); a change here is a default for prices set from then on, and never
+-- reprices a call already made. Data, so an app may change or remove the defaults; a kind a
+-- version neither sets nor derived is unpriced, and a call that used it cannot be charged.
 CREATE TABLE {{schema}}.{{prefix}}kind_fallbacks (
   kind text PRIMARY KEY,
   "baseKind" text NOT NULL,
@@ -313,7 +320,10 @@ CREATE TRIGGER {{prefix}}own_backends_stamp
   FOR EACH ROW EXECUTE FUNCTION {{schema}}.{{prefix}}stamp();
 
 -- A price set whole, in one statement: the version and its kinds. `kinds` is
--- [{"kind": "input", "unit": "token", "usdPerMillion": 3}, ...]. Server only.
+-- [{"kind": "input", "unit": "token", "usdPerMillion": 3}, ...]; an entry marked
+-- `"derived": true` (a price read back and set again) is left out and worked out afresh. Every
+-- kind a fallback can work out from what was given is written onto the version too, marked
+-- derived, so the version alone says what each kind cost. Server only.
 CREATE FUNCTION {{schema}}.{{prefix}}set_model_price(
   price_model text,
   kinds jsonb,
@@ -355,13 +365,25 @@ BEGIN
   )
   RETURNING * INTO price;
 
-  FOR entry IN SELECT value FROM jsonb_array_elements(kinds) LOOP
+  FOR entry IN SELECT value FROM jsonb_array_elements(kinds)
+      WHERE coalesce((value ->> 'derived')::boolean, false) IS NOT TRUE LOOP
     INSERT INTO {{schema}}.{{prefix}}model_price_kinds ("priceId", kind, unit, "usdPerMillion")
     VALUES (
       price.id, entry ->> 'kind', coalesce(entry ->> 'unit', 'token'),
       (entry ->> 'usdPerMillion')::numeric
     );
   END LOOP;
+
+  INSERT INTO {{schema}}.{{prefix}}model_price_kinds
+    ("priceId", kind, unit, "usdPerMillion", derived)
+  SELECT price.id, f.kind, b.unit, b."usdPerMillion" * f.multiple, true
+    FROM {{schema}}.{{prefix}}kind_fallbacks f
+    JOIN {{schema}}.{{prefix}}model_price_kinds b
+      ON b."priceId" = price.id AND b.kind = f."baseKind" AND NOT b.derived
+    WHERE NOT EXISTS (
+      SELECT 1 FROM {{schema}}.{{prefix}}model_price_kinds k
+        WHERE k."priceId" = price.id AND k.kind = f.kind
+    );
 
   RETURN NEXT price;
 END;
@@ -404,22 +426,15 @@ BEGIN
 END;
 $$;
 
--- What one kind costs under a price, in dollars per million units: its own row, or its
--- fallback's base kind times the multiple; null where neither says.
+-- What one kind costs under a price, in dollars per million units: the version's own row,
+-- set or derived when it was set; null where it has none. Never the fallbacks as they are now.
 CREATE FUNCTION {{schema}}.{{prefix}}kind_usd(price_id bigint, price_kind text)
 RETURNS numeric
 LANGUAGE sql
 STABLE
 AS $$
-  SELECT coalesce(
-    (SELECT k."usdPerMillion" FROM {{schema}}.{{prefix}}model_price_kinds k
-      WHERE k."priceId" = price_id AND k.kind = price_kind),
-    (SELECT b."usdPerMillion" * f.multiple
-      FROM {{schema}}.{{prefix}}kind_fallbacks f
-      JOIN {{schema}}.{{prefix}}model_price_kinds b
-        ON b."priceId" = price_id AND b.kind = f."baseKind"
-      WHERE f.kind = price_kind)
-  )
+  SELECT k."usdPerMillion" FROM {{schema}}.{{prefix}}model_price_kinds k
+    WHERE k."priceId" = price_id AND k.kind = price_kind
 $$;
 
 -- A factor in force at a moment: the model's own, else every model's, else 1.

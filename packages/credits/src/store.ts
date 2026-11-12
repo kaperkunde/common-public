@@ -234,7 +234,8 @@ export const createStore = (db: Executor, names: CreditNames = {}) => {
   const pricesWithKinds = async (where = "", params: unknown[] = []) => {
     const rows = await db.query<Row>(
       `SELECT p.*, coalesce((SELECT json_agg(json_build_object(
-          'kind', k.kind, 'unit', k.unit, 'usdPerMillion', k."usdPerMillion") ORDER BY k.kind)
+          'kind', k.kind, 'unit', k.unit, 'usdPerMillion', k."usdPerMillion",
+          'derived', k.derived) ORDER BY k.kind)
         FROM ${t("model_price_kinds")} k WHERE k."priceId" = p.id), '[]'::json) AS kinds
        FROM ${t("model_prices")} p ${where}
        ORDER BY p.model, p."effectiveFrom" DESC`,

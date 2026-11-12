@@ -2,11 +2,12 @@ table:
   name: {{prefix}}model_price_kinds
   schema: {{schema}}
 configuration:
-  comment: "What one kind of usage costs under a price, in US dollars per million units."
+  comment: "What one kind of usage costs under a price, in US dollars per million units; derived kinds were worked out from a fallback when the price was set."
 select_permissions:
   - role: {{server_role}}
     permission:
       columns:
+        - derived
         - kind
         - priceId
         - unit
@@ -17,6 +18,7 @@ select_permissions:
   - role: {{user_role}}
     permission:
       columns:
+        - derived
         - kind
         - priceId
         - unit

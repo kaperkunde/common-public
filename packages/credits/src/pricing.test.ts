@@ -8,6 +8,7 @@ import {
   dimensionsOf,
   factorAt,
   kindIsSet,
+  resolveKinds,
   kindUsd,
   priceInForce,
   priceText,
@@ -280,5 +281,54 @@ describe("the price arithmetic", () => {
     expect(tokenSplitText({ input: 900, output: 1500 })).toBe(
       "900 in · 1.5k out",
     )
+  })
+})
+
+describe("a price's kinds as they are stored", () => {
+  it("writes every kind a fallback works out onto the version, marked derived", () => {
+    const kinds = resolveKinds([
+      { kind: "input", usdPerMillion: 4 },
+      { kind: "output", usdPerMillion: 20 },
+      { kind: "cache_write", usdPerMillion: 6 },
+    ])
+    expect(kinds).toEqual([
+      { kind: "input", usdPerMillion: 4 },
+      { kind: "output", usdPerMillion: 20 },
+      { kind: "cache_write", usdPerMillion: 6 },
+      { kind: "cache_read", unit: "token", usdPerMillion: 0.4, derived: true },
+      {
+        kind: "cache_write_1h",
+        unit: "token",
+        usdPerMillion: 8,
+        derived: true,
+      },
+    ])
+    // A derived kind is not "set", and a stored price read back resolves the same way again.
+    expect(kindIsSet({ kinds }, "cache_read")).toBe(false)
+    expect(kindIsSet({ kinds }, "cache_write")).toBe(true)
+    expect(resolveKinds(kinds)).toEqual(kinds)
+  })
+
+  it("prices a stored version by its own rows, whatever the fallbacks become", () => {
+    const kinds = resolveKinds([
+      { kind: "input", usdPerMillion: 10 },
+      { kind: "output", usdPerMillion: 10 },
+    ])
+    const usage = {
+      inputTokens: 1_000_000,
+      cachedTokens: 1_000_000,
+      outputTokens: 0,
+    }
+    const price = { model: "m", kinds }
+    // The fallbacks a price is read with are only for kinds it lacks; it lacks none here.
+    expect(
+      callUsd(usage, price, {
+        fallbacks: [{ kind: "cache_read", baseKind: "input", multiple: 0.5 }],
+      }),
+    ).toBeCloseTo(1)
+    // Nothing to derive from: no derived kinds.
+    expect(resolveKinds([{ kind: "tts_chars", usdPerMillion: 15 }])).toEqual([
+      { kind: "tts_chars", usdPerMillion: 15 },
+    ])
   })
 })

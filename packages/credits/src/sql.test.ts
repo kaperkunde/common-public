@@ -253,6 +253,74 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
     expect(await store.priceNow("half")).toBeUndefined()
   })
 
+  it("resolves fallbacks onto a price version, so changing one never reprices a call", async () => {
+    await store.setModelPrice({
+      model: "cached",
+      kinds: [
+        { kind: "input", usdPerMillion: 10 },
+        { kind: "output", usdPerMillion: 10 },
+      ],
+      effectiveFrom: "2020-01-01T00:00:00Z",
+    })
+    const stored = await store.priceNow("cached")
+    expect(
+      stored?.kinds.find((kind) => kind.kind === "cache_read"),
+    ).toMatchObject({ usdPerMillion: 1, derived: true })
+    expect(stored?.kinds.find((kind) => kind.kind === "input")?.derived).toBe(
+      false,
+    )
+
+    // A call made under it, spent only after the fallback's multiple changed.
+    const call = await store.insertUsage(
+      (await import("./credits")).ledgerRowOf({
+        userId: "dee",
+        model: "cached",
+        purpose: "chat",
+        requests: [
+          { inputTokens: 100_000, cachedTokens: 100_000, outputTokens: 0 },
+        ],
+      }),
+    )
+    await pool.query(
+      `UPDATE credit_kind_fallbacks SET multiple = 0.5 WHERE kind = 'cache_read'`,
+    )
+    // Still the tenth the version was set with: 100,000 x $1/M = $0.10.
+    expect((await store.spend(call.id)).credits).toBe(100_000)
+
+    // A version set from now on takes the new multiple.
+    await store.setModelPrice({
+      model: "cached",
+      kinds: stored!.kinds, // read back and set again: derived ones are worked out afresh
+    })
+    expect(
+      (await store.priceNow("cached"))?.kinds.find(
+        (kind) => kind.kind === "cache_read",
+      ),
+    ).toMatchObject({ usdPerMillion: 5, derived: true })
+
+    // Without a fallback, a version charges nothing it did not set: cache_read is unpriced.
+    await pool.query(
+      `DELETE FROM credit_kind_fallbacks WHERE kind = 'cache_read'`,
+    )
+    await store.setModelPrice({
+      model: "bare",
+      kinds: [
+        { kind: "input", usdPerMillion: 1 },
+        { kind: "output", usdPerMillion: 1 },
+      ],
+    })
+    expect(
+      await store.missingKinds({ model: "bare", kinds: ["cache_read"] }),
+    ).toEqual(["cache_read"])
+    await pool.query(
+      `INSERT INTO credit_kind_fallbacks (kind, "baseKind", multiple) VALUES ('cache_read', 'input', 0.1)`,
+    )
+    // ...and putting the fallback back does not reach a version already set.
+    expect(
+      await store.missingKinds({ model: "bare", kinds: ["cache_read"] }),
+    ).toEqual(["cache_read"])
+  })
+
   it("multiplies by a request's factors and its long-prompt tier", async () => {
     await store.setModelPrice({
       model: "tiered",

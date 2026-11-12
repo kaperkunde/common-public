@@ -30,6 +30,11 @@ export type KindPrice = {
   /** What one unit is: `token`, `char`, `second`. */
   unit?: string
   usdPerMillion: number
+  /**
+   * Worked out from a fallback when the price was set, rather than set by whoever set it. A
+   * stored version carries every kind it charges, derived ones included.
+   */
+  derived?: boolean
 }
 
 /** One price version of one model. */
@@ -92,7 +97,35 @@ export const kindUsd = (
 
 /** Whether a kind's price is set on the row rather than worked out from a fallback. */
 export const kindIsSet = (price: Pick<ModelPrice, "kinds">, kind: string) =>
-  price.kinds.some((one) => one.kind === kind && finite(one.usdPerMillion))
+  price.kinds.some(
+    (one) => one.kind === kind && !one.derived && finite(one.usdPerMillion),
+  )
+
+/**
+ * A price's kinds as `{{prefix}}set_model_price` stores them: the ones given (any marked
+ * derived left out), and every kind a fallback can work out from them, marked derived. What a
+ * version charges is then its own rows alone, whatever the fallbacks become.
+ */
+export const resolveKinds = (
+  kinds: readonly KindPrice[],
+  fallbacks: readonly KindFallback[] = DEFAULT_KIND_FALLBACKS,
+): KindPrice[] => {
+  const given = kinds.filter((one) => !one.derived)
+  const derived = fallbacks.flatMap((fallback): KindPrice[] => {
+    if (given.some((one) => one.kind === fallback.kind)) return []
+    const base = given.find((one) => one.kind === fallback.baseKind)
+    if (!base || !finite(base.usdPerMillion)) return []
+    return [
+      {
+        kind: fallback.kind,
+        unit: base.unit ?? "token",
+        usdPerMillion: Number(base.usdPerMillion) * fallback.multiple,
+        derived: true,
+      },
+    ]
+  })
+  return [...given, ...derived]
+}
 
 /** A request's tokens as a provider reports them; every count but the first two may be missing. */
 export type RequestTokens = {

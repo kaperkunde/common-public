@@ -68,13 +68,17 @@ export const periodOf = (at: string, width: "hour" | "day") => {
   }
 }
 
-/** The ledger's rows priced at the prices in force when each was made, per stretch and model. */
+/**
+ * The ledger's rows priced at the prices in force when each was made, per stretch and model.
+ * Prices read from the store carry their derived kinds, as the database prices them, so no
+ * fallback is applied unless one is passed (for prices that were never stored).
+ */
 export const ledgerCosts = (
   rows: readonly LedgerRow[],
   prices: readonly ModelPrice[],
   factors: readonly PriceFactor[],
   width: "hour" | "day",
-  fallbacks?: readonly KindFallback[],
+  fallbacks: readonly KindFallback[] = [],
 ) => {
   const into = new Map<string, LedgerCost>()
   rows.forEach((row) => {

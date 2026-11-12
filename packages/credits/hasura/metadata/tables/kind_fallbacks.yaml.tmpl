@@ -2,7 +2,7 @@ table:
   name: {{prefix}}kind_fallbacks
   schema: {{schema}}
 configuration:
-  comment: "A kind a price leaves out, worked out from another."
+  comment: "A kind a price leaves out, worked out from another when a price is set. Defaults for prices set from then on; never reprices a stored version."
 insert_permissions:
   - role: {{server_role}}
     permission:
