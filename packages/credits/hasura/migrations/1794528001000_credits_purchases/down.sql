@@ -8,3 +8,4 @@ DROP TABLE IF EXISTS {{schema}}.{{prefix}}autorefill;
 DROP TABLE IF EXISTS {{schema}}.{{prefix}}purchases;
 DROP TABLE IF EXISTS {{schema}}.{{prefix}}stripe_events;
 DROP TABLE IF EXISTS {{schema}}.{{prefix}}sale_prices;
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}two_decimal_currency(text);

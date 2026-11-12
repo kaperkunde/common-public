@@ -10,7 +10,12 @@
 
 import type Stripe from "stripe"
 
-import { moneyText, refillFailedMessage, type Currencies } from "./billing"
+import {
+  isCurrency,
+  moneyText,
+  refillFailedMessage,
+  type Currencies,
+} from "./billing"
 import type { CreditStore } from "./store"
 import { DEFAULT_UNIT, creditsText, type CreditUnit } from "./units"
 
@@ -77,6 +82,13 @@ export type PurchasesConfig = {
 
 export const createPurchases = (config: PurchasesConfig) => {
   const { store, app } = config
+  Object.keys(config.currencies).forEach((currency) => {
+    if (!isCurrency(currency)) {
+      throw new Error(
+        `Credits are sold in currencies counted in cents (eur, usd, gbp, ...), not ${JSON.stringify(currency)}.`,
+      )
+    }
+  })
   const unit = config.unit ?? DEFAULT_UNIT
   const marker = { app }
   const describe = (credits: number) =>

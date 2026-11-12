@@ -7,6 +7,7 @@ import {
   amountProblem,
   autorefillProblem,
   isCurrency,
+  UNSUPPORTED_CURRENCIES,
   moneyText,
   monthStart,
   parseAmount,
@@ -137,6 +138,19 @@ describe("tax", () => {
     expect(isCurrency("gbp")).toBe(true)
     expect(isCurrency("EUR")).toBe(false)
     expect(isCurrency("euro")).toBe(false)
+  })
+
+  it("sells only in currencies counted in cents", () => {
+    // Zero-decimal: 500 "cents" of yen would be charged as 500 yen, a hundred times off.
+    ;["jpy", "krw", "clp", "vnd", "xof", "isk"].forEach((currency) =>
+      expect(isCurrency(currency), currency).toBe(false),
+    )
+    // Three-decimal: thousandths, ten times off.
+    ;["kwd", "bhd", "jod", "omr", "tnd"].forEach((currency) =>
+      expect(isCurrency(currency), currency).toBe(false),
+    )
+    expect(isCurrency("chf")).toBe(true)
+    expect(UNSUPPORTED_CURRENCIES).toContain("jpy")
   })
 })
 

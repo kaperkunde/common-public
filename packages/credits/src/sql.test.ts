@@ -364,6 +364,13 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
     await expect(store.purchaseOpen("ash", "gbp", 500)).rejects.toThrow(
       /no price in gbp/,
     )
+    // Only currencies counted in cents are priced, bought in or refilled in.
+    await expect(store.addSalePrice("jpy", 250)).rejects.toThrow(
+      /currency_check/,
+    )
+    await expect(store.addSalePrice("kwd", 250)).rejects.toThrow(
+      /currency_check/,
+    )
     const credit = {
       eventId: "evt_1",
       eventType: "checkout.session.completed",

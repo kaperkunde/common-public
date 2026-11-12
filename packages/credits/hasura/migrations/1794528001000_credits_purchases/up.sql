@@ -6,10 +6,27 @@
 -- Stripe says the money arrived -- once, keyed on Stripe's own event id. Everything that moves
 -- a balance is a function here, row-locked, for the server role alone.
 
+-- A currency credits may be sold in: three lower-case letters, counted in hundredths. Every
+-- amount here is in cents and goes to Stripe as `unit_amount`, so a zero-decimal currency
+-- (jpy: an amount is whole yen) or a three-decimal one (kwd: thousandths) would be charged a
+-- hundred times too much or ten times too little. ISK is out too: Stripe takes it only in whole
+-- krónur. `isCurrency` in billing.ts is the same rule.
+CREATE FUNCTION {{schema}}.{{prefix}}two_decimal_currency(currency text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT currency ~ '^[a-z]{3}$' AND currency NOT IN (
+    'bif', 'clp', 'djf', 'gnf', 'isk', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'rwf', 'ugx', 'vnd',
+    'vuv', 'xaf', 'xof', 'xpf',
+    'bhd', 'jod', 'kwd', 'omr', 'tnd'
+  )
+$$;
+
 -- What a million credits cost in a currency, from a moment on.
 CREATE TABLE {{schema}}.{{prefix}}sale_prices (
   currency text NOT NULL
-    CONSTRAINT {{prefix}}sale_prices_currency_check CHECK (currency ~ '^[a-z]{3}$'),
+    CONSTRAINT {{prefix}}sale_prices_currency_check CHECK ({{schema}}.{{prefix}}two_decimal_currency(currency)),
   "centsPerMillion" bigint NOT NULL
     CONSTRAINT {{prefix}}sale_prices_cents_check CHECK ("centsPerMillion" > 0),
   "effectiveFrom" timestamptz NOT NULL DEFAULT now(),
@@ -33,7 +50,7 @@ CREATE TABLE {{schema}}.{{prefix}}purchases (
   kind text NOT NULL CONSTRAINT {{prefix}}purchases_kind_check CHECK (kind IN ('purchase', 'refill')),
   -- The Checkout Session (a purchase) or the PaymentIntent (a refill).
   "stripeId" text NULL CONSTRAINT {{prefix}}purchases_stripe_id_key UNIQUE,
-  currency text NOT NULL CONSTRAINT {{prefix}}purchases_currency_check CHECK (currency ~ '^[a-z]{3}$'),
+  currency text NOT NULL CONSTRAINT {{prefix}}purchases_currency_check CHECK ({{schema}}.{{prefix}}two_decimal_currency(currency)),
   "amountCents" bigint NOT NULL
     CONSTRAINT {{prefix}}purchases_amount_check CHECK ("amountCents" >= {{min_purchase_cents}}),
   "taxCents" bigint NULL,
@@ -59,7 +76,7 @@ CREATE TABLE {{schema}}.{{prefix}}autorefill (
   "amountCents" bigint NOT NULL DEFAULT {{min_purchase_cents}}
     CONSTRAINT {{prefix}}autorefill_amount_check CHECK ("amountCents" >= {{min_purchase_cents}}),
   currency text NOT NULL DEFAULT 'eur'
-    CONSTRAINT {{prefix}}autorefill_currency_check CHECK (currency ~ '^[a-z]{3}$'),
+    CONSTRAINT {{prefix}}autorefill_currency_check CHECK ({{schema}}.{{prefix}}two_decimal_currency(currency)),
   "monthlyMaxCents" bigint NOT NULL DEFAULT 2000,
   "stripeCustomerId" text NULL,
   "paymentMethodId" text NULL,

@@ -51,6 +51,28 @@ const ours = {
   credits: "2000000",
 }
 
+describe("the currencies sold in", () => {
+  it("refuses a currency not counted in cents when it is configured", () => {
+    const config = (currency: string) => () =>
+      createPurchases({
+        store: fakeStore(),
+        stripe: () => undefined,
+        app: "testapp",
+        product: { id: "testapp_credits", name: "Credits" },
+        currencies: { eur: "inclusive", [currency]: "exclusive" },
+        urls: {
+          purchaseDone: "https://x/done",
+          purchaseCancelled: "https://x/cancel",
+          cardSaved: "https://x/card",
+          cardCancelled: "https://x/nocard",
+        },
+      })
+    expect(config("jpy")).toThrow(/counted in cents/)
+    expect(config("kwd")).toThrow(/counted in cents/)
+    expect(config("usd")).not.toThrow()
+  })
+})
+
 describe("the webhook's handler", () => {
   it("credits a paid checkout of this app's, with the event's id", async () => {
     const store = fakeStore()

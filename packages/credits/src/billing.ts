@@ -10,9 +10,47 @@
 import { freeNow, type CreditBalance } from "./balance"
 import { DEFAULT_UNIT, type CreditUnit } from "./units"
 
-/** A currency as Stripe names it: three lower-case letters. */
+/**
+ * Currencies Stripe does not count in hundredths: zero-decimal (an amount is whole yen) and
+ * three-decimal (thousandths). Everything here counts in cents -- what an amount is typed as,
+ * how it is said, what Stripe is sent as `unit_amount` -- so neither kind is sold in. ISK is
+ * here too: Stripe takes it as two-decimal but only in whole krónur.
+ */
+export const UNSUPPORTED_CURRENCIES: readonly string[] = [
+  // zero-decimal
+  "bif",
+  "clp",
+  "djf",
+  "gnf",
+  "isk",
+  "jpy",
+  "kmf",
+  "krw",
+  "mga",
+  "pyg",
+  "rwf",
+  "ugx",
+  "vnd",
+  "vuv",
+  "xaf",
+  "xof",
+  "xpf",
+  // three-decimal
+  "bhd",
+  "jod",
+  "kwd",
+  "omr",
+  "tnd",
+]
+
+/**
+ * A currency credits may be sold in: three lower-case letters as Stripe names it, counted in
+ * hundredths (cents). `{{prefix}}two_decimal_currency` is the same rule in the database.
+ */
 export const isCurrency = (raw: unknown): raw is string =>
-  typeof raw === "string" && /^[a-z]{3}$/.test(raw)
+  typeof raw === "string" &&
+  /^[a-z]{3}$/.test(raw) &&
+  !UNSUPPORTED_CURRENCIES.includes(raw)
 
 /** Whether tax is inside a currency's price or added on top at checkout. */
 export type TaxBehavior = "inclusive" | "exclusive"
