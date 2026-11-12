@@ -510,6 +510,41 @@ describe.skipIf(!databaseUrl)("the credit SQL", () => {
     expect(await store.refillClaim("cy")).toBeUndefined()
   })
 
+  it("counts abandoned refill claims toward the month's maximum, and needs a currency to turn on", async () => {
+    await pool.query(`INSERT INTO public."user" (id) VALUES ('gil')`)
+    await store.grant("gil", 1, "a balance row", "admin@example.com")
+    // A card saved before any refill is set up: no currency is assumed.
+    await store.saveCard("gil", "cus_2", "pm_2", "Visa ending 4242")
+    expect((await store.autorefill("gil"))?.currency).toBeNull()
+    await expect(
+      pool.query(
+        `UPDATE credit_autorefill SET enabled = true WHERE "userId" = 'gil'`,
+      ),
+    ).rejects.toThrow(/currency_when_enabled/)
+    await store.saveAutorefill("gil", {
+      enabled: true,
+      thresholdCredits: 100_000,
+      amountCents: 500,
+      currency: "eur",
+      monthlyMaxCents: 1000,
+    })
+    const strand = async () =>
+      pool.query(
+        `UPDATE credit_purchases SET "createdAt" = now() - interval '2 hours'
+         WHERE "userId" = 'gil' AND status = 'pending'`,
+      )
+    // A claim whose charge never got its id written is given up on after the hour...
+    expect(await store.refillClaim("gil")).toBeDefined()
+    await strand()
+    // ...and the next is claimed, the abandoned €5 counted: €5 + €5 fits €10.
+    expect(await store.refillClaim("gil")).toBeDefined()
+    await strand()
+    // Two abandoned (either may have been charged): a third would pass €10.
+    expect(await store.refillClaim("gil")).toBeUndefined()
+    const statuses = (await store.purchases("gil")).map((p) => p.status)
+    expect(statuses.filter((status) => status === "abandoned")).toHaveLength(2)
+  })
+
   it("writes a call on the user's own key at no credits, and holds it to their limit", async () => {
     await store.saveOwnBackend({
       userId: "dee",

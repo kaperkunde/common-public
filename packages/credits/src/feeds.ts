@@ -214,13 +214,20 @@ export const parseAnthropicPricingPage = (
  */
 export const parseLitellm = (
   json: unknown,
-  options: { provider?: string; modelPrefix?: string; source?: string } = {},
+  options: {
+    /** `litellm_provider`, e.g. "anthropic": required, nothing is assumed. */
+    provider: string
+    /** Only models whose id starts with this; every model of the provider when absent. */
+    modelPrefix?: string
+    source?: string
+  },
 ) => {
   const {
-    provider = "anthropic",
-    modelPrefix = "claude-",
+    provider,
+    modelPrefix = "",
     source = PRICE_FEEDS.litellm.name,
   } = options
+  if (!provider) throw new Error("parseLitellm needs the provider to read.")
   if (!json || typeof json !== "object") return []
   const quotes: FeedQuote[] = []
   Object.entries(json as Record<string, Record<string, unknown>>).forEach(
@@ -271,13 +278,20 @@ export const parseLitellm = (
  */
 export const parseOpenRouter = (
   json: unknown,
-  options: { vendor?: string; modelPrefix?: string; source?: string } = {},
+  options: {
+    /** The `<vendor>/` part of OpenRouter's ids, e.g. "anthropic": required. */
+    vendor: string
+    /** Only models whose id starts with this; every model of the vendor when absent. */
+    modelPrefix?: string
+    source?: string
+  },
 ) => {
   const {
-    vendor = "anthropic",
-    modelPrefix = "claude-",
+    vendor,
+    modelPrefix = "",
     source = PRICE_FEEDS.openrouter.name,
   } = options
+  if (!vendor) throw new Error("parseOpenRouter needs the vendor to read.")
   const data = (json as { data?: unknown })?.data
   if (!Array.isArray(data)) return []
   const quotes: FeedQuote[] = []
@@ -593,23 +607,45 @@ export type PriceFeed = {
   read: (body: string) => FeedQuote[]
 }
 
-/** The three feeds, read for one provider (Anthropic by default). */
-export const defaultFeeds = (
-  options: { provider?: string; vendor?: string; modelPrefix?: string } = {},
-): PriceFeed[] => [
-  {
-    ...PRICE_FEEDS.anthropicPricingPage,
-    read: (body) => parseAnthropicPricingPage(body),
-  },
-  {
-    ...PRICE_FEEDS.litellm,
-    read: (body) => parseLitellm(JSON.parse(body), options),
-  },
-  {
-    ...PRICE_FEEDS.openrouter,
-    read: (body) => parseOpenRouter(JSON.parse(body), options),
-  },
-]
+/**
+ * The feeds an app names, and only those: no provider, vendor or model prefix is assumed.
+ * `anthropicPricingPage` reads Anthropic's own page (its parser knows that page's shape);
+ * `litellm` and `openRouter` read the two lists narrowed to the provider and vendor given.
+ */
+export const priceFeeds = (options: {
+  anthropicPricingPage?: boolean
+  litellm?: { provider: string; modelPrefix?: string }
+  openRouter?: { vendor: string; modelPrefix?: string }
+}): PriceFeed[] => {
+  const { litellm, openRouter } = options
+  return [
+    ...(options.anthropicPricingPage
+      ? [
+          {
+            ...PRICE_FEEDS.anthropicPricingPage,
+            read: (body: string) => parseAnthropicPricingPage(body),
+          },
+        ]
+      : []),
+    ...(litellm
+      ? [
+          {
+            ...PRICE_FEEDS.litellm,
+            read: (body: string) => parseLitellm(JSON.parse(body), litellm),
+          },
+        ]
+      : []),
+    ...(openRouter
+      ? [
+          {
+            ...PRICE_FEEDS.openrouter,
+            read: (body: string) =>
+              parseOpenRouter(JSON.parse(body), openRouter),
+          },
+        ]
+      : []),
+  ]
+}
 
 /**
  * Every feed read, each with its own timeout; a feed that does not answer, or answers what
@@ -620,7 +656,7 @@ export const fetchQuotes = async (
     url: string,
     init: { signal: AbortSignal },
   ) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>,
-  feeds: readonly PriceFeed[] = defaultFeeds(),
+  feeds: readonly PriceFeed[],
   options: {
     timeoutMs?: number
     log?: (message: string, error?: unknown) => void

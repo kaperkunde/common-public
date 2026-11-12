@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest"
 import type { CreditStore } from "./store"
 import {
   consensusOf,
-  defaultFeeds,
+  priceFeeds,
   fetchQuotes,
   PRICE_FEEDS,
   syncPrices,
@@ -26,9 +26,13 @@ import {
 const fixture = (name: string) =>
   readFileSync(join(import.meta.dirname, "fixtures", name), "utf8")
 const page = parseAnthropicPricingPage(fixture("anthropic-pricing.md"))
-const litellm = parseLitellm(JSON.parse(fixture("litellm-prices.json")))
+const litellm = parseLitellm(JSON.parse(fixture("litellm-prices.json")), {
+  provider: "anthropic",
+  modelPrefix: "claude-",
+})
 const openrouter = parseOpenRouter(
   JSON.parse(fixture("openrouter-models.json")),
+  { vendor: "anthropic", modelPrefix: "claude-" },
 )
 const of = (quotes: typeof page, model: string) =>
   quotes.find((quote) => quote.model === model)
@@ -101,8 +105,25 @@ describe("reading the price lists", () => {
     expect(parseAnthropicPricingPage("# Nothing here\n\nNo tables.")).toEqual(
       [],
     )
-    expect(parseLitellm(null)).toEqual([])
-    expect(parseOpenRouter({ data: "no" })).toEqual([])
+    expect(parseLitellm(null, { provider: "anthropic" })).toEqual([])
+    expect(parseOpenRouter({ data: "no" }, { vendor: "anthropic" })).toEqual([])
+  })
+
+  it("assumes no provider, vendor or model prefix", () => {
+    const list = JSON.parse(fixture("litellm-prices.json"))
+    expect(() => parseLitellm(list, {} as never)).toThrow(/provider/)
+    expect(() =>
+      parseOpenRouter(JSON.parse(fixture("openrouter-models.json")), {
+        vendor: "",
+      }),
+    ).toThrow(/vendor/)
+    // With no prefix, every model of the provider is read.
+    const all = parseLitellm(list, { provider: "anthropic" })
+    expect(all.length).toBeGreaterThanOrEqual(litellm.length)
+    expect(priceFeeds({})).toEqual([])
+    expect(
+      priceFeeds({ litellm: { provider: "openai" } }).map((feed) => feed.name),
+    ).toEqual([PRICE_FEEDS.litellm.name])
   })
 })
 
@@ -245,7 +266,11 @@ describe("the sync", () => {
         status: url in bodies ? 200 : 503,
         text: async () => bodies[url] ?? "",
       }),
-      defaultFeeds(),
+      priceFeeds({
+        anthropicPricingPage: true,
+        litellm: { provider: "anthropic", modelPrefix: "claude-" },
+        openRouter: { vendor: "anthropic", modelPrefix: "claude-" },
+      }),
       { log },
     )
     expect(quotes.some((quote) => quote.source === "litellm")).toBe(true)

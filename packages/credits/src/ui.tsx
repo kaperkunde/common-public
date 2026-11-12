@@ -143,7 +143,7 @@ export function CreditsCard({
 }) {
   const codes = Object.keys(currencies)
   const [currency, setCurrency] = useState(
-    autorefill?.currency ?? codes[0] ?? "eur",
+    autorefill?.currency ?? codes[0] ?? "",
   )
   const [amount, setAmount] = useState("5")
   const [saveCard, setSaveCard] = useState(false)

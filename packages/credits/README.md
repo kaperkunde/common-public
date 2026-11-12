@@ -177,6 +177,22 @@ export const POST = stripeWebhookRoute({
 })
 ```
 
+**`handleEvent` is only safe behind `stripeWebhookRoute` / `handleStripeWebhook`**, which check
+the signature and fetch the event back from Stripe by id: it credits on the event's own
+purchase id, user and credits. Never hand it a body read straight off a request. It credits a
+paid `checkout.session.completed`, a `checkout.session.async_payment_succeeded` (a payment
+method that settles later), and a refill's `payment_intent.succeeded`; a refill's
+`payment_intent.payment_failed` turns auto-refill off.
+
+A refill that fails tells the user once through `onRefillFailed(userId, message, failure)`:
+`message` is in the package's words and `failure` a kind (`declined`, `insufficient_funds`,
+`expired_card`, `authentication_required`, `no_card`, `error`). Stripe's own text goes only to
+`log`. Auto-refill has no default currency: the user picks one before turning it on.
+
+Price feeds assume no provider: name the ones to read, e.g.
+`priceFeeds({ litellm: { provider: "anthropic", modelPrefix: "claude-" }, openRouter: { vendor: "anthropic" }, anthropicPricingPage: true })`,
+and hand them to `fetchQuotes`.
+
 Admin screens take data from the store and callbacks that write through it:
 
 ```tsx

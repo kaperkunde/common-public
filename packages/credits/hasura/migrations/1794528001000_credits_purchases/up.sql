@@ -75,7 +75,8 @@ CREATE TABLE {{schema}}.{{table_autorefill}} (
     CONSTRAINT {{prefix}}autorefill_threshold_check CHECK ("thresholdCredits" >= 0),
   "amountCents" bigint NOT NULL DEFAULT {{min_purchase_cents}}
     CONSTRAINT {{prefix}}autorefill_amount_check CHECK ("amountCents" >= {{min_purchase_cents}}),
-  currency text NOT NULL DEFAULT 'eur'
+  -- Which currency it charges in: the user's choice, never assumed; set before it is turned on.
+  currency text NULL
     CONSTRAINT {{prefix}}autorefill_currency_check CHECK ({{schema}}.{{prefix}}two_decimal_currency(currency)),
   "monthlyMaxCents" bigint NOT NULL DEFAULT 2000,
   "stripeCustomerId" text NULL,
@@ -86,7 +87,8 @@ CREATE TABLE {{schema}}.{{table_autorefill}} (
   pending boolean NOT NULL DEFAULT false,
   "failedAt" timestamptz NULL,
   "updatedAt" timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT {{prefix}}autorefill_max_check CHECK ("monthlyMaxCents" >= "amountCents")
+  CONSTRAINT {{prefix}}autorefill_max_check CHECK ("monthlyMaxCents" >= "amountCents"),
+  CONSTRAINT {{prefix}}autorefill_currency_when_enabled CHECK (NOT enabled OR currency IS NOT NULL)
 );
 
 CREATE TRIGGER {{prefix}}autorefill_stamp
@@ -167,7 +169,7 @@ BEGIN
   PERFORM {{schema}}.{{prefix}}assert_server('Credits are sold');
 
   SELECT * INTO settings FROM {{schema}}.{{table_autorefill}} a WHERE a."userId" = user_id FOR UPDATE;
-  IF NOT FOUND OR NOT settings.enabled
+  IF NOT FOUND OR NOT settings.enabled OR settings.currency IS NULL
     OR settings."paymentMethodId" IS NULL OR settings."stripeCustomerId" IS NULL THEN
     RETURN;
   END IF;
@@ -193,7 +195,9 @@ BEGIN
 
   SELECT coalesce(sum(p."amountCents"), 0) INTO spent FROM {{schema}}.{{table_purchases}} p
     WHERE p."userId" = user_id AND p.kind = 'refill' AND p.currency = settings.currency
-      AND p.status IN ('pending', 'paid')
+      -- An abandoned claim counts: its charge may have reached Stripe after all (the process
+      -- stopped before writing its id down), so it is held to the maximum as if it had.
+      AND p.status IN ('pending', 'paid', 'abandoned')
       AND p."createdAt" >= {{schema}}.{{prefix}}period(now());
   IF spent + settings."amountCents" > settings."monthlyMaxCents" THEN
     RETURN;

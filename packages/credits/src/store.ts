@@ -156,7 +156,8 @@ export type AutorefillRow = {
   enabled: boolean
   thresholdCredits: number
   amountCents: number
-  currency: string
+  /** Null until the user picks one; required to turn auto-refill on. */
+  currency: string | null
   monthlyMaxCents: number
   stripeCustomerId: string | null
   paymentMethodId: string | null
@@ -170,7 +171,7 @@ const autorefillOf = (row: Row): AutorefillRow => ({
   enabled: Boolean(row.enabled),
   thresholdCredits: num(row.thresholdCredits),
   amountCents: num(row.amountCents),
-  currency: String(row.currency),
+  currency: (row.currency as string | null) ?? null,
   monthlyMaxCents: num(row.monthlyMaxCents),
   stripeCustomerId: (row.stripeCustomerId as string | null) ?? null,
   paymentMethodId: (row.paymentMethodId as string | null) ?? null,

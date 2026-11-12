@@ -49,6 +49,13 @@ export const ledgerRowOf = (input: UsageInput): LedgerInsert => {
   const sum = (key: keyof UsageRequest) =>
     requests.reduce((total, request) => total + (Number(request[key]) || 0), 0)
   const kind = input.kind ?? "llm"
+  if (typeof input.units === "number" && kind === "llm") {
+    // A bare quantity of nothing in particular would be priced as a kind called `llm`, which
+    // no price has: say which kind it counts.
+    throw new Error(
+      "A quantity of units needs its price kind: pass `kind` (e.g. tts_chars) or units by kind.",
+    )
+  }
   const units =
     typeof input.units === "number"
       ? { [kind]: input.units }

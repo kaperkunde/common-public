@@ -64,6 +64,19 @@ describe("a hook's usage as a ledger row", () => {
     ).toMatchObject({ units: { tts_seconds: 4 }, own: true })
   })
 
+  it("refuses a bare quantity that does not say which kind it counts", () => {
+    const speech = { userId: "ash", model: "voice", purpose: "speech" }
+    expect(() => ledgerRowOf({ ...speech, units: 1200 })).toThrow(
+      /needs its price kind/,
+    )
+    expect(() => ledgerRowOf({ ...speech, kind: "llm", units: 1 })).toThrow(
+      /needs its price kind/,
+    )
+    expect(ledgerRowOf({ ...speech, units: { tts_chars: 1 } }).units).toEqual({
+      tts_chars: 1,
+    })
+  })
+
   it("refuses with a code a hook can read", () => {
     const error = new CreditsRefusedError("OUT_OF_CREDITS", "none left")
     expect(error.code).toBe("OUT_OF_CREDITS")

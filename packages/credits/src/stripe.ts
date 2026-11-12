@@ -320,7 +320,8 @@ export const createPurchases = (config: PurchasesConfig) => {
           turnedOff.userId,
           refillFailedMessage(
             turnedOff.amountCents,
-            turnedOff.currency,
+            // It was on, and an enabled refill always has a currency (a CHECK says so).
+            turnedOff.currency as string,
             failure,
             unit,
           ),
