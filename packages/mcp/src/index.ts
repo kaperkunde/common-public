@@ -104,3 +104,11 @@ export {
   type Ref,
   type WriteReport,
 } from "./write"
+
+export {
+  invalidArgumentsError,
+  invalidArgumentsMessage,
+  issuesOf,
+  type ArgumentIssue,
+} from "./protocol-error"
+export type { InvalidArgsMode } from "./define"

@@ -58,7 +58,9 @@ export const requestKind = (
   classifier: Classifier = {},
 ): RequestKind => {
   const messages = Array.isArray(body) ? body : [body]
-  return messages.some((message) => messageKind(message, classifier) === "write")
+  return messages.some(
+    (message) => messageKind(message, classifier) === "write",
+  )
     ? "write"
     : "read"
 }

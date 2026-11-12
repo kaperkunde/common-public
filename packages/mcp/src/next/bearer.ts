@@ -47,7 +47,10 @@ export const createBearerVerifier =
       )
       if (!token) return undefined
       const payload = await options.verifyToken(token)
-      if (typeof payload.sub !== "string" || typeof payload.client_id !== "string") {
+      if (
+        typeof payload.sub !== "string" ||
+        typeof payload.client_id !== "string"
+      ) {
         return undefined
       }
       const scopes = effectiveScopes(
@@ -89,7 +92,9 @@ export const jwksVerifier = (options: JwksVerifierOptions) => {
     const { createLocalJWKSet, jwtVerify } = await import("jose")
     if (!held || now() - held.at > ttl) {
       held = {
-        set: createLocalJWKSet((await options.jwks()) as Parameters<typeof createLocalJWKSet>[0]),
+        set: createLocalJWKSet(
+          (await options.jwks()) as Parameters<typeof createLocalJWKSet>[0],
+        ),
         at: now(),
       }
     }
