@@ -50,7 +50,7 @@
     "remark-gfm": "^4.0.1"
   },
   "peerDependencies": {
-    "@kaperkunde/legal-docs": "^1.0.0",
+    "@kaperkunde/legal-docs": "^1.0.28",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
