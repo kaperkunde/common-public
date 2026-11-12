@@ -127,6 +127,18 @@ importers:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
 
+  packages/jobs:
+    devDependencies:
+      '@electric-sql/pglite':
+        specifier: 0.5.16
+        version: 0.5.16
+      '@kaperkunde/hasura':
+        specifier: workspace:*
+        version: link:../hasura
+      graphql:
+        specifier: 16.10.0
+        version: 16.10.0
+
   packages/legal:
     dependencies:
       github-slugger:
@@ -569,6 +581,9 @@ packages:
   '@clack/prompts@1.8.1':
     resolution: {integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==}
     engines: {node: '>= 20.12.0'}
+
+  '@electric-sql/pglite@0.5.16':
+    resolution: {integrity: sha512-Nj8KcIsJL748W408U2N8q4+9IlONdpRIU8MJypIAAINMJ5nqKyqpX7Mgg/5XKkXiAib3AoZGR6hnJFlrlLBrcg==}
 
   '@emnapi/runtime@1.11.3':
     resolution: {integrity: sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==}
@@ -3948,6 +3963,8 @@ snapshots:
       fast-string-width: 3.0.2
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
+
+  '@electric-sql/pglite@0.5.16': {}
 
   '@emnapi/runtime@1.11.3':
     dependencies:
