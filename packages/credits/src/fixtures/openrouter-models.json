@@ -1,0 +1,412 @@
+{
+ "data": [
+  {
+   "id": "anthropic/claude-haiku-5.5",
+   "canonical_slug": "anthropic/claude-haiku-5.5-20261007",
+   "pricing": {
+    "prompt": "0.0000001",
+    "completion": "0.0000005",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000001",
+    "input_cache_write": "0.000000125",
+    "input_cache_write_1h": "0.0000002",
+    "overrides": [
+     {
+      "min_prompt_tokens": 100000,
+      "prompt": "0.0000005",
+      "completion": "0.0000025",
+      "input_cache_read": "0.00000005",
+      "input_cache_write": "0.000000625",
+      "input_cache_write_1h": "0.000001"
+     }
+    ]
+   }
+  },
+  {
+   "id": "anthropic/claude-haiku-5.5:batch",
+   "canonical_slug": "anthropic/claude-haiku-5.5-20261007",
+   "pricing": {
+    "prompt": "0.00000005",
+    "completion": "0.00000025",
+    "web_search": "0.01",
+    "input_cache_read": "0.000000005",
+    "input_cache_write": "0.0000000625",
+    "input_cache_write_1h": "0.0000001",
+    "overrides": [
+     {
+      "min_prompt_tokens": 100000,
+      "prompt": "0.00000025",
+      "completion": "0.00000125",
+      "input_cache_read": "0.000000025",
+      "input_cache_write": "0.0000003125",
+      "input_cache_write_1h": "0.0000005"
+     }
+    ]
+   }
+  },
+  {
+   "id": "anthropic/claude-sonnet-5.5",
+   "canonical_slug": "anthropic/claude-sonnet-5.5-20260928",
+   "pricing": {
+    "prompt": "0.000002",
+    "completion": "0.00001",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000001",
+    "input_cache_write": "0.0000025",
+    "input_cache_write_1h": "0.000004"
+   }
+  },
+  {
+   "id": "anthropic/claude-sonnet-5.5:batch",
+   "canonical_slug": "anthropic/claude-sonnet-5.5-20260928",
+   "pricing": {
+    "prompt": "0.000001",
+    "completion": "0.000005",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000005",
+    "input_cache_write": "0.00000125",
+    "input_cache_write_1h": "0.000002"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-5.5",
+   "canonical_slug": "anthropic/claude-opus-5.5-20260921",
+   "pricing": {
+    "prompt": "0.000004",
+    "completion": "0.00002",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000002",
+    "input_cache_write": "0.000005",
+    "input_cache_write_1h": "0.000008"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-5.5:batch",
+   "canonical_slug": "anthropic/claude-opus-5.5-20260921",
+   "pricing": {
+    "prompt": "0.000002",
+    "completion": "0.00001",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000001",
+    "input_cache_write": "0.0000025",
+    "input_cache_write_1h": "0.000004"
+   }
+  },
+  {
+   "id": "anthropic/claude-fable-5.1",
+   "canonical_slug": "anthropic/claude-fable-5.1-20260831",
+   "pricing": {
+    "prompt": "0.00001",
+    "completion": "0.00005",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000025",
+    "input_cache_write": "0.0000125",
+    "input_cache_write_1h": "0.00002"
+   }
+  },
+  {
+   "id": "anthropic/claude-fable-5.1:batch",
+   "canonical_slug": "anthropic/claude-fable-5.1-20260831",
+   "pricing": {
+    "prompt": "0.000005",
+    "completion": "0.000025",
+    "web_search": "0.01",
+    "input_cache_read": "0.000000125",
+    "input_cache_write": "0.00000625",
+    "input_cache_write_1h": "0.00001"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-5",
+   "canonical_slug": "anthropic/claude-opus-5-20260723",
+   "pricing": {
+    "prompt": "0.000005",
+    "completion": "0.000025",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000005",
+    "input_cache_write": "0.00000625",
+    "input_cache_write_1h": "0.00001"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-5:batch",
+   "canonical_slug": "anthropic/claude-opus-5-20260723",
+   "pricing": {
+    "prompt": "0.0000025",
+    "completion": "0.0000125",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000025",
+    "input_cache_write": "0.000003125",
+    "input_cache_write_1h": "0.000005"
+   }
+  },
+  {
+   "id": "anthropic/claude-sonnet-5",
+   "canonical_slug": "anthropic/claude-sonnet-5-20260630",
+   "pricing": {
+    "prompt": "0.000002",
+    "completion": "0.00001",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000002",
+    "input_cache_write": "0.0000025",
+    "input_cache_write_1h": "0.000004"
+   }
+  },
+  {
+   "id": "anthropic/claude-sonnet-5:batch",
+   "canonical_slug": "anthropic/claude-sonnet-5-20260630",
+   "pricing": {
+    "prompt": "0.000001",
+    "completion": "0.000005",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000001",
+    "input_cache_write": "0.00000125",
+    "input_cache_write_1h": "0.000002"
+   }
+  },
+  {
+   "id": "anthropic/claude-fable-5",
+   "canonical_slug": "anthropic/claude-5-fable-20260609",
+   "pricing": {
+    "prompt": "0.00001",
+    "completion": "0.00005",
+    "web_search": "0.01",
+    "input_cache_read": "0.000001",
+    "input_cache_write": "0.0000125",
+    "input_cache_write_1h": "0.00002"
+   }
+  },
+  {
+   "id": "anthropic/claude-fable-5:batch",
+   "canonical_slug": "anthropic/claude-5-fable-20260609",
+   "pricing": {
+    "prompt": "0.000005",
+    "completion": "0.000025",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000005",
+    "input_cache_write": "0.00000625",
+    "input_cache_write_1h": "0.00001"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-4.8",
+   "canonical_slug": "anthropic/claude-4.8-opus-20260528",
+   "pricing": {
+    "prompt": "0.000005",
+    "completion": "0.000025",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000005",
+    "input_cache_write": "0.00000625",
+    "input_cache_write_1h": "0.00001"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-4.8:batch",
+   "canonical_slug": "anthropic/claude-4.8-opus-20260528",
+   "pricing": {
+    "prompt": "0.0000025",
+    "completion": "0.0000125",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000025",
+    "input_cache_write": "0.000003125",
+    "input_cache_write_1h": "0.000005"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-4.7",
+   "canonical_slug": "anthropic/claude-4.7-opus-20260416",
+   "pricing": {
+    "prompt": "0.000005",
+    "completion": "0.000025",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000005",
+    "input_cache_write": "0.00000625",
+    "input_cache_write_1h": "0.00001"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-4.7:batch",
+   "canonical_slug": "anthropic/claude-4.7-opus-20260416",
+   "pricing": {
+    "prompt": "0.0000025",
+    "completion": "0.0000125",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000025",
+    "input_cache_write": "0.000003125",
+    "input_cache_write_1h": "0.000005"
+   }
+  },
+  {
+   "id": "anthropic/claude-sonnet-4.6",
+   "canonical_slug": "anthropic/claude-4.6-sonnet-20260217",
+   "pricing": {
+    "prompt": "0.000003",
+    "completion": "0.000015",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000003",
+    "input_cache_write": "0.00000375",
+    "input_cache_write_1h": "0.000006"
+   }
+  },
+  {
+   "id": "anthropic/claude-sonnet-4.6:batch",
+   "canonical_slug": "anthropic/claude-4.6-sonnet-20260217",
+   "pricing": {
+    "prompt": "0.0000015",
+    "completion": "0.0000075",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000015",
+    "input_cache_write": "0.000001875",
+    "input_cache_write_1h": "0.000003"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-4.6",
+   "canonical_slug": "anthropic/claude-4.6-opus-20260205",
+   "pricing": {
+    "prompt": "0.000005",
+    "completion": "0.000025",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000005",
+    "input_cache_write": "0.00000625",
+    "input_cache_write_1h": "0.00001"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-4.6:batch",
+   "canonical_slug": "anthropic/claude-4.6-opus-20260205",
+   "pricing": {
+    "prompt": "0.0000025",
+    "completion": "0.0000125",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000025",
+    "input_cache_write": "0.000003125",
+    "input_cache_write_1h": "0.000005"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-4.5",
+   "canonical_slug": "anthropic/claude-4.5-opus-20251124",
+   "pricing": {
+    "prompt": "0.000005",
+    "completion": "0.000025",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000005",
+    "input_cache_write": "0.00000625",
+    "input_cache_write_1h": "0.00001"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-4.5:batch",
+   "canonical_slug": "anthropic/claude-4.5-opus-20251124",
+   "pricing": {
+    "prompt": "0.0000025",
+    "completion": "0.0000125",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000025",
+    "input_cache_write": "0.000003125",
+    "input_cache_write_1h": "0.000005"
+   }
+  },
+  {
+   "id": "anthropic/claude-haiku-4.5",
+   "canonical_slug": "anthropic/claude-4.5-haiku-20251001",
+   "pricing": {
+    "prompt": "0.000001",
+    "completion": "0.000005",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000001",
+    "input_cache_write": "0.00000125",
+    "input_cache_write_1h": "0.000002"
+   }
+  },
+  {
+   "id": "anthropic/claude-haiku-4.5:batch",
+   "canonical_slug": "anthropic/claude-4.5-haiku-20251001",
+   "pricing": {
+    "prompt": "0.0000005",
+    "completion": "0.0000025",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000005",
+    "input_cache_write": "0.000000625",
+    "input_cache_write_1h": "0.000001"
+   }
+  },
+  {
+   "id": "anthropic/claude-sonnet-4.5",
+   "canonical_slug": "anthropic/claude-4.5-sonnet-20250929",
+   "pricing": {
+    "prompt": "0.000003",
+    "completion": "0.000015",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000003",
+    "input_cache_write": "0.00000375",
+    "input_cache_write_1h": "0.000006",
+    "overrides": [
+     {
+      "min_prompt_tokens": 200000,
+      "prompt": "0.000006",
+      "completion": "0.0000225",
+      "input_cache_read": "0.0000006",
+      "input_cache_write": "0.0000075",
+      "input_cache_write_1h": "0.000012"
+     }
+    ]
+   }
+  },
+  {
+   "id": "anthropic/claude-sonnet-4.5:batch",
+   "canonical_slug": "anthropic/claude-4.5-sonnet-20250929",
+   "pricing": {
+    "prompt": "0.0000015",
+    "completion": "0.0000075",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000015",
+    "input_cache_write": "0.000001875",
+    "input_cache_write_1h": "0.000003",
+    "overrides": [
+     {
+      "min_prompt_tokens": 200000,
+      "prompt": "0.000003",
+      "completion": "0.00001125",
+      "input_cache_read": "0.0000003",
+      "input_cache_write": "0.00000375",
+      "input_cache_write_1h": "0.000006"
+     }
+    ]
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-4.1",
+   "canonical_slug": "anthropic/claude-4.1-opus-20250805",
+   "pricing": {
+    "prompt": "0.000015",
+    "completion": "0.000075",
+    "web_search": "0.01",
+    "input_cache_read": "0.0000015",
+    "input_cache_write": "0.00001875",
+    "input_cache_write_1h": "0.00003"
+   }
+  },
+  {
+   "id": "anthropic/claude-opus-4.1:batch",
+   "canonical_slug": "anthropic/claude-4.1-opus-20250805",
+   "pricing": {
+    "prompt": "0.0000075",
+    "completion": "0.0000375",
+    "web_search": "0.01",
+    "input_cache_read": "0.00000075",
+    "input_cache_write": "0.000009375",
+    "input_cache_write_1h": "0.000015"
+   }
+  },
+  {
+   "id": "particle-ai/particle-1",
+   "pricing": {
+    "prompt": "0.00000005",
+    "completion": "0.0000005",
+    "input_cache_read": "0.000000003"
+   }
+  }
+ ]
+}

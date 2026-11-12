@@ -1,0 +1,10 @@
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}refill_failed(bigint, text, text);
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}credit(text, text, bigint, {{owner_id_type}}, bigint, text, bigint, bigint);
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}refill_claim({{owner_id_type}});
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}purchase_open({{owner_id_type}}, text, bigint);
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}credits_for(bigint, bigint);
+DROP FUNCTION IF EXISTS {{schema}}.{{prefix}}sale_price_at(text, timestamptz);
+DROP TABLE IF EXISTS {{schema}}.{{prefix}}autorefill;
+DROP TABLE IF EXISTS {{schema}}.{{prefix}}purchases;
+DROP TABLE IF EXISTS {{schema}}.{{prefix}}stripe_events;
+DROP TABLE IF EXISTS {{schema}}.{{prefix}}sale_prices;

@@ -1,0 +1,40 @@
+{
+  "name": "@kaperkunde/credits",
+  "vars": {
+    "prefix": {
+      "description": "Prefix of every object this package creates, e.g. `credit_` (Lore Spawner: `lore_`).",
+      "default": "credit_"
+    },
+    "schema": {
+      "description": "The schema everything lives in.",
+      "default": "public"
+    },
+    "owner_table": {
+      "description": "The table whose rows own balances, purchases and usage (the app's users)."
+    },
+    "owner_id_column": {
+      "description": "The owner table's primary key column.",
+      "default": "id"
+    },
+    "owner_id_type": {
+      "description": "That column's SQL type, e.g. `text` (Better Auth) or `uuid`.",
+      "default": "text"
+    },
+    "server_role": {
+      "description": "The Hasura role (x-hasura-role) the app's server acts as; the only role that may move a balance.",
+      "default": "server"
+    },
+    "user_role": {
+      "description": "The Hasura role a signed-in person acts as; reads their own balance, purchases, grants and usage.",
+      "default": "user"
+    },
+    "usage_table": {
+      "description": "The usage ledger's table name, unprefixed so an app can keep an existing name (Lore Spawner: `ai_usage`).",
+      "default": "credit_usage"
+    },
+    "min_purchase_cents": {
+      "description": "The smallest purchase or automatic refill, in cents of its currency.",
+      "default": "500"
+    }
+  }
+}
