@@ -2,7 +2,13 @@ import type Stripe from "stripe"
 import { describe, expect, it, vi } from "vitest"
 
 import type { CreditStore } from "./store"
-import { cardLabel, createPurchases, ourNumbers, stripeFailure } from "./stripe"
+import {
+  cardLabel,
+  createPurchases,
+  ourNumbers,
+  refillFailureOf,
+  stripeFailure,
+} from "./stripe"
 
 const fakeStore = (overrides: Partial<CreditStore> = {}) =>
   ({
@@ -22,6 +28,7 @@ const purchases = (
   store: CreditStore,
   stripe?: Partial<Stripe>,
   told?: string[],
+  logged?: unknown[],
 ) =>
   createPurchases({
     store,
@@ -35,8 +42,11 @@ const purchases = (
       cardSaved: "https://x/card",
       cardCancelled: "https://x/nocard",
     },
-    onRefillFailed: (userId, message) => {
-      told?.push(`${userId}: ${message}`)
+    onRefillFailed: (userId, message, failure) => {
+      told?.push(`${userId}: ${message} [${failure}]`)
+    },
+    log: (message, error) => {
+      logged?.push(message, error)
     },
   })
 
@@ -139,24 +149,67 @@ describe("the webhook's handler", () => {
     expect(store.credit).not.toHaveBeenCalled()
   })
 
-  it("turns auto-refill off on a declined refill, and tells the user once", async () => {
+  it("turns auto-refill off on a declined refill, and tells the user once, in its own words", async () => {
     const told: string[] = []
+    const logged: unknown[] = []
     const store = fakeStore()
-    const answer = await purchases(store, {}, told).handleEvent(
+    const raw =
+      "Your card has insufficient funds. (req_8f2a; processor: acquirer_x)"
+    const answer = await purchases(store, {}, told, logged).handleEvent(
       event("payment_intent.payment_failed", {
         id: "pi_1",
         metadata: { ...ours, kind: "refill" },
-        last_payment_error: { message: "Your card was declined." },
+        last_payment_error: {
+          message: raw,
+          code: "card_declined",
+          decline_code: "insufficient_funds",
+        },
       }),
     )
     expect(answer).toBe("refill failed")
+    // The purchase and the user get the package's words and a kind; Stripe's only the log.
     expect(store.refillFailed).toHaveBeenCalledWith(
       7,
       "pi_1",
-      "Your card was declined.",
+      "the card has insufficient funds",
     )
     expect(told).toHaveLength(1)
     expect(told[0]).toContain("auto-refill is now off")
+    expect(told[0]).toContain("[insufficient_funds]")
+    expect(told[0]).not.toContain("req_8f2a")
+    expect(logged).toContain(raw)
+  })
+
+  it("credits a checkout paid later, when its asynchronous payment succeeds", async () => {
+    const store = fakeStore()
+    const answer = await purchases(store, {}).handleEvent(
+      event("checkout.session.async_payment_succeeded", {
+        id: "cs_2",
+        mode: "payment",
+        payment_status: "paid",
+        metadata: ours,
+        amount_total: 500,
+      }),
+    )
+    expect(answer).toBe("credited")
+    expect(store.credit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "checkout.session.async_payment_succeeded",
+        purchaseId: 7,
+        stripeId: "cs_2",
+      }),
+    )
+    // Completed but not yet paid (the debit is still on its way): nothing yet.
+    expect(
+      await purchases(fakeStore(), {}).handleEvent(
+        event("checkout.session.completed", {
+          id: "cs_3",
+          mode: "payment",
+          payment_status: "unpaid",
+          metadata: ours,
+        }),
+      ),
+    ).toBe("ignored: not paid")
   })
 
   it("does not charge a refill nobody claimed, nor without Stripe", async () => {
@@ -190,5 +243,18 @@ describe("the helpers", () => {
     )
     expect(stripeFailure({ message: "Declined" })).toBe("Declined")
     expect(stripeFailure({})).toBe("The charge did not go through.")
+  })
+
+  it("sorts a failure into a kind of its own", () => {
+    expect(refillFailureOf({ decline_code: "insufficient_funds" })).toBe(
+      "insufficient_funds",
+    )
+    expect(refillFailureOf({ code: "expired_card" })).toBe("expired_card")
+    expect(refillFailureOf({ code: "authentication_required" })).toBe(
+      "authentication_required",
+    )
+    expect(refillFailureOf({ code: "card_declined" })).toBe("declined")
+    expect(refillFailureOf({ decline_code: "do_not_honor" })).toBe("error")
+    expect(refillFailureOf(undefined)).toBe("error")
   })
 })

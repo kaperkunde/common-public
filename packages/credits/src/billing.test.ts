@@ -315,9 +315,12 @@ describe("what a user is told", () => {
   })
 
   it("says a failed refill turned auto-refill off, and what to do", () => {
-    const message = refillFailedMessage(500, "eur", "Your card was declined.")
+    const message = refillFailedMessage(500, "eur", "declined")
     expect(message).toContain("€5.00")
-    expect(message).toContain("(Your card was declined)")
+    expect(message).toContain("(the card was declined)")
+    expect(refillFailedMessage(500, "eur", "no_card")).toContain(
+      "no saved card",
+    )
     expect(message).toContain("auto-refill is now off")
   })
 })

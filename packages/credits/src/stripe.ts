@@ -13,8 +13,10 @@ import type Stripe from "stripe"
 import {
   isCurrency,
   moneyText,
+  REFILL_FAILURE_TEXT,
   refillFailedMessage,
   type Currencies,
+  type RefillFailure,
 } from "./billing"
 import type { CreditStore } from "./store"
 import { DEFAULT_UNIT, creditsText, type CreditUnit } from "./units"
@@ -30,7 +32,26 @@ export const cardLabel = (method: Stripe.PaymentMethod | null | undefined) => {
   return method.type.replace(/_/g, " ")
 }
 
-/** What went wrong with a charge, in Stripe's words. */
+/**
+ * What kind of failure a Stripe error or a PaymentIntent's last error is, for the user's words
+ * (`REFILL_FAILURE_TEXT`). Anything unrecognised is `error`.
+ */
+export const refillFailureOf = (error: unknown): RefillFailure => {
+  const raw = (error ?? {}) as { decline_code?: string; code?: string }
+  const codes = [raw.decline_code, raw.code]
+  if (codes.includes("insufficient_funds")) return "insufficient_funds"
+  if (codes.includes("expired_card")) return "expired_card"
+  if (
+    codes.includes("authentication_required") ||
+    codes.includes("payment_intent_authentication_failure")
+  ) {
+    return "authentication_required"
+  }
+  if (codes.some((code) => code && /declin|card_/.test(code))) return "declined"
+  return "error"
+}
+
+/** What went wrong with a charge, in Stripe's words: for logs, never for a user. */
 export const stripeFailure = (error: unknown) => {
   const raw = error as {
     message?: string
@@ -76,12 +97,24 @@ export type PurchasesConfig = {
   }
   /** A description on the charge, e.g. "2,000,000 credits for Lore Spawner". */
   description?: (credits: number) => string
-  /** Told once when a refill fails and auto-refill turns itself off. */
-  onRefillFailed?: (userId: string, message: string) => Promise<void> | void
+  /**
+   * Told once when a refill fails and auto-refill turns itself off: the message is in the
+   * package's words and `failure` says which kind it was. Stripe's own words go to `log`.
+   */
+  onRefillFailed?: (
+    userId: string,
+    message: string,
+    failure: RefillFailure,
+  ) => Promise<void> | void
+  /** Where Stripe's own words for a failed refill are written; console.error by default. */
+  log?: (message: string, error: unknown) => void
 }
 
 export const createPurchases = (config: PurchasesConfig) => {
   const { store, app } = config
+  const log =
+    config.log ??
+    ((message: string, error: unknown) => console.error(message, error))
   Object.keys(config.currencies).forEach((currency) => {
     if (!isCurrency(currency)) {
       throw new Error(
@@ -263,13 +296,24 @@ export const createPurchases = (config: PurchasesConfig) => {
     return true
   }
 
-  /** A refill that could not be charged: failed, auto-refill off, the user told once. */
+  /**
+   * A refill that could not be charged: failed, auto-refill off, the user told once. The
+   * purchase records the failure in the package's words (a user reads it in their billing
+   * history); Stripe's own, `detail`, goes only to the log.
+   */
   const failRefill = async (
     purchaseId: number,
     stripeId: string | null,
-    reason: string,
+    failure: RefillFailure,
+    detail?: string,
   ) => {
-    const turnedOff = await store.refillFailed(purchaseId, stripeId, reason)
+    if (detail)
+      log(`Refill ${purchaseId} could not be charged (${failure})`, detail)
+    const turnedOff = await store.refillFailed(
+      purchaseId,
+      stripeId,
+      REFILL_FAILURE_TEXT[failure] ?? REFILL_FAILURE_TEXT.error,
+    )
     if (turnedOff && config.onRefillFailed) {
       await Promise.resolve(
         config.onRefillFailed(
@@ -277,11 +321,12 @@ export const createPurchases = (config: PurchasesConfig) => {
           refillFailedMessage(
             turnedOff.amountCents,
             turnedOff.currency,
-            reason,
+            failure,
             unit,
           ),
+          failure,
         ),
-      ).catch(() => undefined)
+      ).catch((error) => log("A user could not be told a refill failed", error))
     }
     return Boolean(turnedOff)
   }
@@ -383,18 +428,29 @@ export const createPurchases = (config: PurchasesConfig) => {
     await failRefill(
       ours.purchaseId,
       intent.id,
-      intent.last_payment_error?.message ?? "The charge did not go through.",
+      refillFailureOf(intent.last_payment_error),
+      stripeFailure(intent.last_payment_error),
     )
     return "refill failed"
   }
 
   /**
-   * What one verified, fetched-back event does: hand this to `handleStripeWebhook`'s `handle`.
-   * Anything that is not this app's, or not one of the three events acted on, is ignored.
+   * What one event does, once it is known to be real.
+   *
+   * **Only safe behind `handleStripeWebhook` / `stripeWebhookRoute` (`@kaperkunde/stripe`)**,
+   * which checks the signature and then fetches the event back from Stripe by id: this trusts
+   * the event's contents -- its purchase id, user and credits -- and credits on them. Never call
+   * it with a body read straight off a request.
+   *
+   * A paid Checkout is credited when it completes, or, for a payment method that settles later
+   * (a bank debit), when `checkout.session.async_payment_succeeded` arrives; a refill on
+   * `payment_intent.succeeded`, and its failure on `payment_intent.payment_failed`. Anything
+   * else, or anything not this app's, is ignored.
    */
   const handleEvent = async (event: Stripe.Event) => {
     switch (event.type) {
       case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded":
         return checkoutCompleted(event, event.data.object)
       case "payment_intent.succeeded":
         return refillSucceeded(event, event.data.object)
@@ -452,7 +508,9 @@ export const createPurchases = (config: PurchasesConfig) => {
     try {
       const settings = await store.autorefill(userId)
       if (!settings?.stripeCustomerId || !settings.paymentMethodId) {
-        throw new Error("There is no saved card to charge.")
+        throw Object.assign(new Error("There is no saved card to charge."), {
+          code: "no_card",
+        })
       }
       const { currency } = refill
       const calculation = await stripe.tax.calculations.create({
@@ -505,19 +563,33 @@ export const createPurchases = (config: PurchasesConfig) => {
       if (intent.status === "succeeded" || intent.status === "processing") {
         return `charged ${intent.id}`
       }
-      throw new Error(
-        intent.last_payment_error?.message ??
-          `The charge stopped at ${intent.status}.`,
+      throw Object.assign(
+        new Error(
+          intent.last_payment_error?.message ??
+            `The charge stopped at ${intent.status}.`,
+        ),
+        {
+          code:
+            intent.status === "requires_action"
+              ? "authentication_required"
+              : (intent.last_payment_error?.decline_code ??
+                intent.last_payment_error?.code),
+        },
       )
     } catch (error) {
       const declined = (error as { payment_intent?: { id?: string } })
         .payment_intent?.id
+      const failure =
+        (error as { code?: string }).code === "no_card"
+          ? "no_card"
+          : refillFailureOf(error)
       await failRefill(
         refill.id,
         intentId ?? declined ?? null,
+        failure,
         stripeFailure(error),
-      ).catch(() => undefined)
-      return `failed: ${stripeFailure(error)}`
+      ).catch((failed) => log("A failed refill could not be recorded", failed))
+      return `failed: ${failure}`
     }
   }
 

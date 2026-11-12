@@ -213,7 +213,7 @@ What the bridging migration usually has to do (compare each table with the rende
 
 - [ ] **Column renames** to the package's names: token counts in the unit's name become
       `credits` (`tokens` → `credits`, `thresholdTokens` → `thresholdCredits`; on the ledger
-      `loreTokens`-style → `credits`, `free…`/`purchased…`/`overdraft…` → `freeCredits`,
+      `<unit>Tokens` → `credits`, `free…`/`purchased…`/`overdraft…` → `freeCredits`,
       `purchasedCredits`, `overdraftCredits`); `longPromptTokens` → `longPromptUnits`.
 - [ ] **Order values** on the own-key table: `<unit>_then_own` → `credits_then_own`,
       `own_then_<unit>` → `own_then_credits`, `<unit>_only` → `credits_only`; replace the CHECK.

@@ -257,13 +257,37 @@ export const purchaseStatusText = (
   }
 }
 
+/**
+ * Why a refill could not be charged, as a kind of our own: the user is told in the package's
+ * words, never in Stripe's (which name processors, codes and internals). `stripeFailure` keeps
+ * Stripe's own words for the logs.
+ */
+export type RefillFailure =
+  | "declined"
+  | "insufficient_funds"
+  | "expired_card"
+  | "authentication_required"
+  | "no_card"
+  | "error"
+
+/** Each failure in words a user reads, beside the purchase and in the notice. */
+export const REFILL_FAILURE_TEXT: Readonly<Record<RefillFailure, string>> = {
+  declined: "the card was declined",
+  insufficient_funds: "the card has insufficient funds",
+  expired_card: "the card has expired",
+  authentication_required:
+    "the bank asked to confirm the payment, which needs you there",
+  no_card: "there is no saved card to charge",
+  error: "the payment could not be made",
+}
+
 /** What a user is told when a refill could not be charged. Once, since it turns itself off. */
 export const refillFailedMessage = (
   amountCents: number,
   currency: string,
-  failure: string,
+  failure: RefillFailure,
   unit: CreditUnit = DEFAULT_UNIT,
 ) =>
-  `The automatic refill of ${moneyText(amountCents, currency)} could not be charged (${failure.replace(/[.\s]+$/, "")}), ` +
+  `The automatic refill of ${moneyText(amountCents, currency)} could not be charged (${REFILL_FAILURE_TEXT[failure] ?? REFILL_FAILURE_TEXT.error}), ` +
   `so auto-refill is now off and nothing more will be charged. Your ${unit.many} are unaffected. ` +
   "Save a card that works and turn auto-refill on again."
