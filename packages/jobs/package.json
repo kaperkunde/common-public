@@ -1,0 +1,41 @@
+{
+  "name": "@kaperkunde/jobs",
+  "version": "0.0.0",
+  "description": "A job queue for Kaperkunde's apps: one pending row per scope, upsert enqueue, lease-based claim and heartbeat, reclaim of dead passes and a sweep, as a kk-hasura migration template plus a TypeScript runner.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/jobs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "hasura"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "@kaperkunde/hasura": "workspace:*",
+    "graphql": "16.10.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

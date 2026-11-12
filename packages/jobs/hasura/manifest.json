@@ -1,0 +1,26 @@
+{
+  "name": "@kaperkunde/jobs",
+  "vars": {
+    "prefix": {
+      "description": "Prefix of every object name, e.g. `ai_`. May be empty.",
+      "default": ""
+    },
+    "jobs_table": {
+      "description": "Name of the jobs table after the prefix. Its functions are named <prefix><jobs_table>_enqueue, _claim, _heartbeat, _finish, _mark_attempt, _reclaim and _sweep.",
+      "default": "jobs"
+    },
+    "scope_column": {
+      "description": "Column holding the scope id, the thing there is one pending job per.",
+      "default": "scope_id"
+    },
+    "scope_type": {
+      "description": "SQL type of the scope id.",
+      "default": "text",
+      "type": "literal"
+    },
+    "server_role": {
+      "description": "The Hasura role that alone may call the queue's functions (the server's own).",
+      "default": "server"
+    }
+  }
+}

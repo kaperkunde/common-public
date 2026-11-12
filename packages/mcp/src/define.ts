@@ -54,6 +54,9 @@ import type { InvalidHint } from "./validate"
  *   a fault, reported on the server and answered as "internal".
  */
 
+/** See ToolSpec.invalidArgs. */
+export type InvalidArgsMode = "tool-result" | "protocol-error"
+
 export type ToolAnnotations = {
   readOnlyHint: boolean
   destructiveHint: boolean
@@ -118,6 +121,15 @@ export type ToolSpec<I extends AnyObject = AnyObject, App = unknown> = {
   log?: (args: Record<string, unknown>) => LogNames
   quiet?: boolean
   invalidHint?: InvalidHint
+  /**
+   * How arguments that do not fit are answered. `"tool-result"` (the
+   * default): a tool result with `isError`, which the assistant reads and
+   * retries. `"protocol-error"`: a JSON-RPC -32602 whose message and `data`
+   * name every path, the unknown keys and the keys allowed there, for apps
+   * whose clients treat an invalid call as a protocol fault. Overrides the
+   * `invalidArgs` of `ServeOptions` for this tool.
+   */
+  invalidArgs?: InvalidArgsMode
   long?: LongSpec<z.output<I>>
   meta?: Record<string, unknown>
   // A method, so a run may name its arguments' type as it reads them.
