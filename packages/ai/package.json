@@ -1,0 +1,62 @@
+{
+  "name": "@kaperkunde/ai",
+  "version": "0.0.0",
+  "description": "Model calls for Kaperkunde's apps: provider and config, runModel with admission, usage and tracing hooks, fallback models, prompt-cache marks, generic model roles, backend choice, speech synthesis adapters, and scripted fakes for tests.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/ai"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
+    },
+    "./speech": {
+      "types": "./dist/speech.d.mts",
+      "import": "./dist/speech.mjs",
+      "default": "./dist/speech.mjs"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.mts",
+      "import": "./dist/testing.mjs",
+      "default": "./dist/testing.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts src/speech.ts src/testing.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@ai-sdk/anthropic": "^4.0.0",
+    "@ai-sdk/openai-compatible": "^3.0.0",
+    "@kaperkunde/security": ">=0.4.0",
+    "ai": "^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/anthropic": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@ai-sdk/anthropic": "4.0.59",
+    "@ai-sdk/openai-compatible": "3.0.53",
+    "@kaperkunde/security": "workspace:*",
+    "ai": "7.0.107",
+    "zod": "4.6.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
