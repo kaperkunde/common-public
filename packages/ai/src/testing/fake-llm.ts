@@ -48,6 +48,19 @@ export type FakeLlmOptions = {
   models?: string[]
   /** Answer the next requests with this HTTP status and message first, then carry on. */
   failFirst?: { count: number; status: number; message?: string }
+  /**
+   * Let the first `after` requests through, then fail every later one: with an
+   * HTTP `status`, by never answering (`hang`), or by cutting the connection
+   * partway through a streamed answer (`cut`). For a tool loop that dies late.
+   */
+  failAfter?: {
+    /** Only requests for this model fail (and count towards `after`); default every model. */
+    model?: string
+    after: number
+    mode: "status" | "hang" | "cut"
+    status?: number
+    message?: string
+  }
 }
 
 export type FakeLlm = {
@@ -141,6 +154,7 @@ export const createFakeLlm = async (
   let script = options.script
   let count = 0
   let failures = options.failFirst?.count ?? 0
+  let watchedCount = 0
 
   const toMessage = (reply: FakeReply) =>
     reply.calls?.length
@@ -204,6 +218,19 @@ export const createFakeLlm = async (
         })
         return
       }
+      const late = options.failAfter
+      let failing = false
+      if (late && (!late.model || late.model === request.model)) {
+        watchedCount += 1
+        failing = watchedCount > late.after
+      }
+      if (late && failing && late.mode === "status") {
+        json(late.status ?? 500, {
+          error: { message: late.message ?? "scripted failure" },
+        })
+        return
+      }
+      if (late && failing && late.mode === "hang") return
       const reply = script?.(request) ?? replies.shift() ?? {}
       const message = toMessage(reply)
       const finish = reply.calls?.length ? "tool_calls" : "stop"
@@ -248,6 +275,10 @@ export const createFakeLlm = async (
                 }),
               ),
             )
+        }
+        if (late && failing && late.mode === "cut") {
+          res.destroy()
+          return
         }
         res.write(chunk({}, finish))
         res.write(chunk(undefined, null, { usage: usageBody }))

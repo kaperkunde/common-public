@@ -363,3 +363,159 @@ describe("runModel", () => {
     expect(result.text).toBe("Hello there.")
   })
 })
+
+describe("runModel metering of failed attempts", () => {
+  const lookup = tool({
+    description: "look up",
+    inputSchema: z.object({ q: z.string() }),
+    execute: async ({ q }) => `found ${q}`,
+  })
+  /** Every request but the third asks for the tool again; the third is where it dies. */
+  const loop = async (
+    options: Parameters<typeof createFakeLlm>[0],
+    run: Partial<ModelRun<{ lookup: typeof lookup }, Ctx>> = {},
+    hooks: Partial<Parameters<typeof createRunModel<Ctx>>[0]> = {},
+  ) => {
+    await llm.close()
+    llm = await createFakeLlm({
+      script: () => ({ calls: [{ name: "lookup", args: { q: "x" } }] }),
+      usage: { promptTokens: 50_000, completionTokens: 250 },
+      ...options,
+    })
+    const rows: LlmUsageRow<Ctx>[] = []
+    const call = createRunModel<Ctx>({
+      backend: () => ({ ...backend(), baseURL: llm.baseURL }),
+      onUsage: (row) => void rows.push(row),
+      ...hooks,
+    })({
+      context: { user: "u" },
+      model: "fake-small",
+      instructions: "i",
+      messages: [{ role: "user", content: "go" }],
+      tools: { lookup },
+      stopWhen: ({ steps }) => steps.length >= 5,
+      maxRetries: 0,
+      ...run,
+    })
+    return {
+      rows,
+      outcome: await call.then(
+        () => undefined,
+        (e) => e,
+      ),
+    }
+  }
+  const billed = { inputTokens: 50_000, outputTokens: 250 }
+
+  it("reports the requests that finished before a plain call failed", async () => {
+    const { rows, outcome } = await loop({
+      failAfter: { after: 2, mode: "status", status: 500, message: "boom" },
+    })
+    expect(outcome).toBeInstanceOf(Error)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.requests).toHaveLength(2)
+    expect(rows[0]!.requests[0]).toMatchObject(billed)
+    expect(rows[0]!.call.requests).toHaveLength(2)
+    expect(rows[0]).toMatchObject({ failed: true, failureKind: "error" })
+    expect(rows[0]!.failure).toContain("boom")
+  })
+
+  it("reports the requests that finished before a streamed call was cut", async () => {
+    const chunks: string[] = []
+    const { rows, outcome } = await loop(
+      { failAfter: { after: 2, mode: "cut" } },
+      { onStream: (chunk) => void chunks.push(chunk.type) },
+    )
+    expect(outcome).toBeInstanceOf(Error)
+    expect(chunks.length).toBeGreaterThan(0)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.requests).toHaveLength(2)
+    expect(rows[0]).toMatchObject({ failed: true, failureKind: "error" })
+  })
+
+  it("reports the request that finished before a timeout, plain and streamed", async () => {
+    for (const onStream of [undefined, () => undefined]) {
+      const { rows, outcome } = await loop(
+        { failAfter: { after: 1, mode: "hang" } },
+        { timeoutMs: 400, onStream },
+      )
+      expect(outcome).toBeInstanceOf(Error)
+      expect(rows).toHaveLength(1)
+      expect(rows[0]!.requests).toHaveLength(1)
+      expect(rows[0]!.requests[0]).toMatchObject(billed)
+      expect(rows[0]).toMatchObject({ failed: true, failureKind: "timeout" })
+    }
+  })
+
+  it("reports the request that finished before the caller aborted", async () => {
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 400)
+    const { rows, outcome } = await loop(
+      { failAfter: { after: 1, mode: "hang" } },
+      { abortSignal: controller.signal },
+    )
+    expect(outcome).toBeInstanceOf(Error)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.requests).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ failed: true, failureKind: "abort" })
+  })
+
+  it("meters the failed primary and the fallback that answers as two rows with their own requests", async () => {
+    await llm.close()
+    llm = await createFakeLlm({
+      script: (request) =>
+        request.model === "fake-large"
+          ? request.answeringATool
+            ? { text: "from fallback" }
+            : { calls: [{ name: "lookup", args: { q: "y" } }] }
+          : { calls: [{ name: "lookup", args: { q: "x" } }] },
+      usage: { promptTokens: 50_000, completionTokens: 250 },
+      failAfter: {
+        model: "fake-small",
+        after: 2,
+        mode: "status",
+        status: 503,
+      },
+    })
+    const rows: LlmUsageRow<Ctx>[] = []
+    const result = await createRunModel<Ctx>({
+      backend: () => ({ ...backend(), baseURL: llm.baseURL }),
+      onUsage: (row) => void rows.push(row),
+    })({
+      context: { user: "u" },
+      model: "fake-small",
+      fallbackModel: "fake-large",
+      instructions: "i",
+      messages: [{ role: "user", content: "go" }],
+      tools: { lookup },
+      stopWhen: ({ steps }) => steps.length >= 5,
+      maxRetries: 0,
+    })
+    expect(result.text).toBe("from fallback")
+    expect(
+      rows.map((r) => [r.model, r.attempt, r.requests.length, r.failed]),
+    ).toEqual([
+      ["fake-small", 0, 2, true],
+      ["fake-large", 1, 2, undefined],
+    ])
+    expect(rows[1]!.requests[0]).toMatchObject(billed)
+  })
+
+  it("leaves the success path as it was", async () => {
+    const { rows, outcome } = await loop(
+      {
+        script: (request) =>
+          request.answeringATool
+            ? { text: "done" }
+            : { calls: [{ name: "lookup", args: { q: "x" } }] },
+      },
+      {},
+    )
+    expect(outcome).toBeUndefined()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.requests).toHaveLength(2)
+    expect(rows[0]!.failed).toBeUndefined()
+    expect(rows[0]!.failureKind).toBeUndefined()
+    expect(rows[0]!.failure).toBeUndefined()
+  })
+})

@@ -3,6 +3,34 @@ import { describe, expect, it } from "vitest"
 import { CreditsRefusedError, kindsNeeded, ledgerRowOf } from "./credits"
 
 describe("a hook's usage as a ledger row", () => {
+  it("takes a failed attempt's row as it comes from @kaperkunde/ai, and keeps what it consumed", () => {
+    // `failed`, `failureKind` and `failure` ride on the hook's row; the ledger
+    // takes the fields it knows and the requests the provider billed.
+    const hookRow = {
+      kind: "llm" as const,
+      userId: "ash",
+      model: "m",
+      purpose: "chat",
+      source: "deployment" as const,
+      attempt: 0,
+      requests: [
+        { inputTokens: 50_000, outputTokens: 250 },
+        { inputTokens: 50_000, outputTokens: 250 },
+      ],
+      failure: "overloaded",
+      failed: true as const,
+      failureKind: "error" as const,
+    }
+    const row = ledgerRowOf(hookRow)
+    expect(row).toMatchObject({
+      kind: "llm",
+      inputTokens: 100_000,
+      outputTokens: 500,
+      totalTokens: 100_500,
+    })
+    expect(row.requests).toHaveLength(2)
+  })
+
   it("sums an LLM call's requests and keeps them for pricing", () => {
     const row = ledgerRowOf({
       userId: "ash",

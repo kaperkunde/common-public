@@ -11,7 +11,12 @@ import { wholeInstructions, markCachePrefix } from "./cache"
 import { fallbackWorthy } from "./fallback"
 import { chatModel, type ResolvedBackend } from "./provider"
 import { fitCall, tracedCall, type StepLike, type TraceCall } from "./trace"
-import { requestsOf, type CallRequests, type RequestTokens } from "./usage"
+import {
+  requestsOf,
+  type CallRequests,
+  type RequestTokens,
+  type StepUsageLike,
+} from "./usage"
 
 /** How the tool call is asked for, which the instructions word to match. */
 export type AskShape = { toolChoice: "auto" | "required" }
@@ -93,6 +98,14 @@ export type LlmUsageRow<C> = {
   startedAt: number
   ms: number
   failure?: string
+  /**
+   * True when this attempt threw. `requests` then holds every request the
+   * provider reported before it did (none, if it died before the first), and
+   * those tokens were consumed: record and charge them like any other.
+   */
+  failed?: true
+  /** What kind of failure, without any of its text: a timeout, the caller's abort, or anything else. */
+  failureKind?: "timeout" | "abort" | "error"
 }
 
 /** What a speech call reports. */
@@ -158,6 +171,20 @@ export type ModelRunnerHooks<C> = {
 }
 
 export const DEFAULT_TIMEOUT_MS = 120 * 1000
+
+const failureKindOf = (
+  error: unknown,
+  signal: AbortSignal | undefined,
+): "timeout" | "abort" | "error" => {
+  const name = error instanceof Error ? error.name : ""
+  const cause = error instanceof Error ? error.cause : undefined
+  const causeName = cause instanceof Error ? cause.name : ""
+  if (name === "TimeoutError" || causeName === "TimeoutError") return "timeout"
+  if (signal?.aborted || name === "AbortError" || causeName === "AbortError") {
+    return "abort"
+  }
+  return "error"
+}
 
 const RESULT_FIELDS = [
   "content",
@@ -252,13 +279,16 @@ export const createRunModel = <C>(hooks: ModelRunnerHooks<C>): RunModel<C> => {
     let requests: CallRequests = requestsOf([])
     const started = Date.now()
     const steps: StepLike[] = []
+    const finished: StepUsageLike[] = []
     let failure: string | undefined
-    const onStepFinish: ModelRun<TOOLS, C>["onStepFinish"] = hooks.trace
-      ? (step) => {
-          steps.push(step)
-          return run.onStepFinish?.(step)
-        }
-      : run.onStepFinish
+    let failureKind: LlmUsageRow<C>["failureKind"]
+    // Every finished step is kept as it lands, so a call that dies in the
+    // middle of a tool loop still reports the requests the provider billed.
+    const onStepFinish: ModelRun<TOOLS, C>["onStepFinish"] = (step) => {
+      steps.push(step)
+      finished.push(step)
+      return run.onStepFinish?.(step)
+    }
     try {
       const args = {
         model: chatModel(run.model, backend),
@@ -296,6 +326,16 @@ export const createRunModel = <C>(hooks: ModelRunnerHooks<C>): RunModel<C> => {
               onError: ({ error }) => {
                 streamFailure = streamFailure ?? error
               },
+              // An aborted stream ends quietly rather than erroring: it must
+              // still fail the call, or a timed-out call would read as an answer.
+              onAbort: () => {
+                streamFailure =
+                  streamFailure ??
+                  (run.abortSignal?.aborted
+                    ? (run.abortSignal.reason ??
+                      new DOMException("The call was aborted", "AbortError"))
+                    : new DOMException("The call timed out", "TimeoutError"))
+              },
             }),
             () => streamFailure,
           )
@@ -304,17 +344,27 @@ export const createRunModel = <C>(hooks: ModelRunnerHooks<C>): RunModel<C> => {
       requests = requestsOf(result.steps)
       return result as unknown as GenerateTextResult<TOOLS, any, any> // eslint-disable-line @typescript-eslint/no-explicit-any
     } catch (error) {
+      let text = error instanceof Error ? error.message : ""
       if (error instanceof Error) {
-        error.message =
+        text =
           hooks.redact?.(error.message, backend) ??
           (backend.apiKey
             ? error.message.split(backend.apiKey).join("[redacted]")
             : error.message)
+        try {
+          error.message = text
+        } catch {
+          // A DOMException (an abort, a timeout) has a getter alone: its words
+          // stay as they are, and the row still carries the redacted text.
+        }
       }
-      failure =
-        error instanceof Error ? error.message || error.name : String(error)
+      failure = error instanceof Error ? text || error.name : String(error)
+      failureKind = failureKindOf(error, run.abortSignal)
       throw error
     } finally {
+      // A failed attempt has no result to read: what the provider reported is
+      // the steps that finished.
+      if (failureKind) requests = requestsOf(finished)
       const row: LlmUsageRow<C> = {
         kind: "llm",
         context: run.context,
@@ -332,6 +382,7 @@ export const createRunModel = <C>(hooks: ModelRunnerHooks<C>): RunModel<C> => {
         startedAt: started,
         ms: Date.now() - started,
         ...(failure ? { failure } : {}),
+        ...(failureKind ? { failed: true as const, failureKind } : {}),
       }
       let ref: unknown
       try {
