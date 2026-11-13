@@ -1,0 +1,80 @@
+- function:
+    name: {{prefix}}admit
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: "Admits a user, handing them free credits from the month's pool when nothing is left. Answers the balance; above zero is admitted. The server role alone, and the function checks the role again itself. Never add a user-facing or AI role."
+- function:
+    name: {{prefix}}spend
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: "One ledger row converted into credits at the price and ratio in force when it was made, and taken free first. Idempotent. The server role alone, and the function checks the role again itself. Never add a user-facing or AI role."
+- function:
+    name: {{prefix}}grant
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: "The admin granting credits or taking some back, never below nothing, written down with the reason and the admin. The server role alone, and the function checks the role again itself. Never add a user-facing or AI role."
+- function:
+    name: {{prefix}}claim_out_notice
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: "Claims telling a user they ran out this month; answers the row only for the call that claimed it. The server role alone, and the function checks the role again itself. Never add a user-facing or AI role."
+- function:
+    name: {{prefix}}set_model_price
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: "A model's price set whole, from a moment on. The server role alone, and the function checks the role again itself. Never add a user-facing or AI role."
+- function:
+    name: {{prefix}}purchase_open
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: "A purchase opened at the price in force, before Stripe is asked. The server role alone, and the function checks the role again itself. Never add a user-facing or AI role."
+- function:
+    name: {{prefix}}refill_claim
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: "Claims an automatic refill if one is due, one at a time and within the month's maximum. The server role alone, and the function checks the role again itself. Never add a user-facing or AI role."
+- function:
+    name: {{prefix}}credit
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: "Credits what Stripe says was paid, once per event id and once per purchase. The server role alone, and the function checks the role again itself. Never add a user-facing or AI role."
+- function:
+    name: {{prefix}}refill_failed
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: "A refill that could not be charged: failed, auto-refill turned off. The server role alone, and the function checks the role again itself. Never add a user-facing or AI role."
+- function:
+    name: {{prefix}}apply_proposal
+    schema: {{schema}}
+  configuration:
+    exposed_as: mutation
+  permissions:
+    - role: {{server_role}}
+  comment: "A proposed price applied from now. The server role alone, and the function checks the role again itself. Never add a user-facing or AI role."

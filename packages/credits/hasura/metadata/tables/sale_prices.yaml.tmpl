@@ -1,0 +1,31 @@
+table:
+  name: {{table_sale_prices}}
+  schema: {{schema}}
+configuration:
+  comment: "What a million credits cost in a currency, from a moment on."
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check: {}
+      columns:
+        - centsPerMillion
+        - currency
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - centsPerMillion
+        - currency
+        - effectiveFrom
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+  - role: {{user_role}}
+    permission:
+      columns:
+        - centsPerMillion
+        - currency
+        - effectiveFrom
+      filter: {}
+    comment: "Prices are public to a signed-in user, for the screens. No AI role reads this."

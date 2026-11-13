@@ -1,0 +1,86 @@
+# A reusable checks workflow for Kaperkunde apps: install with pnpm, then lint, format, typecheck,
+# test and build. Call it from an app's own workflow:
+#
+#   jobs:
+#     checks:
+#       uses: kaperkunde/common-public/.github/workflows/checks.yml@main
+#       with:
+#         runner: ubuntu-latest   # or a self-hosted runner label
+#
+# The app needs `lint`, `format:check`, `typecheck`, `test` and `build` scripts (a step is skipped
+# with its `run-*` input set to false), a `packageManager` field naming pnpm, and an .nvmrc.
+name: checks
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: The runner label to run on.
+        type: string
+        default: ubuntu-latest
+      node-version-file:
+        description: The file naming the Node version.
+        type: string
+        default: .nvmrc
+      working-directory:
+        description: Where the app lives in the repository.
+        type: string
+        default: .
+      run-lint:
+        type: boolean
+        default: true
+      run-format:
+        type: boolean
+        default: true
+      run-typecheck:
+        type: boolean
+        default: true
+      run-test:
+        type: boolean
+        default: true
+      run-build:
+        type: boolean
+        default: true
+      build-env:
+        description: Newline-separated KEY=value pairs (placeholders, never secrets) the build needs in its environment.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ${{ inputs.runner }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          package_json_file: ${{ inputs.working-directory }}/package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: ${{ inputs.working-directory }}/${{ inputs.node-version-file }}
+          cache: pnpm
+          cache-dependency-path: ${{ inputs.working-directory }}/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - if: ${{ inputs.run-lint }}
+        run: pnpm lint
+      - if: ${{ inputs.run-format }}
+        run: pnpm format:check
+      - if: ${{ inputs.run-typecheck }}
+        run: pnpm typecheck
+      - if: ${{ inputs.run-test }}
+        run: pnpm test
+      - if: ${{ inputs.run-build }}
+        env:
+          BUILD_ENV: ${{ inputs.build-env }}
+        run: |
+          if [ -n "$BUILD_ENV" ]; then
+            while IFS= read -r line; do [ -n "$line" ] && export "$line"; done <<EOF
+          $BUILD_ENV
+          EOF
+          fi
+          pnpm build

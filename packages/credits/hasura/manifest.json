@@ -1,0 +1,114 @@
+{
+  "name": "@kaperkunde/credits",
+  "vars": {
+    "prefix": {
+      "description": "Prefix of every object this package creates, e.g. `credit_` (Lore Spawner: `lore_`).",
+      "default": "credit_"
+    },
+    "schema": {
+      "description": "The schema everything lives in.",
+      "default": "public"
+    },
+    "owner_table": {
+      "description": "The table whose rows own balances, purchases and usage (the app's users)."
+    },
+    "owner_id_column": {
+      "description": "The owner table's primary key column.",
+      "default": "id"
+    },
+    "owner_id_type": {
+      "description": "That column's SQL type, e.g. `text` (Better Auth) or `uuid`.",
+      "default": "text",
+      "type": "literal"
+    },
+    "server_role": {
+      "description": "The Hasura role (x-hasura-role) the app's server acts as; the only role that may move a balance.",
+      "default": "server"
+    },
+    "user_role": {
+      "description": "The Hasura role a signed-in person acts as; reads their own balance, purchases, grants and usage.",
+      "default": "user"
+    },
+    "usage_table": {
+      "description": "The usage ledger's table name (Lore Spawner: `ai_usage`).",
+      "default": "{{prefix}}usage"
+    },
+    "min_purchase_cents": {
+      "description": "The smallest purchase or automatic refill, in cents of its currency.",
+      "default": "500",
+      "type": "integer"
+    },
+    "table_settings": {
+      "description": "What the deployment hands out (one row: the monthly allotment). Lore Spawner keeps this in a settings table of its own with more columns. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}settings"
+    },
+    "table_model_prices": {
+      "description": "Price versions, one per model and moment. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}model_prices"
+    },
+    "table_model_price_kinds": {
+      "description": "What each kind of usage costs under a price version. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}model_price_kinds"
+    },
+    "table_kind_fallbacks": {
+      "description": "Kinds worked out from another when a price is set. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}kind_fallbacks"
+    },
+    "table_price_factors": {
+      "description": "Multiples for a request's dimensions (where it ran, batch, fast). Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}price_factors"
+    },
+    "table_dollar_rates": {
+      "description": "Credits per US dollar, a history. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}dollar_rates"
+    },
+    "table_balances": {
+      "description": "Each user's free and bought credits. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}balances"
+    },
+    "table_pool_budgets": {
+      "description": "The free pool's monthly budget in US dollars, a history. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}pool_budgets"
+    },
+    "table_pool_periods": {
+      "description": "One month of the free pool: what came out of it. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}pool_periods"
+    },
+    "table_free_grants": {
+      "description": "Every handout of free credits from the pool. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}free_grants"
+    },
+    "table_grants": {
+      "description": "The admin granting credits or taking some back. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}grants"
+    },
+    "table_own_backends": {
+      "description": "A user's own model endpoint and sealed key. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}own_backends"
+    },
+    "table_sale_prices": {
+      "description": "What a million credits cost per currency, a history. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}sale_prices"
+    },
+    "table_stripe_events": {
+      "description": "Stripe events that credited anything, by id. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}stripe_events"
+    },
+    "table_purchases": {
+      "description": "Purchases and automatic refills. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}purchases"
+    },
+    "table_autorefill": {
+      "description": "Each user's automatic refill settings. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}autorefill"
+    },
+    "table_price_proposals": {
+      "description": "Prices proposed by a sync, waiting for the admin. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}price_proposals"
+    },
+    "table_cost_reconciliations": {
+      "description": "Stretches of the ledger checked against the provider's cost report. Its table's name, so an app can keep a table it already has under another name.",
+      "default": "{{prefix}}cost_reconciliations"
+    }
+  }
+}

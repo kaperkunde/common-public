@@ -1,0 +1,75 @@
+table:
+  name: {{table_own_backends}}
+  schema: {{schema}}
+configuration:
+  comment: "A user's own model. The sealed key is never selectable by any role but the server."
+object_relationships:
+  - name: owner
+    using:
+      foreign_key_constraint_on: userId
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check: {}
+      columns:
+        - baseUrl
+        - keyCiphertext
+        - keyLast4
+        - models
+        - order
+        - tokenLimit
+        - toolChoice
+        - userId
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - baseUrl
+        - keyCiphertext
+        - keyLast4
+        - limitNotifiedFor
+        - models
+        - order
+        - tokenLimit
+        - toolChoice
+        - updatedAt
+        - userId
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+  - role: {{user_role}}
+    permission:
+      columns:
+        - baseUrl
+        - keyLast4
+        - models
+        - order
+        - tokenLimit
+        - toolChoice
+        - updatedAt
+        - userId
+      filter:
+        userId:
+          _eq: X-Hasura-User-Id
+    comment: "A user's own rows, and nobody else's. Never widen it, and never give any AI role a permission here."
+update_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - baseUrl
+        - keyCiphertext
+        - keyLast4
+        - limitNotifiedFor
+        - models
+        - order
+        - tokenLimit
+        - toolChoice
+      filter: {}
+      check: null
+    comment: The server's bookkeeping. Balances and money move only in the row-locked functions.
+delete_permissions:
+  - role: {{server_role}}
+    permission:
+      filter: {}
+    comment: The server alone.

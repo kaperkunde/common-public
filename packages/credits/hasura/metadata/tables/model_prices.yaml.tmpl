@@ -1,0 +1,45 @@
+table:
+  name: {{table_model_prices}}
+  schema: {{schema}}
+configuration:
+  comment: "One price version of one model, from a moment on; its kinds are model_price_kinds. Set through set_model_price."
+array_relationships:
+  - name: kinds
+    using:
+      foreign_key_constraint_on:
+        column: priceId
+        table:
+          name: {{table_model_price_kinds}}
+          schema: {{schema}}
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - effectiveFrom
+        - id
+        - longPromptFactor
+        - longPromptUnits
+        - model
+        - source
+        - syncedAt
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+  - role: {{user_role}}
+    permission:
+      columns:
+        - effectiveFrom
+        - id
+        - longPromptFactor
+        - longPromptUnits
+        - model
+      filter: {}
+    comment: "Prices are public to a signed-in user, for the screens. No AI role reads this."
+update_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - syncedAt
+      filter: {}
+      check: null
+    comment: The server's bookkeeping. Balances and money move only in the row-locked functions.

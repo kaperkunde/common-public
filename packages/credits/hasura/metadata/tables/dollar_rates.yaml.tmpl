@@ -1,0 +1,29 @@
+table:
+  name: {{table_dollar_rates}}
+  schema: {{schema}}
+configuration:
+  comment: "How many credits a dollar of a provider's price comes to, from a moment on."
+insert_permissions:
+  - role: {{server_role}}
+    permission:
+      check: {}
+      columns:
+        - effectiveFrom
+        - perDollar
+    comment: The server's own writes. No other role ever writes here.
+select_permissions:
+  - role: {{server_role}}
+    permission:
+      columns:
+        - effectiveFrom
+        - perDollar
+      filter: {}
+      allow_aggregations: true
+    comment: The server reads everything here.
+  - role: {{user_role}}
+    permission:
+      columns:
+        - effectiveFrom
+        - perDollar
+      filter: {}
+    comment: "Prices are public to a signed-in user, for the screens. No AI role reads this."
