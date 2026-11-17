@@ -125,6 +125,7 @@ export function createTokenCenter(options: TokenCenterOptions) {
     throw errorFromResponse(response.status, body, {
       code: response.headers.get("x-token-error"),
       retryAfter: response.headers.get("retry-after"),
+      callId: response.headers.get("x-token-call-id"),
     })
   }
 

@@ -30,6 +30,16 @@ export class TokenCenterError extends Error {
     this.detail = detail
   }
 
+  /** The center's call this error belongs to (`x-token-call-id`), when it does: a failed or refused call. */
+  get callId(): string | undefined {
+    return this.detail.callId
+  }
+
+  /** `invalid_request`: the JSON path of the offending field or header (`amountCents`, `tools[0].type`, `body`). */
+  get path(): string | undefined {
+    return this.detail.path
+  }
+
   /** What the app should offer the user: buy tokens, set up an own model, wait. */
   get action(): TokenErrorDetail["action"] {
     return this.detail.action
@@ -107,7 +117,11 @@ const STATUS_CODE: Record<number, ErrorCode> = {
 export function errorFromResponse(
   status: number,
   body: unknown,
-  headers?: { code?: string | null; retryAfter?: string | null },
+  headers?: {
+    code?: string | null
+    retryAfter?: string | null
+    callId?: string | null
+  },
 ): TokenCenterError {
   const record = asRecord(body)
   const detail =
@@ -123,7 +137,9 @@ export function errorFromResponse(
         }
       : null)
   const retry = Number(headers?.retryAfter)
+  const callId = headers?.callId || undefined
   if (detail) {
+    if (detail.callId === undefined && callId) detail.callId = callId
     if (
       detail.retryAfterSeconds === undefined &&
       Number.isFinite(retry) &&
@@ -139,6 +155,7 @@ export function errorFromResponse(
     {
       code,
       message: `The token center answered ${status}.`,
+      ...(callId ? { callId } : {}),
       ...(Number.isFinite(retry) && retry > 0
         ? { retryAfterSeconds: retry }
         : {}),

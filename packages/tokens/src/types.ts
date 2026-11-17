@@ -325,6 +325,12 @@ export type CallCharge = {
    */
   shortfallMicros: Micros
   balanceAfterMicros: Micros
+  /**
+   * Present and true when the usage was estimated because the provider's final usage never
+   * arrived (a stream cut short, an answer that broke off): the prompt from what the provider
+   * reported or the request's size, the answer from the text relayed, or max_tokens at worst.
+   */
+  estimated?: boolean
 }
 
 /**
@@ -575,7 +581,7 @@ export type CardSetupSession = { url: string; expiresAt: IsoTime }
 // ---------------------------------------------------------------------------------------------
 
 /**
- * How the center treats `tool_choice` when proxying to the user's endpoint (Lore Spawner's
+ * How the center treats `tool_choice` when proxying to the user's endpoint (an app's
  * own-key setting): `auto` passes the request through as sent; `required` turns a request
  * that carries `tools` with `tool_choice` absent or "auto" into `tool_choice: "required"`, for
  * endpoints whose models only call a tool when told to.

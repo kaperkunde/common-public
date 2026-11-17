@@ -217,6 +217,32 @@ describe("against the stub", () => {
     ).toBe("provider_error")
   })
 
+  it("exposes the call on a provider failure, through the client and tokenErrorOf", async () => {
+    await control("mode", { providerError: true })
+    const response = await fetch(`${stub.url}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": "tk_test_integration",
+        ...gatewayHeaders({ user: "u1" }),
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5-5",
+        max_tokens: 10,
+        messages: [],
+      }),
+    })
+    expect(response.status).toBe(502)
+    const failure = tokenErrorOf({
+      statusCode: 502,
+      responseHeaders: Object.fromEntries(response.headers),
+      responseBody: await response.text(),
+    })
+    expect(failure?.code).toBe("provider_error")
+    expect(failure?.callId).toMatch(/^call_/)
+    expect(response.headers.get("x-token-call-id")).toBe(failure?.callId)
+  })
+
   it("fails closed when the stub says it is down, and when it is gone", async () => {
     await control("mode", { down: true })
     expect(await center.balance("u1").catch((e) => e.code)).toBe(

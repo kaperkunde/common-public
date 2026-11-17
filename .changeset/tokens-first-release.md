@@ -2,12 +2,24 @@
 "@kaperkunde/tokens": minor
 ---
 
-New package: the client for the Token Center. The contract types and error
-codes, a typed app API client that fails closed, gateway config for AI SDK
-providers with per-call attribution, charges read from response headers,
-webhook verification, `tokenRoutes` for the browser (Web handler, with a Node
-adapter for the Next pages router), React components for the balance, buying,
-auto-refill, usage, history and a user's own model on `--tk-*` CSS variables,
-and a stand-in center for end-to-end tests.
+New package: the client for the Token Center, the service that meters every
+model call and keeps users' token balances.
 
-Follows contract changes 1-16: `HeaderCharge`, an own endpoint that is `null` instead of 404, `toolChoice`, the cache-write 5m/1h split, and the app's purchase options (packs, `packsOnly`, bounds) which `BuyTokens` follows.
+- `@kaperkunde/tokens`: the contract types (v1), error codes and header names,
+  `TokenCenterError` with the center's `code`, `status`, `path` and `callId`,
+  unit and money formatting, and the browser's client for the routes an app
+  mounts.
+- `@kaperkunde/tokens/server`: a typed app API client that fails closed
+  (`center_unavailable`), gateway config and per-call attribution headers for AI
+  SDK providers, `chargeFromHeaders` / `callIdFromHeaders`, `tokenErrorOf`,
+  webhook verification and a `webhookRoute`, and `tokenRoutes`, a Web
+  `Request` handler that keeps the app key off the browser, with a Node adapter
+  for the Next pages router.
+- `@kaperkunde/tokens/react`: `TokenBalance`, `BuyTokens` (follows the app's
+  packs and bounds), `AutoRefill`, `UsageList`, `PurchaseHistory`,
+  `OwnModelForm` (with a tool-choice setting) and hooks, on `--tk-*` CSS
+  variables with no Tailwind or CSS modules; forms say what is missing instead
+  of disabling their button.
+- `@kaperkunde/tokens/styles.css`: a neutral light and dark theme.
+- `@kaperkunde/tokens/stub` and the `tokens-stub` command: a stand-in center
+  (including playable silent speech audio) for end-to-end tests and CI.

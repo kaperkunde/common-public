@@ -73,6 +73,7 @@ export function tokenErrorOf(error: unknown): TokenCenterError | null {
       return errorFromResponse(status, body, {
         code,
         retryAfter: headerFrom(e.responseHeaders ?? e.headers, "retry-after"),
+        callId: headerFrom(e.responseHeaders ?? e.headers, "x-token-call-id"),
       })
     const cause = record(e.cause)
     const errCode =

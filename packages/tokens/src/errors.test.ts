@@ -64,6 +64,56 @@ describe("error mapping", () => {
     ).toBe("invalid_request")
   })
 
+  it("keeps the path of a refusal and the call a failure belongs to", () => {
+    const refused = errorFromResponse(
+      400,
+      {
+        type: "error",
+        error: { type: "invalid_request_error", message: "No." },
+        token_center: {
+          code: "invalid_request",
+          message: "Server tools are not priced.",
+          path: "tools[0].type",
+        },
+      },
+      { code: "invalid_request", callId: "call_9" },
+    )
+    expect(refused).toMatchObject({
+      code: "invalid_request",
+      status: 400,
+      path: "tools[0].type",
+      callId: "call_9",
+    })
+    expect(
+      errorFromResponse(
+        502,
+        { error: { code: "provider_error", message: "The provider failed." } },
+        { callId: "call_3" },
+      ),
+    ).toMatchObject({ code: "provider_error", status: 502, callId: "call_3" })
+    expect(
+      errorFromResponse(403, {
+        error: {
+          code: "forbidden",
+          message: "A test key reaches no live provider.",
+        },
+      }),
+    ).toMatchObject({ code: "forbidden", status: 403 })
+    expect(errorFromResponse(502, null, { callId: "call_4" }).code).toBe(
+      "center_unavailable",
+    )
+    expect(errorFromResponse(409, {}, { callId: "call_5" }).callId).toBe(
+      "call_5",
+    )
+    expect(
+      errorFromResponse(
+        400,
+        { error: { code: "invalid_request", message: "m", callId: "body_id" } },
+        { callId: "hdr" },
+      ).callId,
+    ).toBe("body_id")
+  })
+
   it("carries a status for every code", () => {
     for (const code of ERROR_CODES)
       expect(new TokenCenterError({ code, message: "m" }).status).toBe(

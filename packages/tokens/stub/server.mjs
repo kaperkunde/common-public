@@ -376,7 +376,10 @@ export function startStub(options = {}) {
         : shape === "openai"
           ? { error: { message, type: code, code }, token_center: detail }
           : { error: detail }
-    json(res, STATUS[code], body, { "x-token-error": code })
+    json(res, STATUS[code], body, {
+      "x-token-error": code,
+      ...(extra.callId ? { "x-token-call-id": extra.callId } : {}),
+    })
   }
   const attribution = (req) =>
     Object.fromEntries(

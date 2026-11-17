@@ -122,6 +122,7 @@ export function createTokenApi(options: TokenApiOptions = {}): TokenApi {
       throw errorFromResponse(response.status, body, {
         code: response.headers.get("x-token-error"),
         retryAfter: response.headers.get("retry-after"),
+        callId: response.headers.get("x-token-call-id"),
       })
     if (!readable)
       throw centerUnavailable(

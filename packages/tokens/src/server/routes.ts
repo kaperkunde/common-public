@@ -400,6 +400,8 @@ export function tokenRoutes(
         const headers: Record<string, string> = {}
         if (error.detail.retryAfterSeconds)
           headers["retry-after"] = String(error.detail.retryAfterSeconds)
+        if (error.detail.callId)
+          headers["x-token-call-id"] = error.detail.callId
         return fail(error.detail, error.status, headers)
       }
       console.error("[tokens] route failed", error)

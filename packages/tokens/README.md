@@ -61,6 +61,14 @@ try {
 }
 ```
 
+A `TokenCenterError` also exposes `path` (an `invalid_request` refusal names the
+offending field, e.g. `tools[0].type` for an unpriced server tool, `amountCents`,
+`body`) and `callId` (the `x-token-call-id` of a failed or refused call, so you
+can find it in the ledger). A charge on an estimate (`CallCharge.estimated`) is
+a call that was cut short; `provider_error` (502) covers a provider failure and
+a problem with the center's own provider key, never with the provider's text,
+and `forbidden` (403) a test key used where no test provider is set.
+
 ### Model calls: the gateway
 
 Point an AI SDK provider at the center, with the payer in `x-token-user`:
