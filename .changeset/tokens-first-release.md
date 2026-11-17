@@ -19,7 +19,8 @@ model call and keeps users' token balances.
   packs and bounds), `AutoRefill`, `UsageList`, `PurchaseHistory`,
   `OwnModelForm` (with a tool-choice setting) and hooks, on `--tk-*` CSS
   variables with no Tailwind or CSS modules; forms say what is missing instead
-  of disabling their button.
+  of disabling their button (`BuyTokens` alone disables its button, and only when
+  the center says payments are unavailable, with the reason shown beside it).
 - `@kaperkunde/tokens/styles.css`: a neutral light and dark theme.
 - `@kaperkunde/tokens/stub` and the `tokens-stub` command: a stand-in center
   (including playable silent speech audio) for end-to-end tests and CI.

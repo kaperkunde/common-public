@@ -259,6 +259,24 @@ describe("BuyTokens", () => {
     expect(onCheckout).not.toHaveBeenCalled()
   })
 
+  it("disables the buy button, with the reason shown, when payments are unavailable", async () => {
+    const onCheckout = vi.fn(async () => ({ url: "x" }))
+    const el = await mount(
+      <TokensProvider
+        api={api({
+          salePrices: async () => ({ ...prices, paymentsAvailable: false }),
+        })}
+      >
+        <BuyTokens onCheckout={onCheckout} />
+      </TokensProvider>,
+    )
+    const buy = el.querySelector<HTMLButtonElement>("button[type=submit]")!
+    expect(buy.disabled).toBe(true)
+    expect(el.textContent).toContain("Buying is not available right now.")
+    await submit(el.querySelector("form"))
+    expect(onCheckout).not.toHaveBeenCalled()
+  })
+
   it("offers the app's packs from the center, and only the packs when packsOnly", async () => {
     const own = (options: SalePrices["options"]) =>
       api({ salePrices: async () => ({ ...prices, options }) })

@@ -99,8 +99,13 @@ export function BuyTokens(props: BuyTokensProps) {
   const minimum = Math.max(price?.minimumCents ?? 0, options?.minimumCents ?? 0)
   const maximum = options?.maximumCents ?? Infinity
 
+  // Disabled only when the center says it cannot take payments, and then the reason is on
+  // screen beside it (the notice above); an unfilled field is still answered by the press.
+  const paymentsOff = Boolean(prices.data && !prices.data.paymentsAvailable)
+
   async function submit(event: FormEvent) {
     event.preventDefault()
+    if (paymentsOff) return
     setProblem(null)
     if (needed) return setProblem(needed)
     if (!currency || !price) return setProblem(labels.paymentsUnavailable)
@@ -133,7 +138,7 @@ export function BuyTokens(props: BuyTokensProps) {
 
   return (
     <Panel title={labels.buyTitle} styling={styling}>
-      {prices.data && !prices.data.paymentsAvailable ? (
+      {paymentsOff ? (
         <Notice kind="info" styling={styling}>
           {labels.paymentsUnavailable}
         </Notice>
@@ -214,7 +219,8 @@ export function BuyTokens(props: BuyTokensProps) {
             type="submit"
             className={part(styling, "button", "tk-button--primary")}
             aria-busy={action.pending}
-            disabled={action.pending}
+            disabled={action.pending || paymentsOff}
+            title={paymentsOff ? labels.paymentsUnavailable : undefined}
           >
             {action.pending
               ? labels.buying
