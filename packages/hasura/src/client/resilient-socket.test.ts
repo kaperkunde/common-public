@@ -11,6 +11,7 @@ const fakeClient = () => {
   const emit = (event: string, ...args: unknown[]) =>
     listeners.get(event)?.forEach((listener) => listener(...args))
   let subscribes = 0
+  let refusing = false
   const client = {
     on: (event: string, listener: (...args: unknown[]) => void) => {
       if (!listeners.has(event)) listeners.set(event, new Set())
@@ -19,6 +20,11 @@ const fakeClient = () => {
     },
     subscribe: (_payload: unknown, sink: Sink<unknown>) => {
       subscribes += 1
+      if (refusing) {
+        // the server is not there: every connect fails at once
+        queueMicrotask(() => sink.error({ code: 1006, reason: "" }))
+        return () => undefined
+      }
       subs.add(sink)
       return () => subs.delete(sink)
     },
@@ -42,6 +48,9 @@ const fakeClient = () => {
     drop,
     push: (value: unknown) => subs.forEach((sink) => sink.next(value)),
     subscribes: () => subscribes,
+    refuse: () => {
+      refusing = true
+    },
     live: () => subs.size,
   }
 }
@@ -138,23 +147,17 @@ describe("createResilientSocket", () => {
     const s = sink()
     socket.subscribe({ query: "subscription { a }" }, s)
     inner.connect()
-
+    inner.refuse()
     inner.drop({ code: 1006, reason: "" })
-    for (let i = 0; i < 10; i++) {
-      await vi.advanceTimersByTimeAsync(500)
-      if (inner.live() > 0) inner.drop({ code: 1006, reason: "" })
-    }
+
+    await vi.advanceTimersByTimeAsync(5_000)
     expect(s.error).not.toHaveBeenCalled()
+    expect(socket.status().kind).toBe("reconnecting")
     await vi.advanceTimersByTimeAsync(15_000)
-    for (let i = 0; i < 30 && inner.live() > 0; i++) {
-      inner.drop({ code: 1006, reason: "" })
-      await vi.advanceTimersByTimeAsync(1_000)
-    }
+    // the first subscribe, then five tries at 0, 1, 3, 7 and 13 seconds
+    expect(inner.subscribes()).toBe(6)
     expect(s.error).toHaveBeenCalledOnce()
-    expect(socket.status()).toEqual({
-      kind: "lost",
-      reason: expect.any(String),
-    })
+    expect(socket.status()).toEqual({ kind: "lost", reason: "attempts" })
   })
 
   it("gives up when a connect hangs past the round's time", async () => {
