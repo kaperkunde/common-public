@@ -13,6 +13,13 @@ import { getMainDefinition } from "@apollo/client/utilities"
 import { createClient, type Client } from "graphql-ws"
 
 import { isConnectionLost } from "./lost"
+import type { PageSignals } from "./page"
+import { isAuthClose, type ReconnectPolicy } from "./reconnect"
+import {
+  createResilientSocket,
+  type ReconnectStatus,
+  type ResilientSocket,
+} from "./resilient-socket"
 import { createTokenSource, type TokenSource } from "./token-source"
 
 /** `https://h/v1/graphql` becomes `wss://h/v1/graphql`. */
@@ -33,10 +40,15 @@ export type UserClientOptions = {
   /** The role sent as `X-Hasura-Role`. */
   role: string
   /**
-   * Tries at getting a dropped socket back, a second longer each time,
-   * before `onConnectionLost` fires. Default 5 (about fifteen seconds).
+   * Tries at getting a dropped socket back once the page is visible, before
+   * `onConnectionLost` fires. Default 5, within `reconnect.budgetMs` (15s).
+   * Shorthand for `reconnect.maxAttempts`.
    */
   wsRetries?: number
+  /** How a dropped socket is tried again; see `./reconnect`. */
+  reconnect?: Partial<ReconnectPolicy>
+  /** The page's visibility and return events. The browser's by default. */
+  page?: PageSignals
   refreshBeforeMs?: number
   /** The Apollo cache; a fresh one by default. */
   cache?: InMemoryCache
@@ -46,7 +58,12 @@ export type UserClientOptions = {
 export type UserConnection = {
   // The cache's shape is Apollo's business.
   client: ApolloClient<NormalizedCacheObject>
-  socket: Client
+  /** The socket, wrapped so its subscriptions survive it dropping. */
+  socket: ResilientSocket
+  /** Down and being tried again by itself, given up, or fine. */
+  status: () => ReconnectStatus
+  /** Be told when the status changes. Returns the way to stop. */
+  onStatus: (listener: (status: ReconnectStatus) => void) => () => void
   tokens: TokenSource
   /** Be told when the socket has given up for good. Returns the way to stop. */
   onConnectionLost: (watcher: () => void) => () => void
@@ -64,7 +81,6 @@ export const createUserClient = (
   options: UserClientOptions,
 ): UserConnection => {
   const watchers = new Set<() => void>()
-  const retries = options.wsRetries ?? 5
   const held: { socket?: Client } = {}
   const tokens = createTokenSource({
     getToken: options.getToken,
@@ -78,17 +94,29 @@ export const createUserClient = (
     Authorization: `Bearer ${token}`,
   })
 
-  const socket = createClient({
-    url: options.wsEndpoint ?? toWebSocketUrl(options.endpoint),
-    lazy: true,
-    retryAttempts: retries,
-    connectionParams: async () => ({ headers: headersFor(await tokens.get()) }),
-    // A second longer each time: a screen that has stopped answering for half
-    // a minute reads as broken rather than busy.
-    retryWait: (attempt: number) =>
-      new Promise((resume) => {
-        setTimeout(resume, 1000 * (attempt + 1))
+  const socket = createResilientSocket({
+    client: createClient({
+      url: options.wsEndpoint ?? toWebSocketUrl(options.endpoint),
+      lazy: true,
+      // The tries are the wrapper's: they wait while the page is hidden, and
+      // a subscription keeps its data while they run.
+      retryAttempts: 0,
+      connectionParams: async () => ({
+        headers: headersFor(await tokens.get()),
       }),
+    }),
+    policy: {
+      ...(options.wsRetries === undefined
+        ? {}
+        : { maxAttempts: options.wsRetries }),
+      ...options.reconnect,
+    },
+    page: options.page,
+    // A token that was refused is replaced before the next try; one that is
+    // merely old is replaced by `tokens.get` as the socket connects.
+    prepare: async (cause) => {
+      await (isAuthClose(cause) ? tokens.refresh() : tokens.get())
+    },
   })
 
   held.socket = socket
@@ -123,6 +151,8 @@ export const createUserClient = (
   return {
     client,
     socket,
+    status: socket.status,
+    onStatus: socket.onStatus,
     tokens,
     onConnectionLost: (watcher) => {
       watchers.add(watcher)
@@ -133,7 +163,7 @@ export const createUserClient = (
     dispose: () => {
       tokens.dispose()
       watchers.clear()
-      socket.dispose()
+      void socket.dispose()
     },
   }
 }

@@ -32,6 +32,8 @@ export type TokenSourceOptions = {
 export type TokenSource = {
   /** The current token, fetching if none is held or it is about to expire. */
   get: () => Promise<string>
+  /** A fresh token, fetched whatever the held one says (it was refused). */
+  refresh: () => Promise<string>
   /** The last token fetched, without fetching. */
   peek: () => string | undefined
   /** Replaces the held token (a session handed a new one) and reschedules. */
@@ -96,6 +98,7 @@ export const createTokenSource = (options: TokenSourceOptions): TokenSource => {
 
   return {
     get: async () => (token === undefined || stale() ? refresh() : token),
+    refresh,
     peek: () => token,
     set: (next) => {
       if (adopt(next)) options.onChange?.(next)
