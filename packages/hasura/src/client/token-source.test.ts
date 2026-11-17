@@ -109,4 +109,11 @@ describe("createTokenSource", () => {
     g.source.dispose()
     expect(g.timers).toHaveLength(0)
   })
+
+  it("fetches anew on refresh even while the held token is good (it was refused)", async () => {
+    const h = harness([jwt(1_000), jwt(2_000)])
+    expect(await h.source.get()).toBe(jwt(1_000))
+    expect(await h.source.refresh()).toBe(jwt(2_000))
+    expect(h.onChange).toHaveBeenCalledWith(jwt(2_000))
+  })
 })

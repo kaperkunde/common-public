@@ -1,4 +1,4 @@
-import { ApolloProvider } from "@apollo/client"
+import { ApolloProvider, InMemoryCache } from "@apollo/client"
 import {
   createContext,
   useCallback,
@@ -15,6 +15,8 @@ import {
   getUserConnection,
   type UserConnection,
 } from "./connection"
+import { browserPage, type PageSignals } from "./page"
+import { isNewReturn, type ReconnectPolicy } from "./reconnect"
 
 export type HasuraConnectionState = {
   connection: UserConnection
@@ -22,6 +24,8 @@ export type HasuraConnectionState = {
   lost: boolean
   /** True while `refreshSession` is running after a return. */
   returning: boolean
+  /** True while a dropped socket is being tried again by itself (the screen stays). */
+  reconnecting: boolean
   /** Refresh the session, rebuild the client and socket, and carry on. */
   returnToConnection: () => void
 }
@@ -53,9 +57,23 @@ export type WithHasuraProps = {
   /** Tells sessions apart in the client cache, usually the user id. */
   cacheKey?: string
   wsRetries?: number
+  reconnect?: Partial<ReconnectPolicy>
   refreshBeforeMs?: number
-  /** Drawn in place of everything when the socket has gone. */
+  /** The page's visibility and return events. The browser's by default. */
+  page?: PageSignals
+  /**
+   * Drawn in place of everything when the socket has gone and trying again by
+   * itself has not brought it back. A return to the page (visible again, back
+   * online) presses its button by itself once.
+   */
   renderLost: (props: LostProps) => ReactNode
+  /**
+   * Drawn beside the children (never in place of them) while a dropped socket
+   * is tried again by itself: a small "Reconnecting…", say. Shown only once
+   * it has taken longer than `reconnectingAfterMs` (default 1s).
+   */
+  renderReconnecting?: () => ReactNode
+  reconnectingAfterMs?: number
   /** Drawn while there is no token. */
   fallback?: ReactNode
   children: ReactNode
@@ -84,6 +102,11 @@ const Connected = (props: WithHasuraProps & { token: string }) => {
   const [attempt, setAttempt] = useState(0)
   const [lost, setLost] = useState(false)
   const [returning, setReturning] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
+  // One cache for every client this session builds, so a rebuilt client
+  // starts from what the last one knew.
+  const [cache] = useState(() => new InMemoryCache())
+  const [page] = useState(() => props.page ?? browserPage())
 
   const key = useMemo(
     () => ({
@@ -100,7 +123,10 @@ const Connected = (props: WithHasuraProps & { token: string }) => {
         wsEndpoint: props.wsEndpoint,
         role: props.role,
         wsRetries: props.wsRetries,
+        reconnect: props.reconnect,
         refreshBeforeMs: props.refreshBeforeMs,
+        page,
+        cache,
         getToken: async () => {
           const fresh = await refresh.current?.()
           if (fresh) latest.current = fresh
@@ -118,11 +144,32 @@ const Connected = (props: WithHasuraProps & { token: string }) => {
     () => connection.onConnectionLost(() => setLost(true)),
     [connection],
   )
+  // A quiet indicator, and only for a reconnect that takes a moment.
+  const indicateAfter = props.reconnectingAfterMs ?? 1_000
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const show = (status: ReturnType<UserConnection["status"]>) => {
+      if (timer) clearTimeout(timer)
+      timer = undefined
+      if (status.kind !== "reconnecting") return setReconnecting(false)
+      timer = setTimeout(() => setReconnecting(true), indicateAfter)
+    }
+    show(connection.status())
+    const stop = connection.onStatus(show)
+    return () => {
+      stop()
+      if (timer) clearTimeout(timer)
+    }
+  }, [connection, indicateAfter])
+  const returningRef = useRef(false)
   const returnToConnection = useCallback(() => {
+    if (returningRef.current) return
+    returningRef.current = true
     setReturning(true)
     const done = () => {
       dropClient(key)
       setAttempt((count) => count + 1)
+      returningRef.current = false
       setReturning(false)
       setLost(false)
     }
@@ -134,9 +181,32 @@ const Connected = (props: WithHasuraProps & { token: string }) => {
       .then(done)
   }, [key])
 
+  // The manual screen is for a reader who is here: coming back to it (the
+  // page shown again, the network back) presses its button once by itself,
+  // so a tab that gave up in the background does not greet them with it.
+  useEffect(() => {
+    if (!lost) return
+    let last: number | null = null
+    return page.watch((kind) => {
+      if (kind !== "visible" && kind !== "online" && kind !== "pageshow") return
+      const state = page.state()
+      if (!state.visible || !state.online) return
+      const at = Date.now()
+      if (!isNewReturn(last, at)) return
+      last = at
+      returnToConnection()
+    })
+  }, [lost, page, returnToConnection])
+
   const state = useMemo(
-    () => ({ connection, lost, returning, returnToConnection }),
-    [connection, lost, returning, returnToConnection],
+    () => ({
+      connection,
+      lost,
+      returning,
+      reconnecting: reconnecting && !lost,
+      returnToConnection,
+    }),
+    [connection, lost, returning, reconnecting, returnToConnection],
   )
 
   return (
@@ -144,7 +214,12 @@ const Connected = (props: WithHasuraProps & { token: string }) => {
       {lost ? (
         renderLost({ onReturn: returnToConnection, returning })
       ) : (
-        <ApolloProvider client={connection.client}>{children}</ApolloProvider>
+        <ApolloProvider client={connection.client}>
+          {reconnecting && props.renderReconnecting
+            ? props.renderReconnecting()
+            : null}
+          {children}
+        </ApolloProvider>
       )}
     </Context.Provider>
   )
