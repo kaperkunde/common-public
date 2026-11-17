@@ -105,6 +105,11 @@ const micros = (value: string | null): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+/** The voice a speech answer used in place of the one asked for (`x-token-voice-fallback`), or `null` when it was the asked one. */
+export function voiceFallbackFromHeaders(headers: HeadersLike): string | null {
+  return headerOf(headers, TOKEN_HEADERS.voiceFallback)
+}
+
 /** The call id a gateway response carries up front (streams have it before any cost is known), or `null`. */
 export function callIdFromHeaders(headers: HeadersLike): string | null {
   return headerOf(headers, TOKEN_HEADERS.callId)

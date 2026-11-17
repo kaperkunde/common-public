@@ -73,7 +73,11 @@ afterAll(async () => {
 beforeEach(async () => {
   stub.reset()
   received = []
-  await control("mode", { down: false, providerError: false })
+  await control("mode", {
+    down: false,
+    providerError: false,
+    fail: null,
+  })
 })
 
 const until = async (check: () => boolean) => {
@@ -215,6 +219,58 @@ describe("against the stub", () => {
         responseBody: await failed.text(),
       })?.code,
     ).toBe("provider_error")
+  })
+
+  it("simulates provider refusals, and a voice that falls back", async () => {
+    await control("mode", { fail: "out_of_credit" })
+    const chat = () =>
+      fetch(`${stub.url}/v1/messages`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": "tk_test_integration",
+          ...gatewayHeaders({ user: "u1" }),
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-5-5",
+          max_tokens: 10,
+          messages: [],
+        }),
+      })
+    const out = await chat()
+    expect(out.status).toBe(503)
+    expect(out.headers.get("x-should-retry")).toBe("false")
+    const refused = tokenErrorOf({
+      statusCode: 503,
+      responseHeaders: Object.fromEntries(out.headers),
+      responseBody: await out.text(),
+    })
+    expect(refused?.code).toBe("provider_out_of_credit")
+    expect(refused?.detail.provider).toBe("anthropic")
+    expect(refused?.detail.model).toBe("claude-sonnet-5-5")
+    expect(refused?.retryable).toBe(false)
+
+    await control("mode", { fail: "rate_limited" })
+    const slow = await chat()
+    expect(slow.status).toBe(429)
+    expect(slow.headers.get("retry-after")).toBe("7")
+    await control("mode", { fail: "overloaded" })
+    const busy = await chat()
+    expect(busy.status).toBe(503)
+    expect(
+      tokenErrorOf({
+        statusCode: 503,
+        responseHeaders: Object.fromEntries(busy.headers),
+        responseBody: await busy.text(),
+      })?.code,
+    ).toBe("provider_overloaded")
+
+    // Speech does not fail: it falls to the app's other voice and says which.
+    const spoken = await center.speech({ user: "u1" }, { input: "Hi" })
+    expect(spoken.voiceFallback).toBe("stub-voice-eleven")
+    await control("mode", { fail: null })
+    const plain = await center.speech({ user: "u1" }, { input: "Hi" })
+    expect(plain.voiceFallback).toBeNull()
   })
 
   it("exposes the call on a provider failure, through the client and tokenErrorOf", async () => {

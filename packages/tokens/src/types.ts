@@ -79,6 +79,8 @@ export const TOKEN_HEADERS = {
   error: "x-token-error",
   /** Rate limited / in-flight cap: seconds to wait (standard header). */
   retryAfter: "retry-after",
+  /** On a speech answer: the voice id actually used, present only when it was not the one asked for. */
+  voiceFallback: "x-token-voice-fallback",
 
   // --- webhooks (center -> app) ---
   /** `t=<unix seconds>,v1=<hex HMAC-SHA256(secret, `${t}.${rawBody}`)>` */
@@ -116,6 +118,9 @@ export const ERROR_CODES = [
   "byo_limit_reached", // 402 own endpoint's monthly token limit reached and nothing to fall back to
   "provider_error", // 502 upstream provider failed (details.status, details.providerType)
   "provider_timeout", // 504 upstream did not answer in time
+  "provider_out_of_credit", // 503 the center's own account with that provider is out of credit; nothing charged, not retryable until an admin tops up (details.provider, details.model)
+  "provider_rate_limited", // 429 an upstream rate limit; retryable (Retry-After)
+  "provider_overloaded", // 503 the provider is overloaded; retryable
   "rate_limited", // 429 per-key/per-user rate, or the per-user in-flight cap (Retry-After)
   "payments_unavailable", // 503 Stripe not configured on the center
   "purchase_too_small", // 400 below the currency minimum (details.minimumCents)
@@ -142,6 +147,9 @@ export const ERROR_STATUS: Record<ErrorCode, number> = {
   byo_limit_reached: 402,
   provider_error: 502,
   provider_timeout: 504,
+  provider_out_of_credit: 503,
+  provider_rate_limited: 429,
+  provider_overloaded: 503,
   rate_limited: 429,
   payments_unavailable: 503,
   purchase_too_small: 400,
@@ -150,6 +158,19 @@ export const ERROR_STATUS: Record<ErrorCode, number> = {
   center_unavailable: 503,
   internal_error: 500,
 }
+
+/**
+ * Codes a client may retry (after `Retry-After` / `retryAfterSeconds` where given). Notably NOT
+ * `provider_out_of_credit`: the center's own account with the provider is empty, so retrying
+ * changes nothing until the operator tops it up; an app shows the error and moves on.
+ */
+export const RETRYABLE_ERROR_CODES: readonly ErrorCode[] = [
+  "rate_limited",
+  "provider_rate_limited",
+  "provider_overloaded",
+  "provider_timeout",
+  "center_unavailable",
+]
 
 export type Capability = "tools" | "streaming" | "vision" | "json" | "voice"
 
@@ -161,6 +182,8 @@ export type TokenErrorDetail = {
   action?: "buy_tokens" | "configure_own" | "wait"
   capability?: Capability
   provider?: ProviderId
+  /** provider_out_of_credit: the model the refused call asked for. */
+  model?: string
   minimumCents?: Cents
   retryAfterSeconds?: number
   /** Upstream HTTP status for provider_error / byo_failed. */

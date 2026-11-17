@@ -23,6 +23,8 @@ export type StubOptions = {
   packsCents?: number[] | string
   /** Allow only the packs. */
   packsOnly?: boolean
+  /** A provider failure every gateway call answers with until `POST /stub/mode {"fail":null}`. */
+  fail?: "out_of_credit" | "rate_limited" | "overloaded"
 }
 
 export type Stub = {

@@ -33,6 +33,7 @@ export function startStub(options = {}) {
     ...set("TOKENS_STUB_REPLY", options.reply),
     ...set("TOKENS_STUB_PACKS", options.packsCents),
     ...set("TOKENS_STUB_PACKS_ONLY", options.packsOnly),
+    ...set("TOKENS_STUB_FAIL", options.fail),
   }
   const timers = new Set()
   let PORT = Number(env.TOKENS_STUB_PORT ?? 4100)
@@ -103,6 +104,13 @@ export function startStub(options = {}) {
       usdPerMChars: "15",
       isDefault: true,
     },
+    {
+      id: "stub-voice-eleven",
+      name: "Stub voice (ElevenLabs)",
+      provider: "elevenlabs",
+      usdPerMChars: "30",
+      isDefault: false,
+    },
   ]
   const SALE = [
     {
@@ -147,6 +155,9 @@ export function startStub(options = {}) {
     byo_limit_reached: 402,
     provider_error: 502,
     provider_timeout: 504,
+    provider_out_of_credit: 503,
+    provider_rate_limited: 429,
+    provider_overloaded: 503,
     rate_limited: 429,
     payments_unavailable: 503,
     purchase_too_small: 400,
@@ -156,13 +167,37 @@ export function startStub(options = {}) {
     internal_error: 500,
   }
 
+  // A provider failure the test asked for: TOKENS_STUB_FAIL, POST /stub/mode {"fail"} or the request
+  // header `x-stub-fail`: out_of_credit, rate_limited or overloaded (see the README).
+  const FAIL_FROM_ENV = [
+    "out_of_credit",
+    "rate_limited",
+    "overloaded",
+  ].includes(env.TOKENS_STUB_FAIL)
+    ? env.TOKENS_STUB_FAIL
+    : null
+  const FAILS = {
+    out_of_credit: "provider_out_of_credit",
+    rate_limited: "provider_rate_limited",
+    overloaded: "provider_overloaded",
+  }
+  const PROVIDER_NAME = {
+    anthropic: "Anthropic",
+    openai: "OpenAI",
+    elevenlabs: "ElevenLabs",
+  }
+
   let state
   const reset = () => {
     state = {
       users: new Map(),
       calls: [],
       purchases: new Map(),
-      mode: { down: false, providerError: false },
+      mode: {
+        down: false,
+        providerError: false,
+        fail: FAIL_FROM_ENV,
+      },
     }
   }
   reset()
@@ -379,6 +414,15 @@ export function startStub(options = {}) {
     json(res, STATUS[code], body, {
       "x-token-error": code,
       ...(extra.callId ? { "x-token-call-id": extra.callId } : {}),
+      ...(code === "provider_out_of_credit"
+        ? { "x-should-retry": "false" }
+        : {}),
+      ...(extra.retryAfterSeconds !== undefined &&
+      ["rate_limited", "provider_rate_limited", "provider_overloaded"].includes(
+        code,
+      )
+        ? { "retry-after": String(extra.retryAfterSeconds) }
+        : {}),
     })
   }
   const attribution = (req) =>
@@ -731,6 +775,41 @@ export function startStub(options = {}) {
         callId: call.id,
       })
     }
+    const failKind = FAILS[req.headers["x-stub-fail"]]
+      ? req.headers["x-stub-fail"]
+      : state.mode.fail
+    const failing =
+      backend === "tokens" &&
+      failKind &&
+      (!speech || (body.voice ?? "stub-voice") !== "stub-voice-eleven")
+    if (failing && !speech) {
+      const code = FAILS[failKind]
+      const name = PROVIDER_NAME[provider]
+      const message =
+        failKind === "out_of_credit"
+          ? `The ${name} account behind the token center is out of credit; nothing was charged.`
+          : failKind === "overloaded"
+            ? `${name} is overloaded; nothing was charged. Try again shortly.`
+            : `${name} is rate limiting the token center; nothing was charged. Try again shortly.`
+      Object.assign(call, {
+        status: "failed",
+        finishedAt: now(),
+        error: { code, message, provider, model },
+      })
+      return fail(res, code, message, shape, {
+        provider,
+        model,
+        callId: call.id,
+        ...(failKind === "out_of_credit" ? {} : { retryAfterSeconds: 7 }),
+      })
+    }
+    // Speech does not fail: it falls back to the app's other voice, on a provider that is not failing.
+    let fallbackVoice = null
+    if (failing && speech) {
+      fallbackVoice = "stub-voice-eleven"
+      call.model = fallbackVoice
+      call.provider = "elevenlabs"
+    }
     if (speech) {
       const chars = [...String(body.input ?? "")].length
       if (!chars || chars > 4096) {
@@ -744,11 +823,12 @@ export function startStub(options = {}) {
         )
       }
       call.usage = { ...zeroUsage(), units: { tts_chars: chars } }
-      charge(u, call, "openai", costOf(call.usage))
+      charge(u, call, call.provider, costOf(call.usage))
       const audio = silentMp3()
       res.writeHead(200, {
         "content-type": "audio/mpeg",
         "x-token-chars": String(chars),
+        ...(fallbackVoice ? { "x-token-voice-fallback": fallbackVoice } : {}),
         ...chargeHeaders(call),
       })
       return res.end(audio)

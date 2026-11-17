@@ -1,6 +1,7 @@
 import {
   ERROR_CODES,
   ERROR_STATUS,
+  RETRYABLE_ERROR_CODES,
   type ErrorCode,
   type TokenErrorDetail,
 } from "./types"
@@ -38,6 +39,15 @@ export class TokenCenterError extends Error {
   /** `invalid_request`: the JSON path of the offending field or header (`amountCents`, `tools[0].type`, `body`). */
   get path(): string | undefined {
     return this.detail.path
+  }
+
+  /**
+   * Whether asking again can work: `provider_rate_limited`, `provider_overloaded`,
+   * `provider_timeout`, `rate_limited` and `center_unavailable` can; `provider_out_of_credit`
+   * cannot until an admin tops the center's account up.
+   */
+  get retryable(): boolean {
+    return RETRYABLE_ERROR_CODES.includes(this.code)
   }
 
   /** What the app should offer the user: buy tokens, set up an own model, wait. */

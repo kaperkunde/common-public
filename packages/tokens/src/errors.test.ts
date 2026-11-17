@@ -122,3 +122,41 @@ describe("error mapping", () => {
     expect(centerUnavailable().status).toBe(503)
   })
 })
+
+describe("provider refusals", () => {
+  it("knows the codes and their statuses", () => {
+    expect(ERROR_CODES).toContain("provider_out_of_credit")
+    expect(ERROR_STATUS.provider_out_of_credit).toBe(503)
+    expect(ERROR_STATUS.provider_rate_limited).toBe(429)
+    expect(ERROR_STATUS.provider_overloaded).toBe(503)
+  })
+
+  it("keeps provider and model, and is not retryable", () => {
+    const e = errorFromResponse(503, {
+      error: {
+        code: "provider_out_of_credit",
+        message: "Out of credit.",
+        provider: "openai",
+        model: "tts-1",
+      },
+    })
+    expect(e.code).toBe("provider_out_of_credit")
+    expect(e.detail.provider).toBe("openai")
+    expect(e.detail.model).toBe("tts-1")
+    expect(e.retryable).toBe(false)
+  })
+
+  it("is not mistaken for center_unavailable on a bodiless 503, and reads Retry-After", () => {
+    const out = errorFromResponse(503, null, {
+      code: "provider_out_of_credit",
+    })
+    expect(out.code).toBe("provider_out_of_credit")
+    const rl = errorFromResponse(
+      429,
+      { error: { code: "provider_rate_limited", message: "Slow." } },
+      { retryAfter: "7" },
+    )
+    expect(rl.detail.retryAfterSeconds).toBe(7)
+    expect(rl.retryable).toBe(true)
+  })
+})

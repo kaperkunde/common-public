@@ -69,6 +69,15 @@ a call that was cut short; `provider_error` (502) covers a provider failure and
 a problem with the center's own provider key, never with the provider's text,
 and `forbidden` (403) a test key used where no test provider is set.
 
+Provider refusals: `provider_out_of_credit` (503, `error.provider`, `error.model`) means the
+center's own account with that AI provider is out of credit; nothing is charged and asking
+again is pointless until an admin tops up, so an app should pause that feature for a while
+rather than retry. `provider_rate_limited` (429) and `provider_overloaded` (503) are upstream
+conditions worth one retry; `error.retryable` (`RETRYABLE_ERROR_CODES`) says which codes can work again, and
+`error.detail.retryAfterSeconds` carries `Retry-After`. A speech answer names the voice it
+used in place of the one asked for in `x-token-voice-fallback` (`SpeechResult.voiceFallback`,
+`voiceFallbackFromHeaders`).
+
 ### Model calls: the gateway
 
 Point an AI SDK provider at the center, with the payer in `x-token-user`:
@@ -388,18 +397,19 @@ per million characters. A model id containing `unpriced` answers
 
 Test controls (no auth; the real center has none of these):
 
-| Call                                                            | Does                                                                   |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `POST /stub/reset`                                              | Forget everything                                                      |
-| `POST /stub/mode {"down":true}`                                 | Every call answers 503 `center_unavailable` (fail-closed tests)        |
-| `POST /stub/mode {"providerError":true}`                        | Gateway calls answer 502 `provider_error`                              |
-| `POST /stub/balance {"userId","purchasedMicros"}`               | Set purchased (0 → `insufficient_balance` on the next call)            |
-| `POST /stub/grant {"userId","micros","provider"?,"expiresAt"?}` | Add a lot and send `grant.received`                                    |
-| `POST /stub/expire {"lotId"}`                                   | Expire a lot, send `grant.expired`                                     |
-| `POST /stub/autorefill-fail {"userId"}`                         | Turn auto-refill off, send `autorefill.failed`                         |
-| `GET /stub/checkout/:purchaseId`                                | The "Stripe page": pays, credits, sends `purchase.completed`, 303 back |
-| `GET /stub/card/:userId?to=`                                    | Saves a Visa ending 4242 and redirects to `to`                         |
-| `GET /stub/state`                                               | Every balance and call, for assertions                                 |
+| Call                                                                                                                           | Does                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /stub/reset`                                                                                                             | Forget everything                                                                                                                                                                                                                                                                                                                         |
+| `POST /stub/mode {"down":true}`                                                                                                | Every call answers 503 `center_unavailable` (fail-closed tests)                                                                                                                                                                                                                                                                           |
+| `POST /stub/mode {"providerError":true}`                                                                                       | Gateway calls answer 502 `provider_error`                                                                                                                                                                                                                                                                                                 |
+| `POST /stub/mode {"fail":"out_of_credit"}` (or env `TOKENS_STUB_FAIL`, the `fail` option, or the request header `x-stub-fail`) | Gateway calls answer 503 `provider_out_of_credit` (provider, model, `x-should-retry: false`); `"rate_limited"` 429 `provider_rate_limited` + `Retry-After: 7`; `"overloaded"` 503 `provider_overloaded`; `null` clears it. Speech does not fail: `stub-voice` falls back to `stub-voice-eleven` and answers with `x-token-voice-fallback` |
+| `POST /stub/balance {"userId","purchasedMicros"}`                                                                              | Set purchased (0 → `insufficient_balance` on the next call)                                                                                                                                                                                                                                                                               |
+| `POST /stub/grant {"userId","micros","provider"?,"expiresAt"?}`                                                                | Add a lot and send `grant.received`                                                                                                                                                                                                                                                                                                       |
+| `POST /stub/expire {"lotId"}`                                                                                                  | Expire a lot, send `grant.expired`                                                                                                                                                                                                                                                                                                        |
+| `POST /stub/autorefill-fail {"userId"}`                                                                                        | Turn auto-refill off, send `autorefill.failed`                                                                                                                                                                                                                                                                                            |
+| `GET /stub/checkout/:purchaseId`                                                                                               | The "Stripe page": pays, credits, sends `purchase.completed`, 303 back                                                                                                                                                                                                                                                                    |
+| `GET /stub/card/:userId?to=`                                                                                                   | Saves a Visa ending 4242 and redirects to `to`                                                                                                                                                                                                                                                                                            |
+| `GET /stub/state`                                                                                                              | Every balance and call, for assertions                                                                                                                                                                                                                                                                                                    |
 
 A Playwright test follows the checkout URL the app returns and lands on the
 app's success URL with the wallet credited. The stub's webhooks are signed

@@ -1,5 +1,10 @@
 import { centerUnavailable, errorFromResponse } from "../errors"
-import { chargeFromHeaders, gatewayHeaders, trimBaseUrl } from "./gateway"
+import {
+  chargeFromHeaders,
+  gatewayHeaders,
+  trimBaseUrl,
+  voiceFallbackFromHeaders,
+} from "./gateway"
 import type {
   AppInfo,
   AppUser,
@@ -50,6 +55,8 @@ export type SpeechResult = {
   charge: HeaderCharge | null
   /** Characters metered. */
   chars: number | null
+  /** The voice that actually spoke, when the center used another than the one asked for (`x-token-voice-fallback`). */
+  voiceFallback: string | null
 }
 
 type RequestInit2 = {
@@ -273,6 +280,7 @@ export function createTokenCenter(options: TokenCenterOptions) {
         contentType: response.headers.get("content-type") ?? "audio/mpeg",
         charge: chargeFromHeaders(response.headers),
         chars: Number.isFinite(chars) && chars > 0 ? chars : null,
+        voiceFallback: voiceFallbackFromHeaders(response.headers),
       }
     },
   }
