@@ -1,0 +1,365 @@
+import { createServer, type Server } from "node:http"
+import type { AddressInfo } from "node:net"
+
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
+
+import { startStub, type Stub } from "../stub/server.mjs"
+import { createTokenApi } from "./browser-api"
+import { isTokenError } from "./errors"
+import { createTokenCenter, type TokenCenter } from "./server/client"
+import {
+  chargeFromHeaders,
+  gatewayConfig,
+  gatewayHeaders,
+  parseTrailer,
+} from "./server/gateway"
+import { nodeHandler } from "./server/node"
+import { tokenRoutes } from "./server/routes"
+import { tokenErrorOf } from "./server/error-of"
+import { webhookRoute } from "./server/webhook"
+import type { WebhookEvent } from "./types"
+
+const SECRET = "whsec_integration"
+let stub: Stub
+let center: TokenCenter
+let received: WebhookEvent[] = []
+let hookServer: Server
+let hookUrl = ""
+
+const control = (path: string, body: unknown = {}) =>
+  fetch(`${stub.url}/stub/${path}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  }).then((r) => r.json())
+
+beforeAll(async () => {
+  // The app's webhook endpoint, a real server, for the stub to post to.
+  const route = webhookRoute({
+    secret: SECRET,
+    handlers: Object.fromEntries(
+      [
+        "grant.received",
+        "purchase.completed",
+        "balance.low",
+        "balance.empty",
+        "autorefill.failed",
+        "grant.expired",
+      ].map((t) => [t, (e: WebhookEvent) => void received.push(e)]),
+    ),
+  })
+  hookServer = createServer(nodeHandler(route))
+  await new Promise<void>((ok) => hookServer.listen(0, ok))
+  hookUrl = `http://localhost:${(hookServer.address() as AddressInfo).port}/hook`
+  stub = await startStub({
+    port: 0,
+    key: "tk_test_integration",
+    webhookUrl: hookUrl,
+    webhookSecret: SECRET,
+    unitOne: "credit",
+    unitMany: "credits",
+  })
+  center = createTokenCenter({
+    baseUrl: stub.url,
+    apiKey: "tk_test_integration",
+  })
+})
+
+afterAll(async () => {
+  await stub.close()
+  await new Promise((ok) => hookServer.close(ok))
+})
+
+beforeEach(async () => {
+  stub.reset()
+  received = []
+  await control("mode", { down: false, providerError: false })
+})
+
+const until = async (check: () => boolean) => {
+  for (let i = 0; i < 100 && !check(); i++)
+    await new Promise((r) => setTimeout(r, 20))
+  expect(check()).toBe(true)
+}
+
+describe("against the stub", () => {
+  it("reads the app, the models, a new user's balance with the unit", async () => {
+    const app = await center.app()
+    expect(app.unit).toEqual({
+      one: "credit",
+      many: "credits",
+      perDollar: 1_000_000,
+    })
+    expect((await center.models()).map((m) => m.id)).toContain(
+      "claude-sonnet-5-5",
+    )
+    const b = await center.balance("u1")
+    expect(b.availableMicros).toBe(5_000_000)
+    expect(b.known).toBe(false)
+  })
+
+  it("rejects a wrong app key as unauthenticated", async () => {
+    const wrong = createTokenCenter({
+      baseUrl: stub.url,
+      apiKey: "tk_test_other",
+    })
+    expect(await wrong.balance("u1").catch((e) => e.code)).toBe(
+      "unauthenticated",
+    )
+  })
+
+  it("charges a gateway call from the headers, and the ledger agrees with the correlation id", async () => {
+    const config = gatewayConfig({
+      baseUrl: stub.url,
+      apiKey: "tk_test_integration",
+      user: "u1",
+      attribution: {
+        purpose: "dj",
+        activity: "Telling Åsa",
+        correlation: "usage_1",
+      },
+    })
+    const response = await fetch(`${config.baseURL}/messages`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": config.apiKey,
+        ...config.headers,
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5-5",
+        max_tokens: 10,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    })
+    expect(response.status).toBe(200)
+    const charge = chargeFromHeaders(response.headers)!
+    expect(charge).toMatchObject({
+      source: "tokens",
+      costMicros: 600,
+      feeMicros: 120,
+      chargedMicros: 720,
+      complete: true,
+    })
+    const page = await center.calls("u1", { correlation: "usage_1" })
+    expect(page.calls).toHaveLength(1)
+    expect(page.calls[0]!.callId).toBe(charge.callId)
+    expect(page.calls[0]!.attribution.activity).toBe("Telling Åsa")
+    expect(page.totals.chargedMicros).toBe(720)
+    const one = await center.call(charge.callId, { wait: 1 })
+    expect(one.status).toBe("charged")
+    expect((await center.balance("u1")).availableMicros).toBe(5_000_000 - 720)
+  })
+
+  it("streams, then finds the charge through the trailer and through the call", async () => {
+    const headers = gatewayHeaders({ user: "u1", trailer: true })
+    const response = await fetch(`${stub.url}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": "tk_test_integration",
+        ...headers,
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5-5",
+        max_tokens: 10,
+        stream: true,
+        messages: [],
+      }),
+    })
+    const callId = chargeFromHeaders(response.headers)!.callId
+    const trailer = parseTrailer<{ callId: string; chargedMicros: number }>(
+      await response.text(),
+    )
+    expect(trailer?.callId).toBe(callId)
+    expect((await center.call(callId)).chargedMicros).toBe(
+      trailer?.chargedMicros,
+    )
+  })
+
+  it("maps an empty wallet and a provider failure the way tokenErrorOf reads an SDK error", async () => {
+    await control("balance", { userId: "u1", purchasedMicros: 0 })
+    const post = () =>
+      fetch(`${stub.url}/v1/messages`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": "tk_test_integration",
+          ...gatewayHeaders({ user: "u1" }),
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-5-5",
+          max_tokens: 10,
+          messages: [],
+        }),
+      })
+    const empty = await post()
+    expect(empty.status).toBe(402)
+    const asSdkError = {
+      statusCode: empty.status,
+      responseHeaders: Object.fromEntries(empty.headers),
+      responseBody: await empty.text(),
+    }
+    expect(tokenErrorOf(asSdkError)).toMatchObject({
+      code: "insufficient_balance",
+      status: 402,
+    })
+    expect(tokenErrorOf(asSdkError)?.action).toBe("buy_tokens")
+
+    await control("balance", { userId: "u1", purchasedMicros: 5_000_000 })
+    await control("mode", { providerError: true })
+    const failed = await post()
+    expect(
+      tokenErrorOf({
+        statusCode: failed.status,
+        responseHeaders: Object.fromEntries(failed.headers),
+        responseBody: await failed.text(),
+      })?.code,
+    ).toBe("provider_error")
+  })
+
+  it("fails closed when the stub says it is down, and when it is gone", async () => {
+    await control("mode", { down: true })
+    expect(await center.balance("u1").catch((e) => e.code)).toBe(
+      "center_unavailable",
+    )
+    const gone = createTokenCenter({
+      baseUrl: "http://127.0.0.1:1",
+      apiKey: "k",
+      timeoutMs: 500,
+    })
+    expect(await gone.balance("u1").catch((e) => e.code)).toBe(
+      "center_unavailable",
+    )
+  })
+
+  it("speaks: audio bytes with the characters and the charge", async () => {
+    const out = await center.speech(
+      { user: "u1", attribution: { purpose: "voice" } },
+      { input: "Hello there" },
+    )
+    expect(out.audio.byteLength).toBe(266)
+    expect(out.chars).toBe(11)
+    expect(out.charge?.chargedMicros).toBeGreaterThan(0)
+  })
+
+  it("routes by the user's order, with the capability fallback", async () => {
+    expect(
+      (await center.route({ userId: "u1", model: "claude-sonnet-5-5" })).source,
+    ).toBe("tokens")
+    await center.saveOwnEndpoint("u1", {
+      baseUrl: "https://llm.example/v1",
+      apiKey: "sk-abcd1234",
+      models: ["m1"],
+      capabilities: ["streaming"],
+      monthlyTokenLimit: null,
+      order: "own_only",
+    })
+    const own = await center.ownEndpoint("u1")
+    expect(own).toMatchObject({ hasKey: true, keyHint: "1234" })
+    expect(JSON.stringify(own)).not.toContain("sk-abcd1234")
+    expect(
+      (await center.route({ userId: "u1", model: "claude-sonnet-5-5" })).source,
+    ).toBe("own")
+    const voice = await center.route({
+      userId: "u1",
+      model: "claude-sonnet-5-5",
+      needs: ["voice"],
+    })
+    expect(voice).toMatchObject({ source: "tokens" })
+    expect(voice.fallback?.reason).toBe("capability")
+  })
+
+  it("receives signed webhooks: a grant, a purchase through checkout, and an expiry", async () => {
+    await control("grant", { userId: "u1", micros: 8_000_000, reason: "drop" })
+    await until(() => received.some((e) => e.type === "grant.received"))
+
+    const session = await center.checkout("u1", {
+      currency: "eur",
+      amountCents: 1000,
+      successUrl: "http://localhost/done?p={PURCHASE_ID}",
+      cancelUrl: "http://localhost/no",
+    })
+    expect(session.creditMicros).toBe(10_000_000)
+    const redirect = await fetch(session.url, { redirect: "manual" })
+    expect(redirect.status).toBe(303)
+    expect(redirect.headers.get("location")).toBe(
+      `http://localhost/done?p=${session.purchaseId}`,
+    )
+    await until(() => received.some((e) => e.type === "purchase.completed"))
+    expect((await center.purchase("u1", session.purchaseId)).status).toBe(
+      "paid",
+    )
+    const history = await center.history("u1")
+    expect(history.entries.map((e) => e.type)).toEqual(["purchase", "grant"])
+
+    const lot = (await center.balance("u1")).lots[0]!
+    await control("expire", { lotId: lot.id })
+    await until(() => received.some((e) => e.type === "grant.expired"))
+  })
+
+  it("is mounted through tokenRoutes, which serves the browser client with only a session", async () => {
+    const routes = tokenRoutes(center, {
+      origin: "http://localhost",
+      userOf: (r) =>
+        r.headers.get("cookie") === "session=ok"
+          ? { id: "browser-user", email: "b@example.com" }
+          : null,
+    })
+    const app = createServer(nodeHandler(routes))
+    await new Promise<void>((ok) => app.listen(0, ok))
+    try {
+      const base = `http://localhost:${(app.address() as AddressInfo).port}/api/tokens`
+      const withSession = (init: RequestInit = {}) => ({
+        ...init,
+        headers: { ...init.headers, cookie: "session=ok" },
+      })
+      const balance = (await (
+        await fetch(`${base}/balance`, withSession())
+      ).json()) as { userId: string; availableMicros: number }
+      expect(balance).toMatchObject({
+        userId: "browser-user",
+        availableMicros: 5_000_000,
+      })
+      expect((await fetch(`${base}/balance`)).status).toBe(401)
+
+      const api = createTokenApi({
+        basePath: base,
+        fetch: ((url: string, init: RequestInit) =>
+          fetch(url, {
+            ...init,
+            headers: { ...init.headers, cookie: "session=ok" },
+          })) as typeof fetch,
+      })
+      const session = await api.checkout({
+        currency: "usd",
+        amountCents: 500,
+        returnPath: "/ai/tokens",
+      })
+      expect(session.url).toContain("/stub/checkout/")
+      expect(await api.ownEndpoint()).toBeNull()
+      const refill = await api.setAutoRefill({
+        enabled: false,
+        thresholdMicros: 1_000_000,
+        amountCents: 2000,
+        currency: "eur",
+        monthlyMaxCents: 8000,
+      })
+      expect(refill.amountCents).toBe(2000)
+      const error = await api
+        .setAutoRefill({
+          enabled: true,
+          thresholdMicros: 1,
+          amountCents: 1000,
+          currency: "eur",
+          monthlyMaxCents: 5000,
+        })
+        .catch((e) => e)
+      expect(isTokenError(error, "no_card")).toBe(true)
+      expect((await center.upsertUser("browser-user", {})).email).toBe(
+        "b@example.com",
+      )
+    } finally {
+      await new Promise((ok) => app.close(ok))
+    }
+  })
+})

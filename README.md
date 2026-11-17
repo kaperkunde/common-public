@@ -20,6 +20,7 @@ Each has its own README. `@kaperkunde/config` is the first; the rest follow:
 | `@kaperkunde/mcp`            | The MCP tool factory and the owner-by-link helpers                                        |
 | `@kaperkunde/stripe`         | The checked Stripe webhook core                                                           |
 | `@kaperkunde/ui`             | Design tokens and primitives for the Tailwind apps                                        |
+| `@kaperkunde/tokens`         | Client for the Token Center: gateway config, webhooks, wallet routes and components       |
 
 ## Public or private
 
