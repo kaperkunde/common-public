@@ -1,8 +1,7 @@
 /**
  * Token Center contract types, contract version 1.
  *
- * The single source of truth shared by the center and `@kaperkunde/tokens` (the center and this
- * package each carry a copy). openapi.yaml says the same thing
+ * The single source of truth shared by the center and `@kaperkunde/tokens` (each carries a copy). openapi.yaml says the same thing
  * over HTTP; if the two ever disagree, this file wins and openapi.yaml is fixed.
  *
  * Conventions:
@@ -27,15 +26,17 @@ export type IsoTime = string
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Header names (lower case; HTTP is case-insensitive). Request attribution values are
- * `encodeURIComponent`-encoded by the client and decoded by the center (activity lines carry
- * character names); each decoded value is at most 200 characters, longer is cut.
+ * Header names (lower case; HTTP is case-insensitive). Request values that carry user text --
+ * `x-token-user`, `x-token-email` and every attribution header -- are
+ * `encodeURIComponent`-encoded by the client (the package always encodes them) and decoded by
+ * the center (a value that is not valid percent-encoding is taken as it is). A decoded
+ * attribution value is at most 200 characters, longer is cut; a decoded user id is 1..128.
  */
 export const TOKEN_HEADERS = {
   // --- request: who to charge (gateway: `user` required) ---
-  /** The app's user id. Required on every gateway request. */
+  /** The app's user id, URI-encoded. Required on every gateway request. */
   user: "x-token-user",
-  /** The user's **verified** email. Optional; stored/updated on the center's user row. */
+  /** The user's **verified** email, URI-encoded. Optional; stored/updated on the center's user row. */
   email: "x-token-email",
   // --- request: attribution, stored on the call, never interpreted ---
   /** What the call is for, a small closed set per app (e.g. storyteller, player, voice). */
@@ -68,7 +69,7 @@ export const TOKEN_HEADERS = {
   costMicros: "x-token-cost-micros",
   /** Fee charged on the purchased portion, micros. */
   feeMicros: "x-token-fee-micros",
-  /** Everything taken from the wallet: cost + fee, micros. */
+  /** What the call came to, cost + fee, micros (the wallet lost this less any absorbed shortfall). */
   chargedMicros: "x-token-charged-micros",
   /** Total spendable after the charge (all lots, all providers), micros. */
   balanceMicros: "x-token-balance-micros",
@@ -216,12 +217,12 @@ export type Attribution = {
 // Balance
 // ---------------------------------------------------------------------------------------------
 
-/** A restricted bucket: an airdrop share or an admin grant. Fee-free. */
+/** A restricted bucket: an airdrop share or an admin grant. Fee-free, always locked to one provider. */
 export type GrantLot = {
   id: string
   kind: "airdrop" | "grant"
-  /** Locked to this provider; null = any provider (admin grants only). */
-  provider: ProviderId | null
+  /** The one provider this lot pays for (airdrops and grants alike; there is no "any provider" lot). */
+  provider: ProviderId
   grantedMicros: Micros
   spentMicros: Micros
   remainingMicros: Micros
@@ -234,7 +235,7 @@ export type GrantLot = {
 export type BalanceSummary = {
   /** Everything spendable now on some provider: unexpired lots + purchased. May be <= 0. */
   availableMicros: Micros
-  /** General purchased credit. Negative = a shortfall owed (see README "Overdraft"). */
+  /** General purchased credit. Never negative: a shortfall is absorbed by the center (README "Shortfall"). */
   purchasedMicros: Micros
   /** Sum of unexpired lot remainders. */
   grantsMicros: Micros
@@ -244,7 +245,7 @@ export type Balance = BalanceSummary & {
   userId: string
   /** Whether the center has seen this user yet (false → all zeros). */
   known: boolean
-  /** Spendable per provider: lots locked to it + any-provider lots + purchased. */
+  /** Spendable per provider: lots locked to it + purchased. */
   byProvider: Record<ProviderId, Micros>
   lots: GrantLot[]
   /** Earliest expiry among lots with something left. */
@@ -289,6 +290,8 @@ export type CallUsage = {
   cacheWriteTokens: number
   /** Part of cacheWriteTokens kept an hour. */
   cacheWrite1hTokens: number
+  /** Part of cacheWriteTokens kept five minutes (cacheWriteTokens - cacheWrite1hTokens). The center always fills it. */
+  cacheWrite5mTokens?: number
   reasoningTokens?: number
   totalTokens: number
   /** Non-token units: speech is metered in characters. */
@@ -310,16 +313,38 @@ export type CallCharge = {
   usage: CallUsage
   costMicros: Micros
   feeMicros: Micros
+  /** cost + fee: what the call came to. */
   chargedMicros: Micros
   /** Taken from lots (fee-free). */
   fromGrantsMicros: Micros
-  /** Taken from purchased, fee included. */
+  /** Asked of purchased, fee included. */
   fromPurchasedMicros: Micros
-  /** Part of fromPurchasedMicros that took purchased below zero. */
+  /**
+   * Part of fromPurchasedMicros the user did not have, written off by the center as house loss
+   * (purchased stops at zero). What the wallet actually lost is chargedMicros - shortfallMicros.
+   */
   shortfallMicros: Micros
   balanceAfterMicros: Micros
 }
 
+/**
+ * The charge as a non-streamed gateway response's headers carry it (`x-token-call-id`,
+ * `-source`, `-model`, `-cost-micros`, `-fee-micros`, `-charged-micros`, `-balance-micros`):
+ * what `chargeFromHeaders` in `@kaperkunde/tokens/server` returns. For the full `CallCharge`
+ * (usage, the split between lots and purchased, the shortfall) read `GET /api/v1/calls/:id`.
+ */
+export type HeaderCharge = Pick<
+  CallCharge,
+  | "callId"
+  | "source"
+  | "model"
+  | "costMicros"
+  | "feeMicros"
+  | "chargedMicros"
+  | "balanceAfterMicros"
+>
+
+/** A call as the app API answers it: always keyed `callId` (there is no `id` field). */
 export type CallRecord = CallCharge & {
   userId: string
   endpoint: CallEndpoint
@@ -358,6 +383,9 @@ export type CallsPage = {
     outputTokens: number
     cacheReadTokens: number
     cacheWriteTokens: number
+    /** Of cacheWriteTokens, kept five minutes / an hour. The center always fills both. */
+    cacheWrite5mTokens?: number
+    cacheWrite1hTokens?: number
     totalTokens: number
   }
 }
@@ -428,10 +456,24 @@ export type VoiceInfo = {
   isDefault: boolean
 }
 
+/**
+ * What an app lets its users buy (set per app on the center): suggested packs, whether only
+ * the packs may be bought, and the bounds checkout enforces. Amounts are cents of whichever
+ * currency the user pays in (e.g. packs [500, 1000, 2500, 5000] with packsOnly true).
+ */
+export type PurchaseOptions = {
+  packsCents: Cents[]
+  packsOnly: boolean
+  /** The larger of the app's own minimum and the sale price's (500 by default). */
+  minimumCents: Cents
+  maximumCents: Cents
+}
+
 export type AppInfo = {
   id: string
   name: string
   unit: AppUnit
+  purchaseOptions: PurchaseOptions
   feeBps: number
   lowBalanceMicros: Micros
   maxInFlightPerUser: number
@@ -456,10 +498,17 @@ export type SalePrices = {
   prices: SalePrice[]
   feeBps: number
   paymentsAvailable: boolean
+  /** This app's packs and bounds; checkout refuses an amount outside them. */
+  options: PurchaseOptions
 }
 
 export type CheckoutRequest = {
   currency: Currency
+  /**
+   * Within the app's PurchaseOptions: below `minimumCents` is `purchase_too_small`; above
+   * `maximumCents`, or not one of `packsCents` when `packsOnly`, is `invalid_request` (path
+   * `amountCents`).
+   */
   amountCents: Cents
   /** Must start with one of the app's returnOrigins. `{PURCHASE_ID}` is substituted. */
   successUrl: string
@@ -470,7 +519,11 @@ export type CheckoutRequest = {
 }
 export type CheckoutSession = {
   purchaseId: string
-  /** The Stripe Checkout URL: redirect the browser there. */
+  /**
+   * Where to send the browser: the center's own start page (`/checkout/<purchaseId>`), which
+   * redirects to Stripe Checkout, and to which Stripe returns before the center sends the
+   * browser on to `successUrl` / `cancelUrl`.
+   */
   url: string
   expiresAt: IsoTime
   /** Micros the purchase will credit, worked out at the price in force now. */
@@ -504,6 +557,7 @@ export type AutoRefill = {
   pending: boolean
   failedAt: IsoTime | null
 }
+/** The only fields `PUT autorefill` accepts; anything else (a card, a payment method) is `invalid_request`. */
 export type AutoRefillInput = Pick<
   AutoRefill,
   "enabled" | "thresholdMicros" | "amountCents" | "currency" | "monthlyMaxCents"
@@ -520,6 +574,14 @@ export type CardSetupSession = { url: string; expiresAt: IsoTime }
 // Bring your own endpoint (one per user)
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * How the center treats `tool_choice` when proxying to the user's endpoint (Lore Spawner's
+ * own-key setting): `auto` passes the request through as sent; `required` turns a request
+ * that carries `tools` with `tool_choice` absent or "auto" into `tool_choice: "required"`, for
+ * endpoints whose models only call a tool when told to.
+ */
+export type ToolChoice = "auto" | "required"
+
 export type OwnEndpoint = {
   /** https, OpenAI-compatible, ending before /chat/completions (e.g. https://openrouter.ai/api/v1). */
   baseUrl: string
@@ -529,6 +591,7 @@ export type OwnEndpoint = {
   models: string[]
   defaultModel: string
   capabilities: Capability[]
+  toolChoice: ToolChoice
   /** Tokens per calendar month (UTC); null = no limit. */
   monthlyTokenLimit: number | null
   usedThisMonth: number
@@ -543,9 +606,14 @@ export type OwnEndpointInput = {
   models: string[]
   defaultModel?: string
   capabilities: Capability[]
+  /** Omitted: "auto". */
+  toolChoice?: ToolChoice
   monthlyTokenLimit: number | null
   order: BackendOrder
 }
+
+/** GET own-endpoint answers 200 with the JSON `null` for a user with none (never 404). */
+export type OwnEndpointResponse = OwnEndpoint | null
 export type OwnEndpointTest = {
   ok: boolean
   at: IsoTime

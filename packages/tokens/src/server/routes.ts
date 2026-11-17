@@ -232,13 +232,8 @@ export function tokenRoutes(
     "own-endpoint": {
       GET: async ({ center, user, segments }) => {
         if (segments[1]) return undefined
-        const endpoint = await center.ownEndpoint(user.id)
-        if (!endpoint)
-          throw new TokenCenterError({
-            code: "not_found",
-            message: "No own endpoint saved.",
-          })
-        return endpoint
+        // 200 with null when the user has none.
+        return await center.ownEndpoint(user.id)
       },
       PUT: async ({ center, user, body }) =>
         center.saveOwnEndpoint(
@@ -249,6 +244,7 @@ export function tokenRoutes(
             "models",
             "defaultModel",
             "capabilities",
+            "toolChoice",
             "monthlyTokenLimit",
             "order",
           ]),

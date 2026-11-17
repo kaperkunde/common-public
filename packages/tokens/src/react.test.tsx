@@ -45,6 +45,12 @@ const balance: Balance = {
 const prices: SalePrices = {
   paymentsAvailable: true,
   feeBps: 2000,
+  options: {
+    packsCents: [500, 1000, 2500, 5000],
+    packsOnly: false,
+    minimumCents: 500,
+    maximumCents: 100000,
+  },
   prices: [
     {
       currency: "eur",
@@ -251,6 +257,48 @@ describe("BuyTokens", () => {
       "The smallest purchase is €5.00.",
     )
     expect(onCheckout).not.toHaveBeenCalled()
+  })
+
+  it("offers the app's packs from the center, and only the packs when packsOnly", async () => {
+    const own = (options: SalePrices["options"]) =>
+      api({ salePrices: async () => ({ ...prices, options }) })
+    let el = await mount(
+      <TokensProvider
+        api={own({
+          packsCents: [700, 1500],
+          packsOnly: true,
+          minimumCents: 500,
+          maximumCents: 5000,
+        })}
+      >
+        <BuyTokens />
+      </TokensProvider>,
+    )
+    const labelsOf = () =>
+      [...el.querySelectorAll(".tk-segment")].map((e) => e.textContent)
+    expect(labelsOf()).toEqual(expect.arrayContaining(["€7.00", "€15.00"]))
+    expect(labelsOf()).not.toContain("Other amount")
+    expect(labelsOf()).not.toContain("€10.00")
+    act(() => root?.unmount())
+    host?.remove()
+    el = await mount(
+      <TokensProvider
+        api={own({
+          packsCents: [700],
+          packsOnly: false,
+          minimumCents: 500,
+          maximumCents: 5000,
+        })}
+      >
+        <BuyTokens onCheckout={async () => ({ url: "x" })} />
+      </TokensProvider>,
+    )
+    await press(byText(el, "button", "Other amount"))
+    await type(el.querySelector<HTMLInputElement>(".tk-input")!, "60")
+    await submit(el.querySelector("form"))
+    expect(el.querySelector("[role=alert]")?.textContent).toBe(
+      "The largest purchase is €50.00.",
+    )
   })
 
   it("shows the center's error in words and does not redirect", async () => {
@@ -481,6 +529,7 @@ describe("OwnModelForm", () => {
     models: ["m1", "m2"],
     defaultModel: "m1",
     capabilities: ["streaming", "tools"],
+    toolChoice: "auto",
     monthlyTokenLimit: 1_000_000,
     usedThisMonth: 250_000,
     periodEndsAt: "2026-12-01T00:00:00.000Z",
@@ -530,6 +579,14 @@ describe("OwnModelForm", () => {
     )
     await submit(el.querySelector("form"))
     expect(onSave.mock.calls[2]![0]).toMatchObject({ apiKey: null })
+  })
+
+  it("sends the tool choice once tools are on", async () => {
+    const onSave = vi.fn(async (_input: unknown): Promise<OwnEndpoint> => saved)
+    const el = await mount(<OwnModelForm endpoint={saved} onSave={onSave} />)
+    await press(byText(el, "button", "Require it to call one"))
+    await submit(el.querySelector("form"))
+    expect(onSave.mock.calls[0]![0]).toMatchObject({ toolChoice: "required" })
   })
 
   it("tests the endpoint and says how it went", async () => {

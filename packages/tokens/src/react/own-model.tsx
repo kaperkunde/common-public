@@ -8,6 +8,7 @@ import type {
   OwnEndpoint,
   OwnEndpointInput,
   OwnEndpointTest,
+  ToolChoice,
 } from "../types"
 import { formatCompact } from "../units"
 import { refreshTokens, useLabels, useOwnEndpoint, useTokenApi } from "./hooks"
@@ -115,6 +116,7 @@ export function OwnModelForm(props: OwnModelFormProps) {
   const [defaultModel, setDefaultModel] = useState("")
   const [caps, setCaps] = useState<Capability[]>(["streaming"])
   const [limit, setLimit] = useState("")
+  const [toolChoice, setToolChoice] = useState<ToolChoice>("auto")
   const [order, setOrder] = useState<BackendOrder>("own_then_tokens")
   const [seeded, setSeeded] = useState<OwnEndpoint | null | undefined>(
     undefined,
@@ -134,6 +136,7 @@ export function OwnModelForm(props: OwnModelFormProps) {
       setModels(endpoint.models.join("\n"))
       setDefaultModel(endpoint.defaultModel)
       setCaps(endpoint.capabilities)
+      setToolChoice(endpoint.toolChoice ?? "auto")
       setLimit(
         endpoint.monthlyTokenLimit === null
           ? ""
@@ -161,6 +164,7 @@ export function OwnModelForm(props: OwnModelFormProps) {
         ? defaultModel
         : modelList[0],
       capabilities: caps,
+      toolChoice,
       monthlyTokenLimit:
         limit.trim() === "" ? null : Math.max(0, Math.floor(Number(limit))),
       order,
@@ -344,6 +348,18 @@ export function OwnModelForm(props: OwnModelFormProps) {
             </label>
           ))}
         </fieldset>
+        {caps.includes("tools") ? (
+          <Segmented<ToolChoice>
+            label={labels.toolChoice}
+            value={toolChoice}
+            options={(["auto", "required"] as const).map((v) => ({
+              value: v,
+              label: labels.toolChoices[v],
+            }))}
+            onChange={setToolChoice}
+            styling={styling}
+          />
+        ) : null}
         <Field label={labels.limit} hint={labels.limitHelp} styling={styling}>
           {(p) => (
             <input
@@ -433,3 +449,6 @@ export function OwnModelForm(props: OwnModelFormProps) {
     </Panel>
   )
 }
+
+/** The same form under the contract's name for the endpoint. */
+export const OwnEndpointForm = OwnModelForm

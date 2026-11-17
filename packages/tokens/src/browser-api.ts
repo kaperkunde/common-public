@@ -15,6 +15,7 @@ import type {
   ModelInfo,
   OwnEndpoint,
   OwnEndpointInput,
+  OwnEndpointResponse,
   OwnEndpointTest,
   Purchase,
   SalePrices,
@@ -62,7 +63,7 @@ export type TokenApi = {
   ): Promise<CardSetupSession>
   removeCard(): Promise<void>
   /** `null` when the user has saved none. */
-  ownEndpoint(): Promise<OwnEndpoint | null>
+  ownEndpoint(): Promise<OwnEndpointResponse>
   saveOwnEndpoint(input: OwnEndpointInput): Promise<OwnEndpoint>
   removeOwnEndpoint(): Promise<void>
   testOwnEndpoint(): Promise<OwnEndpointTest>
@@ -111,17 +112,18 @@ export function createTokenApi(options: TokenApiOptions = {}): TokenApi {
     }
     if (response.status === 204) return undefined as T
     let body: unknown = null
+    let readable = true
     try {
       body = await response.json()
     } catch {
-      // not JSON: handled below
+      readable = false
     }
     if (!response.ok)
       throw errorFromResponse(response.status, body, {
         code: response.headers.get("x-token-error"),
         retryAfter: response.headers.get("retry-after"),
       })
-    if (body === null)
+    if (!readable)
       throw centerUnavailable(
         undefined,
         "The server answered nothing readable.",
@@ -147,7 +149,8 @@ export function createTokenApi(options: TokenApiOptions = {}): TokenApi {
     removeCard: () => send("DELETE", "card"),
     ownEndpoint: async () => {
       try {
-        return await send<OwnEndpoint>("GET", "own-endpoint")
+        // 200 with null when none is saved (an older center answered 404).
+        return await send<OwnEndpointResponse>("GET", "own-endpoint")
       } catch (error) {
         if (isTokenError(error, "not_found")) return null
         throw error

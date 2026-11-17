@@ -71,7 +71,17 @@ export function BuyTokens(props: BuyTokensProps) {
     ? currencyChoice
     : (available[0]?.currency ?? null)
   const price = available.find((p) => p.currency === currency)
-  const amounts = props.amounts ?? DEFAULT_AMOUNTS
+  // The app's packs and bounds come from the center (SalePrices.options); `amounts`
+  // narrows or overrides the packs, but under packsOnly only a pack can be bought.
+  const options = prices.data?.options
+  const packsOnly = options?.packsOnly === true
+  const offered =
+    props.amounts ??
+    (options?.packsCents.length ? options.packsCents : DEFAULT_AMOUNTS)
+  const amounts = packsOnly
+    ? offered.filter((a) => options!.packsCents.includes(a))
+    : offered
+  const allowOther = props.allowOther !== false && !packsOnly
   const [chosen, setChosen] = useState<number | "other" | null>(
     amounts[1] ?? amounts[0] ?? null,
   )
@@ -86,13 +96,18 @@ export function BuyTokens(props: BuyTokensProps) {
   const needed = stillNeeded(labels, [
     { label: labels.amount, filled: cents !== null && cents > 0 },
   ])
-  const minimum = price?.minimumCents ?? 0
+  const minimum = Math.max(price?.minimumCents ?? 0, options?.minimumCents ?? 0)
+  const maximum = options?.maximumCents ?? Infinity
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setProblem(null)
     if (needed) return setProblem(needed)
     if (!currency || !price) return setProblem(labels.paymentsUnavailable)
+    if (cents! > maximum)
+      return setProblem(
+        fill(labels.maximum, { money: formatMoney(maximum, currency, locale) }),
+      )
     if (cents! < minimum)
       return setProblem(
         fill(labels.minimum, { money: formatMoney(minimum, currency, locale) }),
@@ -147,7 +162,7 @@ export function BuyTokens(props: BuyTokensProps) {
               value: a as number | "other",
               label: formatMoney(a, currency ?? "eur", locale),
             })),
-            ...(props.allowOther === false
+            ...(!allowOther
               ? []
               : [{ value: "other" as const, label: labels.otherAmount }]),
           ]}

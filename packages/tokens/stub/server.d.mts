@@ -19,6 +19,10 @@ export type StubOptions = {
   unitMany?: string
   /** The canned assistant text. */
   reply?: string
+  /** Cents of the app's packs (default 500,1000,2500,5000). */
+  packsCents?: number[] | string
+  /** Allow only the packs. */
+  packsOnly?: boolean
 }
 
 export type Stub = {

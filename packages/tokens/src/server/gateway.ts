@@ -1,5 +1,5 @@
 import { TOKEN_HEADERS } from "../types"
-import type { Attribution, Micros, Source } from "../types"
+import type { Attribution, HeaderCharge, Source } from "../types"
 
 export type GatewayHeaderInput = {
   /** The payer: the app's own user id. Required. */
@@ -82,19 +82,6 @@ export function gatewayConfig(input: GatewayConfigInput): GatewayConfig {
   }
 }
 
-/** What the response headers of a gateway call say it took. Streams carry only `callId` up front. */
-export type HeaderCharge = {
-  callId: string
-  source: Source | null
-  model: string | null
-  costMicros: Micros | null
-  feeMicros: Micros | null
-  chargedMicros: Micros | null
-  balanceAfterMicros: Micros | null
-  /** True when the cost headers are present (not a stream still running). */
-  complete: boolean
-}
-
 type HeadersLike =
   | Headers
   | { get(name: string): string | null | undefined }
@@ -118,28 +105,46 @@ const micros = (value: string | null): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+/** The call id a gateway response carries up front (streams have it before any cost is known), or `null`. */
+export function callIdFromHeaders(headers: HeadersLike): string | null {
+  return headerOf(headers, TOKEN_HEADERS.callId)
+}
+
 /**
  * The charge from a non-streamed response's headers (`x-token-call-id`,
- * `-cost-micros`, `-fee-micros`, `-charged-micros`, `-balance-micros`), or
- * `null` when the answer did not come through the gateway. For a stream, use
- * `center.call(callId, { wait })` or the opt-in trailer
- * ({@link parseTrailer}). Accepts `Headers`, a Node header record, or
+ * `-source`, `-model`, `-cost-micros`, `-fee-micros`, `-charged-micros`,
+ * `-balance-micros`), or `null` when the answer did not come through the
+ * gateway or carries no cost yet (a stream: take the id with
+ * {@link callIdFromHeaders}, then `center.call(id, { wait })` or the opt-in
+ * trailer, {@link parseTrailer}). Accepts `Headers`, a Node header record, or
  * the AI SDK's `response.headers`.
  */
 export function chargeFromHeaders(headers: HeadersLike): HeaderCharge | null {
-  const callId = headerOf(headers, TOKEN_HEADERS.callId)
-  if (!callId) return null
+  const callId = callIdFromHeaders(headers)
   const cost = micros(headerOf(headers, TOKEN_HEADERS.costMicros))
+  const fee = micros(headerOf(headers, TOKEN_HEADERS.feeMicros))
+  const charged = micros(headerOf(headers, TOKEN_HEADERS.chargedMicros))
+  const balance = micros(headerOf(headers, TOKEN_HEADERS.balanceMicros))
   const source = headerOf(headers, TOKEN_HEADERS.source)
+  const model = headerOf(headers, TOKEN_HEADERS.model)
+  if (
+    !callId ||
+    cost === null ||
+    fee === null ||
+    charged === null ||
+    balance === null ||
+    (source !== "tokens" && source !== "own") ||
+    !model
+  )
+    return null
   return {
     callId,
-    source: source === "tokens" || source === "own" ? source : null,
-    model: headerOf(headers, TOKEN_HEADERS.model),
+    source,
+    model,
     costMicros: cost,
-    feeMicros: micros(headerOf(headers, TOKEN_HEADERS.feeMicros)),
-    chargedMicros: micros(headerOf(headers, TOKEN_HEADERS.chargedMicros)),
-    balanceAfterMicros: micros(headerOf(headers, TOKEN_HEADERS.balanceMicros)),
-    complete: cost !== null,
+    feeMicros: fee,
+    chargedMicros: charged,
+    balanceAfterMicros: balance,
   }
 }
 

@@ -31,6 +31,7 @@ export const DEFAULT_LABELS = {
     exclusive: "Before sales tax; tax is added at checkout.",
   },
   minimum: "The smallest purchase is {money}.",
+  maximum: "The largest purchase is {money}.",
   paymentsUnavailable: "Buying is not available right now.",
   // auto-refill
   autoRefillTitle: "Auto-refill",
@@ -94,6 +95,13 @@ export const DEFAULT_LABELS = {
     tokens_only: "Tokens only",
     own_only: "My own only",
   },
+  toolChoice: "When it is given tools",
+  toolChoices: {
+    auto: "Let the model decide",
+    required: "Require it to call one",
+  },
+  toolChoiceHelp:
+    "Some models only call a tool when told to; choose Require if yours answers in prose instead.",
   orderNeedsOwn: "Save your own model first to use it.",
   test: "Test it",
   testing: "Testing…",

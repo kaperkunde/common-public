@@ -31,6 +31,8 @@ export function startStub(options = {}) {
     ...set("TOKENS_STUB_UNIT_ONE", options.unitOne),
     ...set("TOKENS_STUB_UNIT_MANY", options.unitMany),
     ...set("TOKENS_STUB_REPLY", options.reply),
+    ...set("TOKENS_STUB_PACKS", options.packsCents),
+    ...set("TOKENS_STUB_PACKS_ONLY", options.packsOnly),
   }
   const timers = new Set()
   let PORT = Number(env.TOKENS_STUB_PORT ?? 4100)
@@ -105,7 +107,7 @@ export function startStub(options = {}) {
   const SALE = [
     {
       currency: "eur",
-      centsPerDollar: 100,
+      centsPerDollar: 121,
       taxBehavior: "inclusive",
       minimumCents: 500,
       effectiveFrom: PRICE.effectiveFrom,
@@ -118,6 +120,17 @@ export function startStub(options = {}) {
       effectiveFrom: PRICE.effectiveFrom,
     },
   ]
+  // Purchase options (contract PurchaseOptions): TOKENS_STUB_PACKS (cents, comma-separated, default
+  // AJ's 500,1000,2500,5000) and TOKENS_STUB_PACKS_ONLY=true to allow only those.
+  const OPTIONS = {
+    packsCents: (env.TOKENS_STUB_PACKS ?? "500,1000,2500,5000")
+      .split(",")
+      .filter(Boolean)
+      .map(Number),
+    packsOnly: env.TOKENS_STUB_PACKS_ONLY === "true",
+    minimumCents: 500,
+    maximumCents: 100000,
+  }
   const STATUS = {
     unauthenticated: 401,
     forbidden: 403,
@@ -192,15 +205,14 @@ export function startStub(options = {}) {
   }
   const live = (lot) =>
     lot.remainingMicros > 0 && (!lot.expiresAt || lot.expiresAt > now())
+  // Every lot is locked to one provider; soonest expiry first, none last, then by id.
   const lotsFor = (u, provider) =>
     u.lots
-      .filter(
-        (l) => live(l) && (l.provider === provider || l.provider === null),
-      )
+      .filter((l) => live(l) && l.provider === provider)
       .sort(
         (a, b) =>
-          (a.provider === null) - (b.provider === null) ||
-          (a.expiresAt ?? "9").localeCompare(b.expiresAt ?? "9"),
+          (a.expiresAt ?? "9").localeCompare(b.expiresAt ?? "9") ||
+          a.id.localeCompare(b.id),
       )
   const grantsOf = (u) =>
     u.lots.filter(live).reduce((s, l) => s + l.remainingMicros, 0)
@@ -260,8 +272,9 @@ export function startStub(options = {}) {
       if (!rest) break
     }
     const fee = Math.ceil((rest * FEE_BPS) / 10000)
-    const before = u.purchased
-    u.purchased -= rest + fee
+    // Shortfall: absorbed by the center; purchased never goes below zero.
+    const shortfall = Math.max(0, rest + fee - u.purchased)
+    u.purchased = Math.max(0, u.purchased - rest - fee)
     Object.assign(call, {
       status: "charged",
       costMicros,
@@ -269,7 +282,7 @@ export function startStub(options = {}) {
       chargedMicros: fromGrants + rest + fee,
       fromGrantsMicros: fromGrants,
       fromPurchasedMicros: rest + fee,
-      shortfallMicros: Math.max(0, -u.purchased) - Math.max(0, -before),
+      shortfallMicros: shortfall,
       balanceAfterMicros: summary(u).availableMicros,
       finishedAt: now(),
       latencyMs: Date.now() - call.t0,
@@ -285,7 +298,8 @@ export function startStub(options = {}) {
     usage.outputTokens * 15 +
     (usage.units?.tts_chars ?? 0) * 15
   const costOf = (usage) => Math.ceil(usd(usage)) // $/M × tokens = micros
-  const publicCall = ({ t0: _t0, id, ...c }) => ({ callId: id, ...c })
+  // Calls are keyed `callId` on the wire (CallCharge / CallRecord), never `id`.
+  const publicCall = ({ t0: _t0, id: callId, ...c }) => ({ callId, ...c })
 
   // ------------------------------------------------------------------ webhooks
   const sign = (body, t = Math.floor(Date.now() / 1000)) =>
@@ -386,6 +400,7 @@ export function startStub(options = {}) {
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
     cacheWrite1hTokens: 0,
+    cacheWrite5mTokens: 0,
     totalTokens: 0,
   })
   const fromAnthropic = (u, x = {}) => {
@@ -396,13 +411,15 @@ export function startStub(options = {}) {
         ? x.input_tokens + read + write
         : u.inputTokens
     const output = x.output_tokens ?? u.outputTokens
+    const write1h =
+      x.cache_creation?.ephemeral_1h_input_tokens ?? u.cacheWrite1hTokens
     return {
       inputTokens: input,
       outputTokens: output,
       cacheReadTokens: read,
       cacheWriteTokens: write,
-      cacheWrite1hTokens:
-        x.cache_creation?.ephemeral_1h_input_tokens ?? u.cacheWrite1hTokens,
+      cacheWrite1hTokens: write1h,
+      cacheWrite5mTokens: write - write1h,
       totalTokens: input + output,
     }
   }
@@ -412,6 +429,7 @@ export function startStub(options = {}) {
     cacheReadTokens: x.prompt_tokens_details?.cached_tokens ?? 0,
     cacheWriteTokens: 0,
     cacheWrite1hTokens: 0,
+    cacheWrite5mTokens: 0,
     totalTokens: x.total_tokens ?? 0,
   })
 
@@ -553,7 +571,7 @@ export function startStub(options = {}) {
             ? fromAnthropic(usage, j.usage)
             : fromOpenAI(j.usage ?? {})
       } catch {
-        // not JSON: usage stays zero
+        /* not JSON or no usage: stays zero */
       }
       return { status: up.status, text, usage, ok: up.ok }
     }
@@ -577,12 +595,24 @@ export function startStub(options = {}) {
               usage = fromAnthropic(usage, j.message?.usage ?? j.usage)
             else if (j.usage) usage = fromOpenAI(j.usage)
           } catch {
-            // not a usage line
+            /* not JSON or no usage: stays zero */
           }
         }
     }
     return { status: 200, usage, ok: true, streamed: true }
   }
+
+  // Real, playable audio: 12 MPEG-1 Layer III frames (128 kbps, 44.1 kHz, stereo, all-zero payload =
+  // silence), about 0.3 s. Every decoder plays it; the length does not follow the text.
+  const silentMp3 = () =>
+    Buffer.concat(
+      Array.from({ length: 12 }, () =>
+        Buffer.concat([
+          Buffer.from([0xff, 0xfb, 0x90, 0x00]),
+          Buffer.alloc(413),
+        ]),
+      ),
+    )
 
   // ------------------------------------------------------------------ gateway
   async function gateway(req, res, url, raw) {
@@ -712,10 +742,7 @@ export function startStub(options = {}) {
       }
       call.usage = { ...zeroUsage(), units: { tts_chars: chars } }
       charge(u, call, "openai", costOf(call.usage))
-      const audio = Buffer.concat([
-        Buffer.from("ID3\x03\x00\x00\x00\x00\x00\x00", "latin1"),
-        Buffer.alloc(256),
-      ])
+      const audio = silentMp3()
       res.writeHead(200, {
         "content-type": "audio/mpeg",
         "x-token-chars": String(chars),
@@ -736,7 +763,7 @@ export function startStub(options = {}) {
     }
     const trailer = () => {
       if (req.headers["x-token-trailer"] === "event")
-        sse(res, [["token_center", { callId: call.id, ...publicCall(call) }]])
+        sse(res, [["token_center", publicCall(call)]])
     }
     if (upstream) {
       const out = await forward(
@@ -830,6 +857,8 @@ export function startStub(options = {}) {
             "outputTokens",
             "cacheReadTokens",
             "cacheWriteTokens",
+            "cacheWrite5mTokens",
+            "cacheWrite1hTokens",
             "totalTokens",
           ].map((k) => [k, sum(k)]),
         ),
@@ -858,6 +887,7 @@ export function startStub(options = {}) {
         id: "app_stub",
         name: "Stub app",
         unit: UNIT,
+        purchaseOptions: OPTIONS,
         feeBps: FEE_BPS,
         lowBalanceMicros: 500_000,
         maxInFlightPerUser: 4,
@@ -871,6 +901,7 @@ export function startStub(options = {}) {
         prices: SALE,
         feeBps: FEE_BPS,
         paymentsAvailable: true,
+        options: OPTIONS,
       })
     if (p === "/api/v1/calls") return json(res, 200, page(state.calls, q))
     let r = p.match(/^\/api\/v1\/calls\/([^/]+)$/)
@@ -982,13 +1013,24 @@ export function startStub(options = {}) {
         return fail(res, "invalid_request", "Unknown currency.", "api", {
           path: "currency",
         })
-      if (!(body.amountCents >= price.minimumCents))
+      if (!(body.amountCents >= OPTIONS.minimumCents))
         return fail(
           res,
           "purchase_too_small",
           "The smallest amount is 5.",
           "api",
-          { minimumCents: price.minimumCents },
+          { minimumCents: OPTIONS.minimumCents },
+        )
+      if (
+        body.amountCents > OPTIONS.maximumCents ||
+        (OPTIONS.packsOnly && !OPTIONS.packsCents.includes(body.amountCents))
+      )
+        return fail(
+          res,
+          "invalid_request",
+          "That amount is not offered.",
+          "api",
+          { path: "amountCents" },
         )
       const purchase = {
         id: id("pur"),
@@ -1027,15 +1069,26 @@ export function startStub(options = {}) {
     }
     if (rest === "/autorefill") {
       if (m === "PUT") {
-        if (body.enabled && !u.autoRefill.card)
-          return fail(res, "no_card", "Save a card first.")
-        for (const k of [
+        // Only the settings: a card or payment method is never accepted here.
+        const fields = [
           "enabled",
           "thresholdMicros",
           "amountCents",
           "currency",
           "monthlyMaxCents",
-        ])
+        ]
+        const unknown = Object.keys(body).filter((k) => !fields.includes(k))
+        if (unknown.length)
+          return fail(
+            res,
+            "invalid_request",
+            `Auto-refill takes only its settings; ${unknown.join(", ")} is not one.`,
+            "api",
+            { path: unknown[0] },
+          )
+        if (body.enabled && !u.autoRefill.card)
+          return fail(res, "no_card", "Save a card first.")
+        for (const k of fields)
           if (body[k] !== undefined) u.autoRefill[k] = body[k]
       }
       return json(res, 200, u.autoRefill)
@@ -1051,10 +1104,7 @@ export function startStub(options = {}) {
       return json(res, 204)
     }
     if (rest === "/own-endpoint") {
-      if (m === "GET")
-        return u.own
-          ? json(res, 200, ownView(u))
-          : fail(res, "not_found", "No own endpoint saved.")
+      if (m === "GET") return json(res, 200, u.own ? ownView(u) : null)
       if (m === "DELETE") {
         u.own = null
         u.order = "tokens_only"
@@ -1077,6 +1127,7 @@ export function startStub(options = {}) {
         models: body.models,
         defaultModel: body.defaultModel ?? body.models[0],
         capabilities: body.capabilities ?? [],
+        toolChoice: body.toolChoice === "required" ? "required" : "auto",
         monthlyTokenLimit: body.monthlyTokenLimit ?? null,
         usedThisMonth: 0,
         periodEndsAt: new Date(
@@ -1140,10 +1191,18 @@ export function startStub(options = {}) {
     }
     if (url.pathname === "/stub/grant") {
       const u = user(body.userId)
+      if (body.provider === null)
+        return fail(
+          res,
+          "invalid_request",
+          "Every lot is locked to one provider.",
+          "api",
+          { path: "provider" },
+        )
       const lot = {
         id: id("lot"),
         kind: body.kind ?? "airdrop",
-        provider: body.provider === undefined ? "anthropic" : body.provider,
+        provider: body.provider ?? "anthropic",
         grantedMicros: body.micros,
         spentMicros: 0,
         remainingMicros: body.micros,

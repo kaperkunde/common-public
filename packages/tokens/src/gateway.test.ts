@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { TokenCenterError } from "./errors"
 import { tokenErrorOf } from "./server/error-of"
 import {
+  callIdFromHeaders,
   chargeFromHeaders,
   gatewayConfig,
   gatewayHeaders,
@@ -82,22 +83,16 @@ describe("chargeFromHeaders", () => {
       feeMicros: 120,
       chargedMicros: 720,
       balanceAfterMicros: 4_999_280,
-      complete: true,
     }
     expect(chargeFromHeaders(record)).toEqual(expected)
     expect(chargeFromHeaders(new Headers(record))).toEqual(expected)
   })
 
-  it("is null off the gateway and incomplete on a stream", () => {
+  it("is null off the gateway and on a stream, whose call id is still readable", () => {
     expect(chargeFromHeaders(new Headers())).toBeNull()
-    const stream = chargeFromHeaders(
-      new Headers({ "x-token-call-id": "call_2" }),
-    )
-    expect(stream).toMatchObject({
-      callId: "call_2",
-      costMicros: null,
-      complete: false,
-    })
+    const stream = new Headers({ "x-token-call-id": "call_2" })
+    expect(chargeFromHeaders(stream)).toBeNull()
+    expect(callIdFromHeaders(stream)).toBe("call_2")
   })
 })
 

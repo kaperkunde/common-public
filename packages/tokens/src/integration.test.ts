@@ -8,6 +8,7 @@ import { createTokenApi } from "./browser-api"
 import { isTokenError } from "./errors"
 import { createTokenCenter, type TokenCenter } from "./server/client"
 import {
+  callIdFromHeaders,
   chargeFromHeaders,
   gatewayConfig,
   gatewayHeaders,
@@ -138,7 +139,6 @@ describe("against the stub", () => {
       costMicros: 600,
       feeMicros: 120,
       chargedMicros: 720,
-      complete: true,
     })
     const page = await center.calls("u1", { correlation: "usage_1" })
     expect(page.calls).toHaveLength(1)
@@ -166,7 +166,7 @@ describe("against the stub", () => {
         messages: [],
       }),
     })
-    const callId = chargeFromHeaders(response.headers)!.callId
+    const callId = callIdFromHeaders(response.headers)!
     const trailer = parseTrailer<{ callId: string; chargedMicros: number }>(
       await response.text(),
     )
@@ -237,9 +237,44 @@ describe("against the stub", () => {
       { user: "u1", attribution: { purpose: "voice" } },
       { input: "Hello there" },
     )
-    expect(out.audio.byteLength).toBe(266)
+    expect(out.audio.byteLength).toBe(5004)
     expect(out.chars).toBe(11)
     expect(out.charge?.chargedMicros).toBeGreaterThan(0)
+  })
+
+  it("answers audio that is real MP3 frames, and a null own endpoint as 200", async () => {
+    const out = await center.speech({ user: "u9" }, { input: "Hi" })
+    const b = out.audio
+    expect(b.byteLength % 417).toBe(0)
+    for (let i = 0; i < b.byteLength; i += 417) {
+      expect(b[i]).toBe(0xff)
+      expect(b[i + 1]! & 0xe0).toBe(0xe0)
+    }
+    expect(out.contentType).toBe("audio/mpeg")
+    const raw = await fetch(`${stub.url}/api/v1/users/u9/own-endpoint`, {
+      headers: { authorization: "Bearer tk_test_integration" },
+    })
+    expect(raw.status).toBe(200)
+    expect(await raw.json()).toBeNull()
+  })
+
+  it("carries the app's packs, the tool choice and the cache split", async () => {
+    expect((await center.app()).purchaseOptions.packsCents).toEqual([
+      500, 1000, 2500, 5000,
+    ])
+    expect((await center.salePrices()).options.packsOnly).toBe(false)
+    const own = await center.saveOwnEndpoint("u1", {
+      baseUrl: "https://llm.example/v1",
+      models: ["m"],
+      capabilities: ["tools"],
+      toolChoice: "required",
+      monthlyTokenLimit: null,
+      order: "own_then_tokens",
+    })
+    expect(own.toolChoice).toBe("required")
+    expect((await center.calls("u1")).totals).toHaveProperty(
+      "cacheWrite5mTokens",
+    )
   })
 
   it("routes by the user's order, with the capability fallback", async () => {
@@ -279,7 +314,7 @@ describe("against the stub", () => {
       successUrl: "http://localhost/done?p={PURCHASE_ID}",
       cancelUrl: "http://localhost/no",
     })
-    expect(session.creditMicros).toBe(10_000_000)
+    expect(session.creditMicros).toBe(8_264_462) // 1000 cents at 121 cents per dollar
     const redirect = await fetch(session.url, { redirect: "manual" })
     expect(redirect.status).toBe(303)
     expect(redirect.headers.get("location")).toBe(

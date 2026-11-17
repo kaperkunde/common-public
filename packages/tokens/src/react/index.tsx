@@ -12,6 +12,7 @@ export {
 } from "./history"
 export {
   OwnModelForm,
+  OwnEndpointForm,
   BackendOrderSwitch,
   type OwnModelFormProps,
   type BackendOrderSwitchProps,

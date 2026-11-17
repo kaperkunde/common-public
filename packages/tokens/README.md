@@ -107,9 +107,9 @@ What a call cost, from the response headers or the ledger:
 ```ts
 import { chargeFromHeaders, parseTrailer } from "@kaperkunde/tokens/server"
 
-const charge = chargeFromHeaders(result.response.headers)
-// { callId, source, model, costMicros, feeMicros, chargedMicros, balanceAfterMicros, complete }
-// A stream carries only callId up front (complete: false): wait for the charge.
+const charge = chargeFromHeaders(result.response.headers) // non-streamed
+// { callId, source, model, costMicros, feeMicros, chargedMicros, balanceAfterMicros } (HeaderCharge)
+// null for a stream (no cost yet): callIdFromHeaders(headers) gives its id, then wait for the charge.
 const call = await center.call(charge.callId, { wait: 10 }) // long-polls ≤ 30 s
 // or: gatewayConfig({ …, trailer: true }) and parseTrailer(sseText)
 // or, for a multi-step call keyed by your own row:
@@ -244,11 +244,13 @@ import {
 ;<TokensProvider basePath="/api/tokens" labels={{ buyTitle: "Buy credits" }}>
   <TokenBalance href="/ai/tokens" /> {/* compact pill: "84k credits" */}
   <TokenBalance variant="full" /> {/* breakdown, next expiry, shortfall */}
-  <BuyTokens amounts={[500, 1000, 2500, 5000]} returnPath="/ai/tokens" />
+  <BuyTokens returnPath="/ai/tokens" />{" "}
+  {/* the app's packs and bounds come from the center (purchaseOptions); packsOnly hides "Other amount" */}
   <AutoRefill returnPath="/ai/tokens" />
   <UsageList query={{ scope: world.id }} /> {/* cost, cache share, purpose */}
   <PurchaseHistory />
-  <OwnModelForm /> {/* BYO: address, write-only key, models, order, test */}
+  <OwnModelForm />{" "}
+  {/* BYO (also exported as OwnEndpointForm): address, write-only key, models, tool choice, order, test */}
 </TokensProvider>
 ```
 
@@ -368,7 +370,7 @@ const stub = await startStub({
 
 Options map onto `TOKENS_STUB_PORT`, `_KEY`, `_WEBHOOK_URL`, `_WEBHOOK_SECRET`,
 `_ANTHROPIC_UPSTREAM`, `_OPENAI_UPSTREAM`, `_OWN_UPSTREAM`, `_EXTRA_MODELS`,
-`_START_MICROS` (a new user starts with $5), `_FEE_BPS` (2000), `_UNIT_ONE`,
+`_PACKS` / `_PACKS_ONLY` (the app's packs, default 500,1000,2500,5000), `_START_MICROS` (a new user starts with $5), `_FEE_BPS` (2000), `_UNIT_ONE`,
 `_UNIT_MANY` and `_REPLY`; an option wins over its variable.
 
 Fixed prices: every model $3 / $15 per million tokens in / out, so a canned
@@ -401,3 +403,6 @@ auto-refill charges and own-endpoint limits.
 
 `CONTRACT_VERSION` (1) names the contract these types and the stub follow. A
 change that breaks a client is a new major version of this package.
+
+Speech from the stub is a short run of real, silent MP3 frames, so an audio
+element plays it. EUR sells at 121 cents per dollar of credit, USD at 100.

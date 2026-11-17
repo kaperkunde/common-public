@@ -1,10 +1,5 @@
 import { centerUnavailable, errorFromResponse } from "../errors"
-import {
-  chargeFromHeaders,
-  gatewayHeaders,
-  trimBaseUrl,
-  type HeaderCharge,
-} from "./gateway"
+import { chargeFromHeaders, gatewayHeaders, trimBaseUrl } from "./gateway"
 import type {
   AppInfo,
   AppUser,
@@ -20,10 +15,12 @@ import type {
   CardSetupSession,
   CheckoutRequest,
   CheckoutSession,
+  HeaderCharge,
   HistoryPage,
   ModelInfo,
   OwnEndpoint,
   OwnEndpointInput,
+  OwnEndpointResponse,
   OwnEndpointTest,
   Purchase,
   RouteDecision,
@@ -236,11 +233,12 @@ export function createTokenCenter(options: TokenCenterOptions) {
 
     // --- own endpoint
     /** The saved endpoint, or `null` (the center answers 404 `not_found`). */
-    ownEndpoint: async (userId: string): Promise<OwnEndpoint | null> => {
+    ownEndpoint: async (userId: string): Promise<OwnEndpointResponse> => {
       const response = await raw("GET", `${user(userId)}/own-endpoint`)
+      // The center answers 200 with null; an older one answered 404.
       if (response.status === 404) return null
       if (!response.ok) return failure(response)
-      return (await response.json()) as OwnEndpoint
+      return (await response.json()) as OwnEndpointResponse
     },
     saveOwnEndpoint: (userId: string, input: OwnEndpointInput) =>
       json<OwnEndpoint>("PUT", `${user(userId)}/own-endpoint`, { body: input }),

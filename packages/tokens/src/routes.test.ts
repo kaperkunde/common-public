@@ -217,7 +217,7 @@ describe("tokenRoutes", () => {
     bug.mockRestore()
   })
 
-  it("answers 404 for unknown paths, 405 for a wrong method, and 404 for an own endpoint not saved", async () => {
+  it("answers 404 for unknown paths, 405 for a wrong method, and 200 null for an own endpoint not saved", async () => {
     const { center } = fakeCenter({ ownEndpoint: async () => null })
     const handler = tokenRoutes(center, { userOf: () => alice })
     expect((await handler(req("GET", "nope"))).status).toBe(404)
@@ -226,8 +226,8 @@ describe("tokenRoutes", () => {
     expect(wrong.status).toBe(405)
     expect(wrong.headers.get("allow")).toBe("GET")
     const own = await handler(req("GET", "own-endpoint"))
-    expect(own.status).toBe(404)
-    expect((await own.json()).error.code).toBe("not_found")
+    expect(own.status).toBe(200)
+    expect(await own.json()).toBeNull()
   })
 
   it("finds its operation when mounted somewhere else", async () => {
