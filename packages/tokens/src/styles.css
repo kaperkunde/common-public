@@ -1,0 +1,380 @@
+/*
+ * @kaperkunde/tokens: a neutral default look for the components.
+ *
+ * Everything the components draw is set by the --tk-* variables below and the
+ * stable `tk-*` class names. Import this file for the default theme, or skip it
+ * and style the class names yourself. To use your own tokens, set the
+ * variables where you like (the defaults sit on `:where(:root)`, specificity
+ * zero, so any rule of yours wins):
+ *
+ *   .my-app { --tk-fg: var(--app-text); --tk-accent: var(--app-accent); … }
+ *
+ * Variables
+ *   --tk-font          font family
+ *   --tk-fg            text
+ *   --tk-muted         secondary text
+ *   --tk-bg            the page behind a panel (used for inputs)
+ *   --tk-surface       panels and rows
+ *   --tk-border        lines around panels, inputs and buttons
+ *   --tk-accent        primary buttons, the pressed segment, links
+ *   --tk-accent-fg     text on --tk-accent
+ *   --tk-danger        errors and destructive buttons
+ *   --tk-ok            success notices
+ *   --tk-focus         the focus ring
+ *   --tk-radius        corner radius
+ *   --tk-gap           the spacing unit between things in a panel
+ *   --tk-tap           the least height of a pressable thing (44px)
+ */
+
+:where(:root) {
+  --tk-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --tk-fg: #1b1b1f;
+  --tk-muted: #5f6368;
+  --tk-bg: #ffffff;
+  --tk-surface: #f6f6f8;
+  --tk-border: #d3d4da;
+  --tk-accent: #3b5bdb;
+  --tk-accent-fg: #ffffff;
+  --tk-danger: #c92a2a;
+  --tk-ok: #2b8a3e;
+  --tk-focus: #3b5bdb;
+  --tk-radius: 8px;
+  --tk-gap: 12px;
+  --tk-tap: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :where(:root:not([data-theme="light"])) {
+    --tk-fg: #ececf1;
+    --tk-muted: #a0a3ad;
+    --tk-bg: #15161a;
+    --tk-surface: #1e2026;
+    --tk-border: #3a3d47;
+    --tk-accent: #7c93f5;
+    --tk-accent-fg: #0f1118;
+    --tk-danger: #ff8787;
+    --tk-ok: #69db7c;
+    --tk-focus: #7c93f5;
+  }
+}
+
+:where(:root[data-theme="dark"]) {
+  --tk-fg: #ececf1;
+  --tk-muted: #a0a3ad;
+  --tk-bg: #15161a;
+  --tk-surface: #1e2026;
+  --tk-border: #3a3d47;
+  --tk-accent: #7c93f5;
+  --tk-accent-fg: #0f1118;
+  --tk-danger: #ff8787;
+  --tk-ok: #69db7c;
+  --tk-focus: #7c93f5;
+}
+
+.tk-panel,
+.tk-balance,
+.tk-form,
+.tk-list {
+  font-family: var(--tk-font);
+  color: var(--tk-fg);
+  box-sizing: border-box;
+}
+
+.tk-panel {
+  background: var(--tk-surface);
+  border: 1px solid var(--tk-border);
+  border-radius: var(--tk-radius);
+  padding: var(--tk-gap);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-gap);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.tk-panel > * {
+  margin: 0;
+}
+
+.tk-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.tk-muted,
+.tk-hint,
+.tk-row__meta {
+  color: var(--tk-muted);
+  font-size: 0.875rem;
+}
+
+.tk-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-gap);
+}
+
+.tk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  max-width: 440px;
+}
+
+.tk-field > * {
+  margin: 0;
+}
+
+.tk-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.tk-needed {
+  font-weight: 400;
+  color: var(--tk-muted);
+}
+
+.tk-input {
+  font: inherit;
+  color: var(--tk-fg);
+  background: var(--tk-bg);
+  border: 1px solid var(--tk-border);
+  border-radius: var(--tk-radius);
+  padding: 0 10px;
+  min-height: var(--tk-tap);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tk-textarea {
+  padding: 10px;
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.tk-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--tk-gap);
+  min-width: 0;
+}
+
+.tk-fieldset > .tk-label {
+  width: 100%;
+  padding: 0;
+}
+
+.tk-check,
+.tk-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tk-tap);
+}
+
+.tk-check input,
+.tk-switch input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--tk-accent);
+}
+
+.tk-button {
+  font: inherit;
+  color: var(--tk-fg);
+  background: var(--tk-bg);
+  border: 1px solid var(--tk-border);
+  border-radius: var(--tk-radius);
+  min-height: var(--tk-tap);
+  padding: 0 16px;
+  cursor: pointer;
+}
+
+.tk-button--primary {
+  background: var(--tk-accent);
+  border-color: var(--tk-accent);
+  color: var(--tk-accent-fg);
+  font-weight: 600;
+}
+
+.tk-button--danger {
+  color: var(--tk-danger);
+  border-color: var(--tk-danger);
+}
+
+.tk-button--quiet {
+  background: transparent;
+}
+
+.tk-button[aria-busy="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.tk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tk-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tk-segment {
+  font: inherit;
+  color: var(--tk-fg);
+  background: var(--tk-bg);
+  border: 1px solid var(--tk-border);
+  border-radius: var(--tk-radius);
+  min-height: var(--tk-tap);
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.tk-segment[aria-pressed="true"] {
+  background: var(--tk-accent);
+  border-color: var(--tk-accent);
+  color: var(--tk-accent-fg);
+}
+
+.tk-button:focus-visible,
+.tk-segment:focus-visible,
+.tk-input:focus-visible,
+.tk-check input:focus-visible,
+.tk-switch input:focus-visible,
+.tk-balance:focus-visible {
+  outline: 2px solid var(--tk-focus);
+  outline-offset: 2px;
+}
+
+.tk-notice {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--tk-radius);
+  border: 1px solid var(--tk-border);
+  font-size: 0.9rem;
+}
+
+.tk-notice--error {
+  border-color: var(--tk-danger);
+  color: var(--tk-danger);
+}
+
+.tk-notice--ok {
+  border-color: var(--tk-ok);
+  color: var(--tk-ok);
+}
+
+.tk-balance--pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0 12px;
+  min-height: 32px;
+  border: 1px solid var(--tk-border);
+  border-radius: 999px;
+  background: var(--tk-surface);
+  color: var(--tk-fg);
+  text-decoration: none;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.tk-balance--empty {
+  border-color: var(--tk-danger);
+  color: var(--tk-danger);
+}
+
+.tk-balance--full {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.tk-balance--full .tk-balance__unit {
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--tk-muted);
+}
+
+.tk-breakdown {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tk-gap);
+}
+
+.tk-breakdown dt {
+  color: var(--tk-muted);
+  font-size: 0.8rem;
+}
+
+.tk-breakdown dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.tk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tk-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--tk-gap);
+  padding: 8px 0;
+  border-top: 1px solid var(--tk-border);
+}
+
+.tk-row:first-child {
+  border-top: 0;
+}
+
+.tk-row__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tk-row__title {
+  overflow-wrap: break-word;
+}
+
+.tk-row__amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .tk-input,
+  .tk-textarea {
+    font-size: 16px;
+  }
+
+  .tk-field {
+    max-width: none;
+  }
+
+  .tk-segment {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 430px) {
+  .tk-hide-narrow {
+    display: none;
+  }
+}

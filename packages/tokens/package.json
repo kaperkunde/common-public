@@ -1,0 +1,75 @@
+{
+  "name": "@kaperkunde/tokens",
+  "version": "0.1.1",
+  "description": "The client for the Token Center: the contract types, a typed server client and gateway config for AI SDK providers, webhook verification, browser-facing route handlers, React components for balance, buying, auto-refill, usage and own models, and a stand-in center for tests.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaperkunde/common-public.git",
+    "directory": "packages/tokens"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "sideEffects": [
+    "*.css"
+  ],
+  "files": [
+    "dist",
+    "stub"
+  ],
+  "bin": {
+    "tokens-stub": "./stub/cli.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.mts",
+      "import": "./dist/server/index.mjs",
+      "default": "./dist/server/index.mjs"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.mts",
+      "import": "./dist/react/index.mjs",
+      "default": "./dist/react/index.mjs"
+    },
+    "./stub": {
+      "types": "./stub/server.d.mts",
+      "import": "./stub/server.mjs",
+      "default": "./stub/server.mjs"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "happy-dom": "21.0.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
