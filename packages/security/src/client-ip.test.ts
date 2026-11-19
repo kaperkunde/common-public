@@ -143,11 +143,83 @@ describe("stampPeer", () => {
     )
   })
 
-  it("leaves the header absent without a socket address", () => {
-    const req = { headers: { "x-peer": "1.1.1.1" }, socket: {} } as never
+  it("stamps unknown without a socket address, which resolves untrusted", () => {
+    const req = {
+      headers: { "x-peer": "1.1.1.1" },
+      socket: {},
+    } as unknown as Parameters<typeof stampPeer>[0]
     stampPeer(req, "x-peer")
-    expect(
-      (req as { headers: Record<string, string> }).headers["x-peer"],
-    ).toBeUndefined()
+    expect(req.headers["x-peer"]).toBe("unknown")
+
+    const r = resolveClientIp(h("6.6.6.6", { "x-peer": "unknown" }), {
+      peerHeader: "x-peer",
+    })
+    expect(r.source).toBe("peer")
+    expect(r.ip).toMatch(/^h:[0-9a-f]{32}$/)
+    expect(r.untrustedForwarded).toBe(true)
+  })
+
+  it("strips a spoofed marker and sets it only when forwarded headers were sent", () => {
+    const spoofed = {
+      headers: { "x-fwd": "1" },
+      socket: { remoteAddress: "203.0.113.5" },
+    } as unknown as Parameters<typeof stampPeer>[0]
+    stampPeer(spoofed, "x-peer", { forwardedHeader: "X-Fwd" })
+    expect(spoofed.headers["x-fwd"]).toBeUndefined()
+
+    for (const sent of [
+      { "x-forwarded-for": "1.2.3.4" },
+      { "x-real-ip": "1.2.3.4" },
+    ]) {
+      const req = {
+        headers: { ...sent },
+        socket: { remoteAddress: "203.0.113.5" },
+      } as unknown as Parameters<typeof stampPeer>[0]
+      stampPeer(req, "x-peer", { forwardedHeader: "x-fwd" })
+      expect(req.headers["x-fwd"]).toBe("1")
+    }
+  })
+})
+
+describe("resolveClientIp with a forwardedHeader marker", () => {
+  const opts = { peerHeader: "x-peer", forwardedHeader: "x-fwd" }
+
+  it("ignores the framework's own X-Forwarded-For fill (no marker)", () => {
+    const r = resolveClientIp(
+      h("192.168.1.5", { "x-peer": "192.168.1.5" }),
+      opts,
+    )
+    expect(r).toEqual({
+      ip: "192.168.1.5",
+      source: "peer",
+      untrustedForwarded: false,
+    })
+  })
+
+  it("flags forwarded headers the client really sent from an untrusted peer", () => {
+    const r = resolveClientIp(
+      h("6.6.6.6", { "x-peer": "192.168.1.5", "x-fwd": "1" }),
+      opts,
+    )
+    expect(r).toEqual({
+      ip: "192.168.1.5",
+      source: "peer",
+      untrustedForwarded: true,
+    })
+  })
+
+  it("still reads forwarded headers from a trusted peer with the marker", () => {
+    const r = resolveClientIp(
+      h("6.6.6.6", { "x-peer": "127.0.0.1", "x-fwd": "1" }),
+      opts,
+    )
+    expect(r.ip).toBe("6.6.6.6")
+    expect(r.source).toBe("forwarded")
+  })
+
+  it("changes nothing without a known peer", () => {
+    expect(resolveClientIp(h("1.2.3.4"), { forwardedHeader: "x-fwd" }).ip).toBe(
+      "1.2.3.4",
+    )
   })
 })

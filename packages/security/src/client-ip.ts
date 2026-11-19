@@ -95,6 +95,17 @@ export type ClientIpOptions = {
    * incoming copy first, or a client could name itself.
    */
   peerHeader?: string
+  /**
+   * The header the app's own server stamped (see `stampPeer`'s
+   * `forwardedHeader`) to say the client really sent X-Forwarded-For or
+   * X-Real-IP. Frameworks such as Next.js fill X-Forwarded-For with the raw
+   * socket address when a request has none, which would make a direct client
+   * look like forwarded headers from an untrusted peer. When given, and that
+   * header is absent while a peer is known, forwarded headers are ignored:
+   * the peer is the answer and `untrustedForwarded` is false. Without it
+   * nothing changes.
+   */
+  forwardedHeader?: string
 }
 
 export type ClientIp = {
@@ -193,7 +204,13 @@ function fromForwardedHeaders(
  */
 export function resolveClientIp(
   headers: Headers,
-  { trustedProxies, hops = 1, peer, peerHeader }: ClientIpOptions = {},
+  {
+    trustedProxies,
+    hops = 1,
+    peer,
+    peerHeader,
+    forwardedHeader,
+  }: ClientIpOptions = {},
 ): ClientIp {
   const raw = trustedProxies?.trim() || undefined
   const peerValue = (
@@ -209,8 +226,10 @@ export function resolveClientIp(
     type ?? "ipv4",
   )
   const trusted = type !== null && proxy
+  const marked = forwardedHeader ? !!headers.get(forwardedHeader) : true
   const forwarded =
-    forwardedEntries(headers).length > 0 || !!headers.get("x-real-ip")?.trim()
+    marked &&
+    (forwardedEntries(headers).length > 0 || !!headers.get("x-real-ip")?.trim())
 
   if (trusted && forwarded) return fromForwardedHeaders(headers, raw, hops)
 
@@ -233,14 +252,27 @@ export function clientIpFromHeaders(
  * For the app's own server entry, before its framework handles the request:
  * removes any incoming header of that name (a client could send one) and sets
  * it from the socket, so `resolveClientIp`'s `peerHeader` can be believed.
- * Without a socket address the header stays absent.
+ * Without a socket address it is stamped "unknown", never left absent: the
+ * resolver hashes that into one untrusted key instead of falling back to
+ * believing forwarded headers.
+ *
+ * With `forwardedHeader`, any client copy of that header is removed too, and
+ * it is set to "1" only when the client really sent X-Forwarded-For or
+ * X-Real-IP. Call this before the framework touches headers, then pass the
+ * same name as `ClientIpOptions.forwardedHeader`.
  */
 export function stampPeer(
   req: Pick<IncomingMessage, "headers" | "socket">,
   headerName: string,
+  { forwardedHeader }: { forwardedHeader?: string } = {},
 ): void {
   const name = headerName.toLowerCase()
+  const marker = forwardedHeader?.toLowerCase()
+  const sent = !!(req.headers["x-forwarded-for"] || req.headers["x-real-ip"])
   delete req.headers[name]
-  const address = req.socket?.remoteAddress
-  if (address) req.headers[name] = address
+  if (marker) {
+    delete req.headers[marker]
+    if (sent) req.headers[marker] = "1"
+  }
+  req.headers[name] = req.socket?.remoteAddress || "unknown"
 }
