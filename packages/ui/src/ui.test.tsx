@@ -349,6 +349,37 @@ describe("fields", () => {
     expect(withError).not.toContain("email-hint")
   })
 
+  it("ties a Field's hint to its control with aria-describedby", () => {
+    const tied = html(
+      <Field label="Email" htmlFor="email" hint="Hint">
+        <Input id="email" />
+      </Field>,
+    )
+    expect(tied).toContain('aria-describedby="email-hint"')
+
+    const merged = html(
+      <Field label="Email" htmlFor="email" hint="Hint">
+        <Input id="email" aria-describedby="other" />
+      </Field>,
+    )
+    expect(merged).toContain('aria-describedby="other email-hint"')
+
+    const noHint = html(
+      <Field label="Email" htmlFor="email">
+        <Input id="email" aria-describedby="other" />
+      </Field>,
+    )
+    expect(noHint).toContain('aria-describedby="other"')
+    expect(noHint).not.toContain("email-hint")
+
+    const withError = html(
+      <Field label="Email" htmlFor="email" hint="Hint" error="Bad">
+        <Input id="email" />
+      </Field>,
+    )
+    expect(withError).not.toContain("aria-describedby")
+  })
+
   it("adds a class of its own to a Field's label and hint", () => {
     const plain = html(
       <Field label="Email" htmlFor="email" hint="Hint">
