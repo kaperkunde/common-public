@@ -58,6 +58,14 @@ export class TokenCenterError extends Error {
     return this.detail.refundableCreditMicros
   }
 
+  /**
+   * The center's own code string: the same as `code` for a code this client knows, the raw
+   * string for a newer one (whose `code` is its status class's).
+   */
+  get centerCode(): string {
+    return this.detail.centerCode ?? this.detail.code
+  }
+
   /** What the app should offer the user: buy tokens, set up an own model, wait. */
   get action(): TokenErrorDetail["action"] {
     return this.detail.action
@@ -123,17 +131,26 @@ function defaultMessage(code: ErrorCode): string {
 function unknownDetail(
   record: Record<string, unknown> | null,
   status: number,
+  headerCode?: string | null,
 ): TokenErrorDetail | null {
   const body = asRecord(record?.token_center) ?? asRecord(record?.error)
-  if (!body || typeof body.code !== "string") return null
-  if (status >= 500) return null
+  const raw =
+    typeof body?.code === "string" && body.code
+      ? body.code
+      : headerCode || undefined
+  if (raw === undefined) return null
   const message =
-    typeof body.message === "string" && body.message
+    typeof body?.message === "string" && body.message
       ? body.message
       : `The token center answered ${status}.`
   return {
     ...(body as Partial<TokenErrorDetail>),
-    code: STATUS_CODE[status] ?? "internal_error",
+    centerCode: raw,
+    // A 5xx stays `center_unavailable` (fail closed), a 4xx takes its status class.
+    code:
+      status >= 500
+        ? "center_unavailable"
+        : (STATUS_CODE[status] ?? "internal_error"),
     message,
   }
 }
@@ -178,7 +195,7 @@ export function errorFromResponse(
       : null)
   const retry = Number(headers?.retryAfter)
   const callId = headers?.callId || undefined
-  const known = detail ?? unknownDetail(record, status)
+  const known = detail ?? unknownDetail(record, status, headers?.code)
   if (known) {
     if (known.callId === undefined && callId) known.callId = callId
     if (

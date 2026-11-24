@@ -28,6 +28,31 @@ export const isKnownWebhookEvent = (
   event: WebhookEvent | UnknownWebhookEvent,
 ): event is WebhookEvent => !("unknown" in event && event.unknown === true)
 
+/**
+ * Whether `event` is one an app resumes paused work on (out of credit, a DJ or AI pause): money or
+ * a grant arrived (`purchase.completed`, `grant.received`), or a refund failed and put its credit
+ * back (`purchase.refund_failed` with `data.balance.availableMicros > 0`; no `balance.*` event is
+ * sent for that). An unknown event, or a malformed one, never lifts anything.
+ */
+export function liftsPause(event: WebhookEvent | UnknownWebhookEvent): boolean {
+  switch (event.type) {
+    case "purchase.completed":
+    case "grant.received":
+      return true
+    case "purchase.refund_failed": {
+      const balance = (
+        event.data as { balance?: { availableMicros?: unknown } }
+      ).balance
+      return (
+        typeof balance?.availableMicros === "number" &&
+        balance.availableMicros > 0
+      )
+    }
+    default:
+      return false
+  }
+}
+
 export type WebhookFailure = "malformed" | "signature" | "stale" | "body"
 
 /** The delivery is not from the center, is too old, or is not an event. Answer 400. */

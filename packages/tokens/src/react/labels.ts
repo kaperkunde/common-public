@@ -81,13 +81,20 @@ export const DEFAULT_LABELS = {
   purchasesTitle: "Your purchases",
   purchasesEmpty: "No purchases yet.",
   unspent: "{tokens} unspent",
-  refundable: "{tokens} can be refunded, {money} back to your card.",
+  refundable:
+    "{tokens} can be refunded: {money}, paid back in the currency you paid in, at the rate you paid.",
+  // When the buyer paid in their own currency: the money back there, approximate.
+  refundableApprox:
+    "{tokens} can be refunded: about {money} back to your card, in your own currency (approximate: the exact amount is set when it is refunded).",
   nothingToRefund: "Nothing left to refund.",
   refundedSoFar: "{money} already refunded.",
   refundButton: "Refund…",
   refundConfirm:
-    "Refund {tokens} and get {money} back to the card you paid with? The tokens leave your balance now.",
+    "Refund {tokens} and get {money} back to the card you paid with, in the currency you paid in, at the rate you paid? The tokens leave your balance now.",
+  refundConfirmApprox:
+    "Refund {tokens} and get about {money} back to the card you paid with, in your own currency? The tokens leave your balance now.",
   refundConfirmButton: "Refund {money}",
+  refundConfirmButtonApprox: "Refund about {money}",
   refundAll: "Everything unspent",
   refundPart: "An amount",
   refundHow: "Refund",
@@ -96,6 +103,10 @@ export const DEFAULT_LABELS = {
   refundCancel: "Keep my tokens",
   refunding: "Refunding…",
   refundDone: "Refunded: {money} is on its way back to your card.",
+  refundDoneApprox:
+    "Refunded: about {money} is on its way back to your card, in your own currency.",
+  refundStartedApprox:
+    "Refund started: about {money}, in your own currency, will go back to your card once the payment processor confirms it.",
   refundStarted:
     "Refund started: {money} will go back to your card once the payment processor confirms it.",
   refundWait: "A call is still running. Trying again in {seconds} seconds.",

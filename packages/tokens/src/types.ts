@@ -182,6 +182,11 @@ export type Capability = "tools" | "streaming" | "vision" | "json" | "voice"
 
 export type TokenErrorDetail = {
   code: ErrorCode
+  /**
+   * The code string the center actually sent, kept when it is one this client does not know
+   * (`code` is then its status class's). Absent when `code` is the center's own.
+   */
+  centerCode?: string
   /** English sentence safe to show a user; never contains keys, provider bodies or other users. */
   message: string
   /** insufficient_balance / capability_unavailable: what the app should offer. */
@@ -593,6 +598,19 @@ export type Purchase = {
   refundableCents?: Cents
   refundedCreditMicros?: Micros
   refundedCents?: Cents
+  /**
+   * What the buyer actually paid in their own currency (Stripe Adaptive Pricing), in that
+   * currency's minor units, e.g. "cad" 1370 for a $10.00 purchase. Present only when they paid in
+   * a currency other than `currency`; absent for older purchases.
+   */
+  presentmentCurrency?: string
+  presentmentTotalCents?: Cents
+  /**
+   * With the refund figures, when `presentmentCurrency` is set: about what a refund of
+   * `refundableCents` returns in the buyer's currency. Approximate: Stripe refunds the exact
+   * amount at the payment's original exchange rate and rounds it itself.
+   */
+  refundablePresentmentCents?: Cents
 }
 
 /** `GET /api/v1/users/:userId/purchases`: paid purchases, newest first, with refund figures. */
@@ -630,6 +648,12 @@ export type Refund = {
   /** What goes back to the buyer, tax included: pro rata of what was paid, rounded down to the cent. */
   amountCents: Cents
   currency: Currency
+  /**
+   * When the buyer paid in another currency: the money back in theirs, in its minor units
+   * (Stripe's own figure for a refund made in Stripe, else approximate). Absent otherwise.
+   */
+  presentmentAmountCents?: Cents
+  presentmentCurrency?: string
   /** app: asked through the API; admin: the admin, for a support request; stripe: made in Stripe itself. */
   initiatedBy: "app" | "admin" | "stripe"
   /** Why it failed, in words a user may be shown; null unless failed. */

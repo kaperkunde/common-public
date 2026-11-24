@@ -631,12 +631,39 @@ describe("PurchaseList", () => {
     )
     const rows = [...el.querySelectorAll("li")]
     expect(rows[0]!.textContent).toContain(
-      "4,000,000 credits can be refunded, €4.00 back to your card.",
+      "4,000,000 credits can be refunded: €4.00, paid back in the currency you paid in, at the rate you paid.",
     )
     expect(byText(rows[0]!, "button", "Refund…")).toBeTruthy()
     expect(rows[1]!.textContent).toContain("Nothing left to refund.")
     expect(rows[1]!.textContent).toContain("€6.00 already refunded.")
     expect(byText(rows[1]!, "button", "Refund…")).toBeUndefined()
+  })
+
+  it("shows the buyer's own currency, marked approximate, when they paid in one", async () => {
+    const own = purchase({
+      presentmentCurrency: "cad",
+      presentmentTotalCents: 1370,
+      refundablePresentmentCents: 548,
+    })
+    const refundFn = vi.fn(async () => ({
+      ...refund,
+      presentmentAmountCents: 548,
+      presentmentCurrency: "cad",
+    }))
+    const el = await mount(
+      <TokensProvider api={api({ refund: refundFn } as Partial<TokenApi>)}>
+        <PurchaseList
+          unit={unit}
+          page={{ nextCursor: null, purchases: [own] }}
+        />
+      </TokensProvider>,
+    )
+    expect(el.textContent).toContain("about CA$5.48 back to your card")
+    expect(el.textContent).not.toContain("at the rate you paid")
+    await press(byText(el, "button", "Refund…"))
+    expect(el.textContent).toContain("get about CA$5.48 back to the card")
+    await press(byText(el, "button", "Refund about CA$5.48"))
+    expect(el.textContent).toContain("about CA$5.48 is on its way back")
   })
 
   it("asks first with the money back, and backs out without asking the center anything", async () => {

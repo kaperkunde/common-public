@@ -358,12 +358,37 @@ export function startStub(options = {}) {
     }
     return 0
   }
+  // `POST /stub/mode {"presentment":{"currency":"cad","rate":1.37}}`: every buyer paid in that
+  // currency, so the presentment fields are set (a refund's by pro rata, as the center's are).
+  const presentmentOf = (purchase) => {
+    const p = state.mode.presentment
+    if (!p || !p.currency || !(p.rate > 0)) return null
+    const paid = purchase.totalCents ?? purchase.amountCents
+    return { currency: p.currency, total: Math.round(paid * p.rate), paid }
+  }
   const withRefundFigures = (u, purchase) => {
     const x = state.purchases.get(purchase.id)
     const left = refundable(u, purchase)
     const paid = purchase.totalCents ?? purchase.amountCents
+    const pm = presentmentOf(purchase)
+    const refundableCents =
+      left <= 0
+        ? 0
+        : Number(
+            (BigInt(paid) * BigInt((x.refundedCredit ?? 0) + left)) /
+              BigInt(purchase.creditMicros),
+          ) - (x.refundedCents ?? 0)
     return {
       ...purchase,
+      ...(pm
+        ? {
+            presentmentCurrency: pm.currency,
+            presentmentTotalCents: pm.total,
+            refundablePresentmentCents: Math.floor(
+              (pm.total * refundableCents) / pm.paid,
+            ),
+          }
+        : {}),
       refundableCreditMicros: left,
       refundableCents:
         left <= 0
@@ -1245,6 +1270,13 @@ export function startStub(options = {}) {
         failure: null,
         createdAt: now(),
         settledAt: pending ? null : now(),
+      }
+      const pm = presentmentOf(x.purchase)
+      if (pm) {
+        refund.presentmentCurrency = pm.currency
+        refund.presentmentAmountCents = Math.floor(
+          (pm.total * refund.amountCents) / pm.paid,
+        )
       }
       u.purchased -= credit
       x.refundedCredit = (x.refundedCredit ?? 0) + credit
