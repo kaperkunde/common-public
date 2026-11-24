@@ -235,6 +235,20 @@ header, which the route refuses to go without), as `api.purchases()` and
 first, showing the money back, before refunding all of one; `PurchaseHistory`
 draws the `refund` history entry.
 
+**The buyer's own currency.** With Adaptive Pricing a buyer may have paid in their own currency:
+`Purchase.presentmentCurrency` / `presentmentTotalCents` say what they paid, and
+`refundablePresentmentCents` / `Refund.presentmentAmountCents` about what comes back (approximate:
+Stripe refunds the exact amount at the original exchange rate). `PurchaseList` shows that figure,
+marked approximate, when present (`presentmentCentsFor` works out a part), and otherwise the
+purchase's `refundableCents` "paid back in the currency you paid in, at the rate you paid"
+(`labels`: `refundable`, `refundableApprox`, `refundConfirm`, `refundConfirmApprox`, …).
+
+**Resuming paused work.** `liftsPause(event)` (`@kaperkunde/tokens/server`) says whether a webhook
+event is one to resume on: `purchase.completed`, `grant.received`, and `purchase.refund_failed` with
+`data.balance.availableMicros > 0` (the credit is back). An unknown error code keeps the center's own
+string as `error.centerCode` (`code` is its status class's), with `action`, `retryAfterSeconds`,
+`refundableCreditMicros` and the message.
+
 **Tolerate what you do not know.** The center adds history entry types,
 webhook types and error codes. An unknown history entry is skipped, an unknown
 webhook type is acknowledged with 200 (`onUnknown` on `webhookRoute` sees it;
@@ -441,6 +455,7 @@ Test controls (no auth; the real center has none of these):
 | `POST /stub/mode {"providerError":true}`                                                                                       | Gateway calls answer 502 `provider_error`                                                                                                                                                                                                                                                                                                 |
 | `POST /stub/mode {"fail":"out_of_credit"}` (or env `TOKENS_STUB_FAIL`, the `fail` option, or the request header `x-stub-fail`) | Gateway calls answer 503 `provider_out_of_credit` (provider, model, `x-should-retry: false`); `"rate_limited"` 429 `provider_rate_limited` + `Retry-After: 7`; `"overloaded"` 503 `provider_overloaded`; `null` clears it. Speech does not fail: `stub-voice` falls back to `stub-voice-eleven` and answers with `x-token-voice-fallback` |
 | `POST /stub/mode {"refundRefused":true}` / `{"refundPending":true}`                                                            | A refund answers `refund_refused_by_processor` (nothing taken) / is left `pending` (202, no webhook)                                                                                                                                                                                                                                      |
+| `POST /stub/mode {"presentment":{"currency":"cad","rate":1.37}}`                                                               | Every buyer paid in that currency: purchases carry `presentmentCurrency`, `presentmentTotalCents`, `refundablePresentmentCents`, and refunds `presentmentAmountCents` / `presentmentCurrency` (`null` clears it)                                                                                                                          |
 | `POST /stub/balance {"userId","purchasedMicros"}`                                                                              | Set purchased (0 → `insufficient_balance` on the next call)                                                                                                                                                                                                                                                                               |
 | `POST /stub/grant {"userId","micros","provider"?,"expiresAt"?}`                                                                | Add a lot and send `grant.received`                                                                                                                                                                                                                                                                                                       |
 | `POST /stub/expire {"lotId"}`                                                                                                  | Expire a lot, send `grant.expired`                                                                                                                                                                                                                                                                                                        |

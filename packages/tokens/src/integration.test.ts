@@ -493,6 +493,38 @@ describe("against the stub", () => {
     ).toBe("not_found")
   })
 
+  it("carries the buyer's own currency on purchases and refunds when the stub is asked to", async () => {
+    await control("mode", { presentment: { currency: "cad", rate: 1.5 } })
+    try {
+      const session = await center.checkout("u-cad", {
+        currency: "eur",
+        amountCents: 1000,
+        successUrl: "http://localhost/done",
+        cancelUrl: "http://localhost/no",
+      })
+      await fetch(session.url, { redirect: "manual" })
+      const p = (await center.purchases("u-cad")).purchases[0]!
+      expect(p).toMatchObject({
+        presentmentCurrency: "cad",
+        presentmentTotalCents: 1500,
+        refundablePresentmentCents: 1500,
+      })
+      const r = await center.refund(
+        "u-cad",
+        session.purchaseId,
+        { creditMicros: Math.floor(session.creditMicros / 2) },
+        { idempotencyKey: "kc1" },
+      )
+      expect(r).toMatchObject({
+        amountCents: 500,
+        presentmentCurrency: "cad",
+        presentmentAmountCents: 750,
+      })
+    } finally {
+      await control("mode", { presentment: null })
+    }
+  })
+
   it("is mounted through tokenRoutes, which serves the browser client with only a session", async () => {
     const routes = tokenRoutes(center, {
       origin: "http://localhost",
