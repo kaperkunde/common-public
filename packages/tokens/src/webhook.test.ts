@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import {
   signWebhook,
+  isKnownWebhookEvent,
   verifyWebhook,
   webhookRoute,
   WebhookVerificationError,
@@ -55,7 +56,8 @@ describe("verifyWebhook", () => {
       now: T + 5,
     })
     expect(parsed.type).toBe("purchase.completed")
-    if (parsed.type === "purchase.completed")
+    expect(isKnownWebhookEvent(parsed)).toBe(true)
+    if (isKnownWebhookEvent(parsed) && parsed.type === "purchase.completed")
       expect(parsed.data.purchase.creditMicros).toBe(10_000_000)
   })
 
@@ -120,12 +122,61 @@ describe("verifyWebhook", () => {
     )
   })
 
-  it("rejects a signed body that is not a known event", () => {
-    const junk = JSON.stringify({
+  it("returns an event of a type it does not know instead of throwing", () => {
+    const future = JSON.stringify({
       id: "evt_2",
       type: "something.else",
-      data: {},
+      data: { a: 1 },
     })
+    const parsed = verifyWebhook(
+      future,
+      signWebhook(future, secret, T),
+      secret,
+      {
+        now: T,
+      },
+    )
+    expect(isKnownWebhookEvent(parsed)).toBe(false)
+    expect(parsed).toMatchObject({ id: "evt_2", type: "something.else" })
+  })
+
+  it("types the refund events", () => {
+    const refund = {
+      id: "ref_1",
+      purchaseId: "pur_1",
+      status: "succeeded",
+      creditMicros: 4_000_000,
+      amountCents: 400,
+      currency: "eur",
+      initiatedBy: "app",
+      failure: null,
+      createdAt: "2026-11-24T10:00:00.000Z",
+      settledAt: "2026-11-24T10:00:01.000Z",
+    }
+    for (const type of ["purchase.refunded", "purchase.refund_failed"]) {
+      const raw = JSON.stringify({
+        id: `evt_${type}`,
+        type,
+        createdAt: "2026-11-24T10:00:01.000Z",
+        appId: "app_x",
+        livemode: false,
+        data: { userId: "u1", purchase: {}, refund, balance: {} },
+      })
+      const parsed = verifyWebhook(raw, signWebhook(raw, secret, T), secret, {
+        now: T,
+      })
+      expect(isKnownWebhookEvent(parsed)).toBe(true)
+      if (
+        isKnownWebhookEvent(parsed) &&
+        (parsed.type === "purchase.refunded" ||
+          parsed.type === "purchase.refund_failed")
+      )
+        expect(parsed.data.refund.amountCents).toBe(400)
+    }
+  })
+
+  it("rejects a signed body that is no event at all", () => {
+    const junk = JSON.stringify({ id: "evt_2", data: {} })
     expect(
       reason(() =>
         verifyWebhook(junk, signWebhook(junk, secret, T), secret, { now: T }),
@@ -174,6 +225,23 @@ describe("webhookRoute", () => {
     expect(
       (await route(new Request("http://app.test/", { method: "GET" }))).status,
     ).toBe(405)
+
+    // A type from a newer center: acknowledged, offered to onUnknown, never a handler's.
+    const seen = vi.fn()
+    const lenient = webhookRoute({
+      secret,
+      handlers: { "purchase.completed": handled },
+      onUnknown: seen,
+    })
+    const future = JSON.stringify({ ...event, type: "wallet.frozen", data: {} })
+    expect(
+      (await lenient(post(future, signWebhook(future, secret, now)))).status,
+    ).toBe(200)
+    expect(seen).toHaveBeenCalledOnce()
+    expect(handled).toHaveBeenCalledOnce()
+    expect(
+      (await route(post(future, signWebhook(future, secret, now)))).status,
+    ).toBe(200)
 
     const failing = webhookRoute({
       secret,

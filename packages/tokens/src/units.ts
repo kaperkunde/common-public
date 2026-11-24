@@ -1,4 +1,11 @@
-import type { AppUnit, Cents, Currency, Micros, SalePrice } from "./types"
+import type {
+  AppUnit,
+  Cents,
+  Currency,
+  Micros,
+  Purchase,
+  SalePrice,
+} from "./types"
 
 /** Micro-dollars per dollar: the contract's money unit. */
 export const MICROS_PER_DOLLAR = 1_000_000
@@ -98,4 +105,32 @@ export function creditFor(
   price: Pick<SalePrice, "centsPerDollar">,
 ): Micros {
   return Math.floor((amountCents * MICROS_PER_DOLLAR) / price.centsPerDollar)
+}
+
+/**
+ * What a refund of `creditMicros` of a paid purchase gives back, in cents: the center's own rule,
+ * `floor(totalCents × (refundedCredit + this) / creditMicros) − refundedCents`, tax included, so
+ * parts add up to the whole. For showing "€4.99 back" before asking; the center's answer
+ * (`Refund.amountCents`) is the truth.
+ */
+export function refundCentsFor(
+  purchase: Pick<
+    Purchase,
+    | "amountCents"
+    | "totalCents"
+    | "creditMicros"
+    | "refundedCreditMicros"
+    | "refundedCents"
+  >,
+  creditMicros: Micros,
+): Cents {
+  if (!(purchase.creditMicros > 0) || !(creditMicros > 0)) return 0
+  const paid = purchase.totalCents ?? purchase.amountCents
+  const before = purchase.refundedCreditMicros ?? 0
+  const sofar = purchase.refundedCents ?? 0
+  // BigInt: cents × micros passes 2^53 for a large purchase.
+  const whole =
+    (BigInt(paid) * BigInt(before + creditMicros)) /
+    BigInt(purchase.creditMicros)
+  return Math.max(0, Number(whole) - sofar)
 }

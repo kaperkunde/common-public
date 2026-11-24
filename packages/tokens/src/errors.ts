@@ -50,6 +50,14 @@ export class TokenCenterError extends Error {
     return RETRYABLE_ERROR_CODES.includes(this.code)
   }
 
+  /**
+   * `refund_not_available` / `refund_amount_invalid`: what the purchase could refund now, in
+   * micros (absent for any other error, and when the center did not say).
+   */
+  get refundableCreditMicros(): number | undefined {
+    return this.detail.refundableCreditMicros
+  }
+
   /** What the app should offer the user: buy tokens, set up an own model, wait. */
   get action(): TokenErrorDetail["action"] {
     return this.detail.action
@@ -108,6 +116,28 @@ function defaultMessage(code: ErrorCode): string {
     : `The token center answered ${code}.`
 }
 
+/**
+ * A body naming a code this client does not know (a newer center). It is never an error to
+ * read: the code becomes its status class's and the center's own words and fields are kept.
+ */
+function unknownDetail(
+  record: Record<string, unknown> | null,
+  status: number,
+): TokenErrorDetail | null {
+  const body = asRecord(record?.token_center) ?? asRecord(record?.error)
+  if (!body || typeof body.code !== "string") return null
+  if (status >= 500) return null
+  const message =
+    typeof body.message === "string" && body.message
+      ? body.message
+      : `The token center answered ${status}.`
+  return {
+    ...(body as Partial<TokenErrorDetail>),
+    code: STATUS_CODE[status] ?? "internal_error",
+    message,
+  }
+}
+
 const STATUS_CODE: Record<number, ErrorCode> = {
   400: "invalid_request",
   401: "unauthenticated",
@@ -148,15 +178,16 @@ export function errorFromResponse(
       : null)
   const retry = Number(headers?.retryAfter)
   const callId = headers?.callId || undefined
-  if (detail) {
-    if (detail.callId === undefined && callId) detail.callId = callId
+  const known = detail ?? unknownDetail(record, status)
+  if (known) {
+    if (known.callId === undefined && callId) known.callId = callId
     if (
-      detail.retryAfterSeconds === undefined &&
+      known.retryAfterSeconds === undefined &&
       Number.isFinite(retry) &&
       retry > 0
     )
-      detail.retryAfterSeconds = retry
-    return new TokenCenterError(detail, status)
+      known.retryAfterSeconds = retry
+    return new TokenCenterError(known, status)
   }
   if (status >= 500)
     return centerUnavailable(undefined, `The token center answered ${status}.`)

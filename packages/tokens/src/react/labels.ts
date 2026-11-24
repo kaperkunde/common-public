@@ -73,6 +73,30 @@ export const DEFAULT_LABELS = {
   statusOpen: "waiting for payment",
   statusFailed: "failed",
   statusExpired: "expired",
+  refund: "Refund",
+  refundMeta: "{money} back to your card",
+  refundPending: "pending",
+  refundFailed: "failed",
+  // refunds
+  purchasesTitle: "Your purchases",
+  purchasesEmpty: "No purchases yet.",
+  unspent: "{tokens} unspent",
+  refundable: "{tokens} can be refunded, {money} back to your card.",
+  nothingToRefund: "Nothing left to refund.",
+  refundedSoFar: "{money} already refunded.",
+  refundButton: "Refund…",
+  refundConfirm:
+    "Refund {tokens} and get {money} back to the card you paid with? The tokens leave your balance now.",
+  refundConfirmButton: "Refund {money}",
+  refundCancel: "Keep my tokens",
+  refunding: "Refunding…",
+  refundDone: "Refunded: {money} is on its way back to your card.",
+  refundStarted:
+    "Refund started: {money} will go back to your card once the payment processor confirms it.",
+  refundWait: "A call is still running. Try again in a few seconds.",
+  refundLess: "Only {tokens} can be refunded now.",
+  refundRefused:
+    "The payment processor will not refund this payment to its original method any more. Nothing was taken.",
   // own model
   ownTitle: "Your own model",
   baseUrl: "Address",

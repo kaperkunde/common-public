@@ -159,4 +159,50 @@ describe("provider refusals", () => {
     expect(rl.detail.retryAfterSeconds).toBe(7)
     expect(rl.retryable).toBe(true)
   })
+
+  describe("refund and unknown codes", () => {
+    it("knows the refund codes and their statuses", () => {
+      expect(ERROR_STATUS.refund_not_available).toBe(409)
+      expect(ERROR_STATUS.refund_amount_invalid).toBe(400)
+      expect(ERROR_STATUS.refund_refused_by_processor).toBe(409)
+      const e = errorFromResponse(409, {
+        error: {
+          code: "refund_refused_by_processor",
+          message: "Stripe will not.",
+        },
+      })
+      expect(e.code).toBe("refund_refused_by_processor")
+      expect(e.refundableCreditMicros).toBeUndefined()
+      expect(e.retryable).toBe(false)
+    })
+
+    it("never throws on a code it does not know: the status class, the center's words kept", () => {
+      const e = errorFromResponse(409, {
+        error: {
+          code: "wallet_frozen",
+          message: "Your wallet is frozen.",
+          action: "wait",
+          retryAfterSeconds: 5,
+        },
+      })
+      expect(e).toBeInstanceOf(TokenCenterError)
+      expect(e.code).toBe("conflict")
+      expect(e.status).toBe(409)
+      expect(e.message).toBe("Your wallet is frozen.")
+      expect(e.action).toBe("wait")
+      expect(
+        errorFromResponse(400, { error: { code: "new_thing" } }).code,
+      ).toBe("invalid_request")
+      expect(
+        errorFromResponse(
+          503,
+          { error: { code: "new_thing", message: "x" } },
+          { code: "new_thing" },
+        ).code,
+      ).toBe("center_unavailable")
+      expect(errorFromResponse(402, null, { code: "new_thing" }).code).toBe(
+        "insufficient_balance",
+      )
+    })
+  })
 })

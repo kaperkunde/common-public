@@ -41,6 +41,8 @@ beforeAll(async () => {
       [
         "grant.received",
         "purchase.completed",
+        "purchase.refunded",
+        "purchase.refund_failed",
         "balance.low",
         "balance.empty",
         "autorefill.failed",
@@ -414,6 +416,83 @@ describe("against the stub", () => {
     await until(() => received.some((e) => e.type === "grant.expired"))
   })
 
+  it("lists purchases and refunds unspent credit through the center client, once per key, with the webhook", async () => {
+    const session = await center.checkout("u1", {
+      currency: "eur",
+      amountCents: 1000,
+      successUrl: "http://localhost/done",
+      cancelUrl: "http://localhost/no",
+    })
+    await fetch(session.url, { redirect: "manual" })
+    const credit = session.creditMicros
+
+    const before = await center.purchases("u1")
+    expect(before.purchases).toHaveLength(1)
+    expect(before.purchases[0]).toMatchObject({
+      id: session.purchaseId,
+      refundableCreditMicros: credit,
+      refundedCents: 0,
+    })
+    expect(before.purchases[0]!.refundableCents).toBe(1000)
+
+    const part = await center.refund(
+      "u1",
+      session.purchaseId,
+      { creditMicros: Math.floor(credit / 2) },
+      { idempotencyKey: "k1" },
+    )
+    expect(part).toMatchObject({ status: "succeeded", initiatedBy: "app" })
+    expect(part.amountCents).toBe(500)
+    // The same key is the same refund, not a second.
+    const again = await center.refund(
+      "u1",
+      session.purchaseId,
+      { creditMicros: Math.floor(credit / 2) },
+      { idempotencyKey: "k1" },
+    )
+    expect(again.id).toBe(part.id)
+    await until(() => received.some((e) => e.type === "purchase.refunded"))
+    const after = (await center.purchases("u1")).purchases[0]!
+    expect(after.refundedCents).toBe(500)
+
+    const tooMuch = await center
+      .refund(
+        "u1",
+        session.purchaseId,
+        { creditMicros: credit },
+        { idempotencyKey: "k2" },
+      )
+      .catch((e) => e)
+    expect(isTokenError(tooMuch, "refund_amount_invalid")).toBe(true)
+    expect(tooMuch.refundableCreditMicros).toBe(after.refundableCreditMicros)
+
+    await control("mode", { refundRefused: true })
+    const refused = await center
+      .refund("u1", session.purchaseId, {}, { idempotencyKey: "k3" })
+      .catch((e) => e)
+    expect(isTokenError(refused, "refund_refused_by_processor")).toBe(true)
+    await control("mode", { refundRefused: false })
+
+    const rest = await center.refund(
+      "u1",
+      session.purchaseId,
+      {},
+      { idempotencyKey: "k4" },
+    )
+    expect(rest.amountCents).toBe(500)
+    const none = await center
+      .refund("u1", session.purchaseId, {}, { idempotencyKey: "k5" })
+      .catch((e) => e)
+    expect(isTokenError(none, "refund_not_available")).toBe(true)
+    expect(none.refundableCreditMicros).toBe(0)
+
+    const types = (await center.history("u1")).entries.map((e) => e.type)
+    expect(types.filter((t) => t === "refund")).toHaveLength(2)
+    expect(
+      (await center.purchase("other", session.purchaseId).catch((e) => e)).code,
+    ).toBe("not_found")
+  })
+
   it("is mounted through tokenRoutes, which serves the browser client with only a session", async () => {
     const routes = tokenRoutes(center, {
       origin: "http://localhost",
@@ -454,6 +533,17 @@ describe("against the stub", () => {
       })
       expect(session.url).toContain("/stub/checkout/")
       expect(await api.ownEndpoint()).toBeNull()
+      // A purchase of one's own, paid at the stand-in's checkout, refunded from the browser.
+      await fetch(session.url, { redirect: "manual" })
+      const mine = await api.purchases()
+      expect(mine.purchases[0]!.refundableCents).toBe(500)
+      const refunded = await api.refund(
+        mine.purchases[0]!.id,
+        {},
+        "browser-key-1",
+      )
+      expect(refunded.status).toBe("succeeded")
+      expect(refunded.amountCents).toBe(500)
       const refill = await api.setAutoRefill({
         enabled: false,
         thresholdMicros: 1_000_000,

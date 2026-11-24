@@ -179,8 +179,8 @@ export const handler = tokenRoutes(center, {
 ```
 
 It serves `GET app | models | balance | calls | history | sale-prices |
-autorefill | own-endpoint | purchase/:id`, `POST checkout | card |
-own-endpoint/test`, `PUT autorefill | own-endpoint | backend-order` and
+autorefill | own-endpoint | purchase/:id | purchases`, `POST checkout | card |
+own-endpoint/test | purchases/:id/refund`, `PUT autorefill | own-endpoint | backend-order` and
 `DELETE card | own-endpoint`. The return URLs for Stripe are built from
 `origin` and the browser's `returnPath` (only a path on your own origin is
 honoured); they must be under the app's registered return origins on the
@@ -207,10 +207,45 @@ export default nodeHandler(handler)
 `x-forwarded-proto` and `x-forwarded-host` for the URL it builds; pass
 `{ trustForwarded: false }` if no proxy of yours sits in front.
 
+### Refunds
+
+Bought credit that is still unspent can be refunded, in full or in part, to the
+card it was paid with. `center.purchases(userId)` lists the paid purchases
+(newest first) with `refundableCreditMicros` / `refundableCents` and what has
+been refunded; `center.refund(userId, purchaseId, { creditMicros? }, {
+idempotencyKey })` refunds all of it when `creditMicros` is left out and answers
+a `Refund`: `succeeded` (the center answered 201) or `pending` (202; Stripe has
+not confirmed yet and the center settles it, `purchase.refunded` or
+`purchase.refund_failed` follows). The **key is yours and required**: reuse it
+to retry the same refund after a timeout, never for another. `refundCentsFor(
+purchase, creditMicros)` works out the money back (the center's rule: pro rata
+of what was paid, tax included, rounded down) to show before asking.
+
+The refusals are a `TokenCenterError`: `refund_not_available` (409; nothing
+unspent, or with `action: "wait"` and `retryAfterSeconds` while a call of the
+user's is running), `refund_amount_invalid` (400) and
+`refund_refused_by_processor` (409, nothing was taken). The first two carry
+`error.refundableCreditMicros` (also on `error.detail`).
+
+The browser side, with the signed-in user only: `GET purchases` and `POST
+purchases/:id/refund` (body `{ creditMicros? }`, and an `Idempotency-Key`
+header, which the route refuses to go without), as `api.purchases()` and
+`api.refund(purchaseId, input, idempotencyKey)` on `createTokenApi`. The
+`PurchaseList` component lists the purchases with what can be refunded and asks
+first, showing the money back, before refunding all of one; `PurchaseHistory`
+draws the `refund` history entry.
+
+**Tolerate what you do not know.** The center adds history entry types,
+webhook types and error codes. An unknown history entry is skipped, an unknown
+webhook type is acknowledged with 200 (`onUnknown` on `webhookRoute` sees it;
+`verifyWebhook` and `parseWebhookEvent` return an `UnknownWebhookEvent`, which
+`isKnownWebhookEvent` tells from the typed ones), and an unknown error code
+becomes its status class's (a 409 is `conflict`) with the center's own message.
+
 ### Webhooks
 
 The center posts signed events (`grant.received`, `purchase.completed`,
-`balance.low`, `balance.empty`, `autorefill.failed`, `grant.expired`). Verify
+`purchase.refunded`, `purchase.refund_failed`, `balance.low`, `balance.empty`, `autorefill.failed`, `grant.expired`). Verify
 the **raw body**, then handle idempotently on `event.id`: deliveries repeat
 and arrive out of order.
 
@@ -255,6 +290,7 @@ import {
   AutoRefill,
   UsageList,
   PurchaseHistory,
+  PurchaseList,
   OwnModelForm,
 } from "@kaperkunde/tokens/react"
 
@@ -266,6 +302,7 @@ import {
   <AutoRefill returnPath="/ai/tokens" />
   <UsageList query={{ scope: world.id }} /> {/* cost, cache share, purpose */}
   <PurchaseHistory />
+  <PurchaseList /> {/* paid purchases, what is refundable, a confirm step */}
   <OwnModelForm />{" "}
   {/* BYO (also exported as OwnEndpointForm): address, write-only key, models, tool choice, order, test */}
 </TokensProvider>
@@ -280,7 +317,7 @@ import {
   targets, inputs at 16 px under 560 px so iOS does not zoom, and everything
   wraps at 375 px.
 - **Hooks**: `useBalance`, `useCalls`, `useHistory`, `useSalePrices`,
-  `useAutoRefill`, `useOwnEndpoint`, `useAppInfo` return
+  `useAutoRefill`, `useOwnEndpoint`, `usePurchases`, `useAppInfo` return
   `{ data, error, loading, refresh }`, poll while the tab is visible and load
   again on focus; `refreshTokens()` reloads all of them after you spend or buy
   something yourself. `useTokenApi(basePath)` is the typed client of your
@@ -403,6 +440,7 @@ Test controls (no auth; the real center has none of these):
 | `POST /stub/mode {"down":true}`                                                                                                | Every call answers 503 `center_unavailable` (fail-closed tests)                                                                                                                                                                                                                                                                           |
 | `POST /stub/mode {"providerError":true}`                                                                                       | Gateway calls answer 502 `provider_error`                                                                                                                                                                                                                                                                                                 |
 | `POST /stub/mode {"fail":"out_of_credit"}` (or env `TOKENS_STUB_FAIL`, the `fail` option, or the request header `x-stub-fail`) | Gateway calls answer 503 `provider_out_of_credit` (provider, model, `x-should-retry: false`); `"rate_limited"` 429 `provider_rate_limited` + `Retry-After: 7`; `"overloaded"` 503 `provider_overloaded`; `null` clears it. Speech does not fail: `stub-voice` falls back to `stub-voice-eleven` and answers with `x-token-voice-fallback` |
+| `POST /stub/mode {"refundRefused":true}` / `{"refundPending":true}`                                                            | A refund answers `refund_refused_by_processor` (nothing taken) / is left `pending` (202, no webhook)                                                                                                                                                                                                                                      |
 | `POST /stub/balance {"userId","purchasedMicros"}`                                                                              | Set purchased (0 → `insufficient_balance` on the next call)                                                                                                                                                                                                                                                                               |
 | `POST /stub/grant {"userId","micros","provider"?,"expiresAt"?}`                                                                | Add a lot and send `grant.received`                                                                                                                                                                                                                                                                                                       |
 | `POST /stub/expire {"lotId"}`                                                                                                  | Expire a lot, send `grant.expired`                                                                                                                                                                                                                                                                                                        |
@@ -414,7 +452,8 @@ Test controls (no auth; the real center has none of these):
 A Playwright test follows the checkout URL the app returns and lands on the
 app's success URL with the wallet credited. The stub's webhooks are signed
 exactly as the center signs them, so `webhookRoute` can be tested end to end.
-Not simulated: the in-flight cap, rate limits, idempotency keys, Stripe, tax,
+Refunds are simulated (the purchase list, `Idempotency-Key` per purchase, the wallet and
+`purchase.refunded`); a refund never fails late. Not simulated: the in-flight cap, rate limits, other idempotency keys, Stripe, tax,
 auto-refill charges and own-endpoint limits.
 
 ## Contract

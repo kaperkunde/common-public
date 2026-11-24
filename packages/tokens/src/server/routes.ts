@@ -5,6 +5,7 @@ import type {
   CallsQuery,
   Currency,
   OwnEndpointInput,
+  RefundRequest,
   TokenErrorDetail,
 } from "../types"
 import type { TokenCenter } from "./client"
@@ -52,7 +53,7 @@ type Ctx = {
   user: TokenUser
   center: TokenCenter
   query: URLSearchParams
-  body: () => Promise<Record<string, unknown>>
+  body: (options?: { optional?: boolean }) => Promise<Record<string, unknown>>
   returnUrls: (
     kind: ReturnKind,
     returnPath: unknown,
@@ -100,7 +101,8 @@ const pick = <T extends object>(
  *
  * Operations (under `basePath`, default `/api/tokens`):
  * `GET app | models | balance | calls | history | sale-prices | autorefill |
- * own-endpoint | purchase/:id`, `POST checkout | card | own-endpoint/test`,
+ * own-endpoint | purchase/:id | purchases`, `POST checkout | card | own-endpoint/test |
+ * purchases/:id/refund`,
  * `PUT autorefill | own-endpoint | backend-order`, `DELETE card | own-endpoint`.
  *
  * App router: `export const GET = handler` (and POST, PUT, DELETE) in
@@ -159,6 +161,49 @@ export function tokenRoutes(
       GET: ({ center, user, segments }) => {
         if (!segments[1]) throw bad("A purchase id is needed.", "purchaseId")
         return center.purchase(user.id, decodeURIComponent(segments[1]))
+      },
+    },
+    purchases: {
+      GET: async ({ center, user, query, segments }) => {
+        // `purchases` is the list; `purchases/:id` has no browser route (use `purchase/:id`).
+        if (segments[1]) return undefined
+        const limit = Number(query.get("limit"))
+        return await center.purchases(user.id, {
+          ...(query.has("limit") && Number.isInteger(limit) && limit > 0
+            ? { limit: Math.min(limit, 200) }
+            : {}),
+          ...(query.get("cursor") ? { cursor: query.get("cursor")! } : {}),
+        })
+      },
+      POST: async ({ center, user, segments, body, idempotencyKey }) => {
+        if (!segments[1] || segments[2] !== "refund" || segments[3])
+          return undefined
+        if (!idempotencyKey)
+          throw bad(
+            "A refund needs an Idempotency-Key header, one per attempt.",
+            "idempotency-key",
+          )
+        const b = await body({ optional: true })
+        if (
+          b.creditMicros !== undefined &&
+          (!Number.isSafeInteger(b.creditMicros) ||
+            (b.creditMicros as number) <= 0)
+        )
+          throw bad(
+            "creditMicros must be a positive whole number.",
+            "creditMicros",
+          )
+        const refund = await center.refund(
+          user.id,
+          decodeURIComponent(segments[1]),
+          pick<RefundRequest>(b, ["creditMicros"]),
+          { idempotencyKey },
+        )
+        // As the center answers it: 201 when settled, 202 while Stripe is still sure of nothing.
+        return new Response(JSON.stringify(refund), {
+          status: refund.status === "pending" ? 202 : 201,
+          headers: { "content-type": "application/json" },
+        })
       },
     },
     checkout: {
@@ -355,10 +400,12 @@ export function tokenRoutes(
         query: url.searchParams,
         segments,
         idempotencyKey: request.headers.get("idempotency-key") ?? undefined,
-        body: async () => {
+        body: async (bodyOptions) => {
           let parsed: unknown
           try {
-            parsed = await request.json()
+            const text = await request.text()
+            if (bodyOptions?.optional && !text.trim()) return {}
+            parsed = JSON.parse(text)
           } catch {
             throw bad("Body is not JSON.")
           }

@@ -8,6 +8,26 @@ import {
   type WebhookEventType,
 } from "../types"
 
+/**
+ * A delivery of a `type` this client does not know: the center adds types, and a receiver must
+ * answer 2xx to one and otherwise ignore it. Never thrown; see {@link isKnownWebhookEvent}.
+ */
+export type UnknownWebhookEvent = {
+  id: string
+  type: string
+  createdAt?: string
+  appId?: string
+  livemode?: boolean
+  data: Record<string, unknown>
+  /** Marks this as not one of {@link WebhookEvent}. */
+  unknown: true
+}
+
+/** Whether `event` is one of the typed events (narrows away {@link UnknownWebhookEvent}). */
+export const isKnownWebhookEvent = (
+  event: WebhookEvent | UnknownWebhookEvent,
+): event is WebhookEvent => !("unknown" in event && event.unknown === true)
+
 export type WebhookFailure = "malformed" | "signature" | "stale" | "body"
 
 /** The delivery is not from the center, is too old, or is not an event. Answer 400. */
@@ -45,7 +65,9 @@ export type VerifyWebhookOptions = {
  * header; `secret` the app's webhook secret (an array while rotating: any one
  * that matches is enough). Throws `WebhookVerificationError` on a malformed
  * header, a wrong signature (constant-time compare), a timestamp more than the
- * tolerance from now, or a body that is not a known event.
+ * tolerance from now, or a body that is not an event at all (no id, type or data).
+ * An event of a type this version does not know is returned as an
+ * {@link UnknownWebhookEvent}, not thrown: check with {@link isKnownWebhookEvent}.
  *
  * Deliveries repeat and arrive out of order: handlers dedupe on `event.id`.
  */
@@ -54,7 +76,7 @@ export function verifyWebhook(
   signatureHeader: string | null | undefined,
   secret: string | readonly string[],
   options: VerifyWebhookOptions = {},
-): WebhookEvent {
+): WebhookEvent | UnknownWebhookEvent {
   const body =
     typeof rawBody === "string"
       ? rawBody
@@ -105,8 +127,14 @@ export function verifyWebhook(
   return parseWebhookEvent(body)
 }
 
-/** A body that is a known webhook event, typed; throws `WebhookVerificationError("body")` otherwise. */
-export function parseWebhookEvent(body: string | unknown): WebhookEvent {
+/**
+ * A body that is a webhook event: typed when its `type` is known, an {@link UnknownWebhookEvent}
+ * when it is not. Throws `WebhookVerificationError("body")` only for something that is no
+ * event at all.
+ */
+export function parseWebhookEvent(
+  body: string | unknown,
+): WebhookEvent | UnknownWebhookEvent {
   let value: unknown = body
   if (typeof body === "string") {
     try {
@@ -122,10 +150,11 @@ export function parseWebhookEvent(body: string | unknown): WebhookEvent {
     typeof e.id !== "string" ||
     typeof e.type !== "string" ||
     typeof e.data !== "object" ||
-    e.data === null ||
-    !(WEBHOOK_EVENT_TYPES as readonly string[]).includes(e.type)
+    e.data === null
   )
-    throw new WebhookVerificationError("body", "Body is not a known event.")
+    throw new WebhookVerificationError("body", "Body is not an event.")
+  if (!(WEBHOOK_EVENT_TYPES as readonly string[]).includes(e.type))
+    return { ...(e as object), unknown: true } as UnknownWebhookEvent
   return e as WebhookEvent
 }
 
@@ -143,6 +172,8 @@ export type WebhookRouteOptions = {
   toleranceSeconds?: number
   /** Where a handler's failure goes (it answers 500 so the center retries). */
   onError?: (error: unknown, event: WebhookEvent) => void
+  /** A delivery of a type this version does not know. It is acknowledged (200) either way. */
+  onUnknown?: (event: UnknownWebhookEvent) => void
 }
 
 /**
@@ -156,7 +187,7 @@ export function webhookRoute(options: WebhookRouteOptions) {
     if (request.method !== "POST")
       return new Response("Method not allowed", { status: 405 })
     const rawBody = await request.text()
-    let event: WebhookEvent
+    let event: WebhookEvent | UnknownWebhookEvent
     try {
       event = verifyWebhook(
         rawBody,
@@ -173,6 +204,14 @@ export function webhookRoute(options: WebhookRouteOptions) {
           { status: 400 },
         )
       throw error
+    }
+    if (!isKnownWebhookEvent(event)) {
+      try {
+        options.onUnknown?.(event)
+      } catch {
+        // an observer's failure is not the center's to retry
+      }
+      return Response.json({ received: true, id: event.id })
     }
     try {
       const handler = options.handlers[event.type] as

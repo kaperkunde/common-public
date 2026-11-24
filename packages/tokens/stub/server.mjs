@@ -161,6 +161,9 @@ export function startStub(options = {}) {
     rate_limited: 429,
     payments_unavailable: 503,
     purchase_too_small: 400,
+    refund_not_available: 409,
+    refund_amount_invalid: 400,
+    refund_refused_by_processor: 409,
     no_card: 409,
     conflict: 409,
     center_unavailable: 503,
@@ -193,6 +196,7 @@ export function startStub(options = {}) {
       users: new Map(),
       calls: [],
       purchases: new Map(),
+      refunds: new Map(),
       mode: {
         down: false,
         providerError: false,
@@ -335,6 +339,43 @@ export function startStub(options = {}) {
   const costOf = (usage) => Math.ceil(usd(usage)) // $/M × tokens = micros
   // Calls are keyed `callId` on the wire (CallCharge / CallRecord), never `id`.
   const publicCall = ({ t0: _t0, id: callId, ...c }) => ({ callId, ...c })
+
+  // ------------------------------------------------------------------ refunds
+  // Bought credit is spent oldest purchase first, so what is left of the wallet belongs to the
+  // newest purchases: refundable is what of a purchase's credit lies inside `purchased`.
+  const refundable = (u, purchase) => {
+    let room = u.purchased
+    const paid = [...state.purchases.values()]
+      .filter((x) => x.userId === u.userId && x.purchase.status === "paid")
+      .reverse()
+    for (const x of paid) {
+      const left = Math.min(
+        x.purchase.creditMicros - (x.refundedCredit ?? 0),
+        room,
+      )
+      if (x.purchase.id === purchase.id) return Math.max(0, left)
+      room -= Math.max(0, left)
+    }
+    return 0
+  }
+  const withRefundFigures = (u, purchase) => {
+    const x = state.purchases.get(purchase.id)
+    const left = refundable(u, purchase)
+    const paid = purchase.totalCents ?? purchase.amountCents
+    return {
+      ...purchase,
+      refundableCreditMicros: left,
+      refundableCents:
+        left <= 0
+          ? 0
+          : Number(
+              (BigInt(paid) * BigInt((x.refundedCredit ?? 0) + left)) /
+                BigInt(purchase.creditMicros),
+            ) - (x.refundedCents ?? 0),
+      refundedCreditMicros: x.refundedCredit ?? 0,
+      refundedCents: x.refundedCents ?? 0,
+    }
+  }
 
   // ------------------------------------------------------------------ webhooks
   const sign = (body, t = Math.floor(Date.now() / 1000)) =>
@@ -1143,11 +1184,94 @@ export function startStub(options = {}) {
         creditMicros: purchase.creditMicros,
       })
     }
+    if (rest === "/purchases" && m === "GET") {
+      const mine = [...state.purchases.values()]
+        .filter((x) => x.userId === userId && x.purchase.status === "paid")
+        .reverse()
+        .map((x) => withRefundFigures(u, x.purchase))
+      const start = Number(q.get("cursor") ?? 0),
+        limit = Math.min(Number(q.get("limit") ?? 50), 200)
+      return json(res, 200, {
+        purchases: mine.slice(start, start + limit),
+        nextCursor: start + limit < mine.length ? String(start + limit) : null,
+      })
+    }
+    r = rest.match(/^\/purchases\/([^/]+)\/refund$/)
+    if (r && m === "POST") {
+      const x = state.purchases.get(r[1])
+      if (!x || x.userId !== userId)
+        return fail(res, "not_found", "No such purchase.")
+      const key = req.headers["idempotency-key"]
+      const kept = key && state.refunds.get(`${r[1]}:${key}`)
+      if (kept) return json(res, kept.status === "pending" ? 202 : 201, kept)
+      const left = refundable(u, x.purchase)
+      if (x.purchase.status !== "paid" || left <= 0)
+        return fail(
+          res,
+          "refund_not_available",
+          "There is nothing left of this purchase to refund.",
+          "api",
+          { refundableCreditMicros: 0 },
+        )
+      const credit = body.creditMicros ?? left
+      if (!Number.isSafeInteger(credit) || credit <= 0 || credit > left)
+        return fail(
+          res,
+          "refund_amount_invalid",
+          "That is not an amount this purchase can refund.",
+          "api",
+          { refundableCreditMicros: left },
+        )
+      if (state.mode.refundRefused)
+        return fail(
+          res,
+          "refund_refused_by_processor",
+          "The payment processor will not refund this payment any more.",
+        )
+      const pending = !!state.mode.refundPending
+      const paid = x.purchase.totalCents ?? x.purchase.amountCents
+      const refund = {
+        id: id("ref"),
+        purchaseId: x.purchase.id,
+        status: pending ? "pending" : "succeeded",
+        creditMicros: credit,
+        amountCents:
+          Number(
+            (BigInt(paid) * BigInt((x.refundedCredit ?? 0) + credit)) /
+              BigInt(x.purchase.creditMicros),
+          ) - (x.refundedCents ?? 0),
+        currency: x.purchase.currency,
+        initiatedBy: "app",
+        failure: null,
+        createdAt: now(),
+        settledAt: pending ? null : now(),
+      }
+      u.purchased -= credit
+      x.refundedCredit = (x.refundedCredit ?? 0) + credit
+      x.refundedCents = (x.refundedCents ?? 0) + refund.amountCents
+      state.refunds.set(`${r[1]}:${key}`, refund)
+      u.history.push({ type: "refund", at: refund.createdAt, refund })
+      crossings(u)
+      if (!pending)
+        emit("purchase.refunded", {
+          userId: u.userId,
+          purchase: withRefundFigures(u, x.purchase),
+          refund,
+          balance: summary(u),
+        })
+      return json(res, pending ? 202 : 201, refund)
+    }
     r = rest.match(/^\/purchases\/([^/]+)$/)
     if (r) {
       const x = state.purchases.get(r[1])
       return x && x.userId === userId
-        ? json(res, 200, x.purchase)
+        ? json(
+            res,
+            200,
+            x.purchase.status === "paid"
+              ? withRefundFigures(u, x.purchase)
+              : x.purchase,
+          )
         : fail(res, "not_found", "No such purchase.")
     }
     if (rest === "/autorefill") {

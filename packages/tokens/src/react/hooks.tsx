@@ -21,6 +21,7 @@ import type {
   CallsQuery,
   HistoryPage,
   OwnEndpoint,
+  PurchasesPage,
   SalePrices,
 } from "../types"
 import { mergeLabels, type LabelOverrides, type Labels } from "./labels"
@@ -219,6 +220,19 @@ export function useCalls(
   return useResource(
     () => api.calls(query),
     `calls:${JSON.stringify(query)}`,
+    options,
+  )
+}
+
+/** The user's paid purchases with what of each can be refunded. */
+export function usePurchases(
+  query: { limit?: number } = {},
+  options: Opts = {},
+): Resource<PurchasesPage> {
+  const api = useTokenApi(options.basePath)
+  return useResource(
+    () => api.purchases(query),
+    `purchases:${JSON.stringify(query)}`,
     options,
   )
 }
