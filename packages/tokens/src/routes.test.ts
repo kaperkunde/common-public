@@ -242,4 +242,112 @@ describe("tokenRoutes", () => {
       args: ["alice", "pur_1"],
     })
   })
+
+  it("lists the signed-in user's purchases and refunds only for them, with the caller's key", async () => {
+    const refund = {
+      id: "ref_1",
+      purchaseId: "pur_1",
+      status: "succeeded",
+      creditMicros: 1,
+      amountCents: 1,
+      currency: "eur",
+      initiatedBy: "app",
+      failure: null,
+      createdAt: "2026-11-24T10:00:00.000Z",
+      settledAt: "2026-11-24T10:00:00.000Z",
+    }
+    const { center, calls } = fakeCenter({
+      refund: async (...args: unknown[]) => {
+        calls.push({ name: "refund", args })
+        return refund
+      },
+    })
+    const handler = tokenRoutes(center, { userOf: () => alice })
+    const listed = await handler(req("GET", "purchases?limit=500&userId=bob"))
+    expect(listed.status).toBe(200)
+    expect(calls.find((c) => c.name === "purchases")!.args).toEqual([
+      "alice",
+      { limit: 200 },
+    ])
+
+    const made = await handler(
+      req(
+        "POST",
+        "purchases/pur_1/refund",
+        { creditMicros: 5, userId: "bob", extra: 1 },
+        { "idempotency-key": "k-9" },
+      ),
+    )
+    expect(made.status).toBe(201)
+    expect((await made.json()).id).toBe("ref_1")
+    expect(calls.find((c) => c.name === "refund")!.args).toEqual([
+      "alice",
+      "pur_1",
+      { creditMicros: 5 },
+      { idempotencyKey: "k-9" },
+    ])
+
+    // No body at all means all of it.
+    const all = await handler(
+      new Request("https://app.test/api/tokens/purchases/pur_2/refund", {
+        method: "POST",
+        headers: { "idempotency-key": "k-10" },
+      }),
+    )
+    expect(all.status).toBe(201)
+    expect(calls.filter((c) => c.name === "refund")[1]!.args[2]).toEqual({})
+  })
+
+  it("answers 202 for a pending refund, and refuses a refund with no key or a bad amount before the center is asked", async () => {
+    const { center, calls } = fakeCenter({
+      refund: async () => ({ id: "r", status: "pending" }),
+    })
+    const handler = tokenRoutes(center, { userOf: () => alice })
+    const pending = await handler(
+      req("POST", "purchases/p/refund", {}, { "idempotency-key": "k" }),
+    )
+    expect(pending.status).toBe(202)
+
+    const noKey = await handler(req("POST", "purchases/p/refund", {}))
+    expect(noKey.status).toBe(400)
+    expect((await noKey.json()).error.path).toBe("idempotency-key")
+    for (const creditMicros of [0, -3, 1.5, "7"]) {
+      const res = await handler(
+        req(
+          "POST",
+          "purchases/p/refund",
+          { creditMicros },
+          { "idempotency-key": "k" },
+        ),
+      )
+      expect(res.status).toBe(400)
+      expect((await res.json()).error.path).toBe("creditMicros")
+    }
+    expect(calls.filter((c) => c.name === "refund")).toHaveLength(0)
+    expect((await handler(req("POST", "purchases/p", {}))).status).toBe(404)
+    expect((await handler(req("GET", "purchases/p"))).status).toBe(404)
+  })
+
+  it("passes the refund refusals on with their code, status and what is refundable", async () => {
+    const { center } = fakeCenter({
+      refund: async () => {
+        throw new TokenCenterError({
+          code: "refund_amount_invalid",
+          message: "Too much.",
+          refundableCreditMicros: 2_000_000,
+        })
+      },
+    })
+    const res = await tokenRoutes(center, { userOf: () => alice })(
+      req(
+        "POST",
+        "purchases/p/refund",
+        { creditMicros: 9_000_000 },
+        { "idempotency-key": "k" },
+      ),
+    )
+    expect(res.status).toBe(400)
+    expect(res.headers.get("x-token-error")).toBe("refund_amount_invalid")
+    expect((await res.json()).error.refundableCreditMicros).toBe(2_000_000)
+  })
 })

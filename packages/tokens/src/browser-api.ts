@@ -18,6 +18,9 @@ import type {
   OwnEndpointResponse,
   OwnEndpointTest,
   Purchase,
+  PurchasesPage,
+  Refund,
+  RefundRequest,
   SalePrices,
 } from "./types"
 
@@ -49,6 +52,17 @@ export type TokenApi = {
   history(query?: { limit?: number; cursor?: string }): Promise<HistoryPage>
   salePrices(): Promise<SalePrices>
   purchase(id: string): Promise<Purchase>
+  /** The user's paid purchases, newest first, with what of each is refundable. */
+  purchases(query?: { limit?: number; cursor?: string }): Promise<PurchasesPage>
+  /**
+   * Refund unspent bought credit (all of it when `creditMicros` is left out). The key is the
+   * caller's, one per attempt: reuse it to retry the same refund, never for another.
+   */
+  refund(
+    purchaseId: string,
+    input: RefundRequest,
+    idempotencyKey: string,
+  ): Promise<Refund>
   /** Opens Stripe Checkout; send the browser to `url`. */
   checkout(
     input: CheckoutInput,
@@ -141,6 +155,12 @@ export function createTokenApi(options: TokenApiOptions = {}): TokenApi {
     history: (query) => send("GET", "history", { query }),
     salePrices: () => send("GET", "sale-prices"),
     purchase: (id) => send("GET", `purchase/${encodeURIComponent(id)}`),
+    purchases: (query) => send("GET", "purchases", { query }),
+    refund: (purchaseId, input, idempotencyKey) =>
+      send("POST", `purchases/${encodeURIComponent(purchaseId)}/refund`, {
+        body: input,
+        idempotencyKey,
+      }),
     checkout: (input, idempotencyKey) =>
       send("POST", "checkout", { body: input, idempotencyKey }),
     autoRefill: () => send("GET", "autorefill"),

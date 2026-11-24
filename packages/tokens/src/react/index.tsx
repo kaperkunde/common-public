@@ -11,6 +11,11 @@ export {
   type PurchaseHistoryProps,
 } from "./history"
 export {
+  PurchaseList,
+  refundProblem,
+  type PurchaseListProps,
+} from "./purchases"
+export {
   OwnModelForm,
   OwnEndpointForm,
   BackendOrderSwitch,
@@ -27,6 +32,7 @@ export {
   useOwnEndpoint,
   useCalls,
   useHistory,
+  usePurchases,
   useResource,
   useLabels,
   refreshTokens,

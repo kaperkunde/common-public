@@ -56,7 +56,7 @@ export const TOKEN_HEADERS = {
   backend: "x-token-backend",
   /** `event`: append a final `event: token_center` SSE event carrying the CallCharge. Off by default. */
   trailer: "x-token-trailer",
-  /** Idempotency for app API POSTs that create something (checkout, card setup). */
+  /** Idempotency for app API POSTs that create something (checkout, card setup, refund). */
   idempotencyKey: "idempotency-key",
 
   // --- response (gateway) ---
@@ -124,6 +124,9 @@ export const ERROR_CODES = [
   "rate_limited", // 429 per-key/per-user rate, or the per-user in-flight cap (Retry-After)
   "payments_unavailable", // 503 Stripe not configured on the center
   "purchase_too_small", // 400 below the currency minimum (details.minimumCents)
+  "refund_not_available", // 409 nothing of the purchase is unspent (or it is not paid); with action "wait" while a call of the user's is running
+  "refund_amount_invalid", // 400 creditMicros not a positive whole number, more than the purchase holds unspent, or less than a cent's worth (details.refundableCreditMicros)
+  "refund_refused_by_processor", // 409 Stripe will not refund the payment to its original method (too old, method not refundable); nothing was taken
   "no_card", // 409 auto-refill without a saved card
   "conflict", // 409 idempotency key reused with another body, etc.
   "center_unavailable", // 503 from the center, or synthesized by the SDK when it cannot reach it
@@ -153,6 +156,9 @@ export const ERROR_STATUS: Record<ErrorCode, number> = {
   rate_limited: 429,
   payments_unavailable: 503,
   purchase_too_small: 400,
+  refund_not_available: 409,
+  refund_amount_invalid: 400,
+  refund_refused_by_processor: 409,
   no_card: 409,
   conflict: 409,
   center_unavailable: 503,
@@ -188,6 +194,8 @@ export type TokenErrorDetail = {
   retryAfterSeconds?: number
   /** Upstream HTTP status for provider_error / byo_failed. */
   status?: number
+  /** refund_not_available / refund_amount_invalid: what the purchase could refund now. */
+  refundableCreditMicros?: Micros
   /** invalid_request: JSON path of the offending field. */
   path?: string
   callId?: string
@@ -572,6 +580,62 @@ export type Purchase = {
   failure: string | null
   createdAt: IsoTime
   paidAt: IsoTime | null
+  /**
+   * The refund figures, on `GET purchases`, `GET purchases/:id` (a paid purchase),
+   * `purchase.refunded` and `purchase.refund_failed` (absent elsewhere, e.g. on
+   * `purchase.completed` and in history). Refundable: what of this purchase's credit is still
+   * unspent (bought credit is spent oldest purchase first, so the unspent balance belongs to the
+   * newest purchases; credit the admin added by hand is spent last and never refundable), and
+   * the money a refund of all of it would give back. Refunded: what refunds that did not fail
+   * accounted for and gave back.
+   */
+  refundableCreditMicros?: Micros
+  refundableCents?: Cents
+  refundedCreditMicros?: Micros
+  refundedCents?: Cents
+}
+
+/** `GET /api/v1/users/:userId/purchases`: paid purchases, newest first, with refund figures. */
+export type PurchasesPage = { purchases: Purchase[]; nextCursor: string | null }
+
+// ---------------------------------------------------------------------------------------------
+// Refunds of unspent bought credit
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * `POST /api/v1/users/:userId/purchases/:purchaseId/refund`. Omit `creditMicros` to refund all
+ * of the purchase's unspent credit; otherwise a positive whole number of micros, at most
+ * `refundableCreditMicros`. `Idempotency-Key` is honoured (per purchase).
+ */
+export type RefundRequest = { creditMicros?: Micros }
+
+/**
+ * pending: the credit is off the balance and Stripe has not yet confirmed the money went back
+ * (a slow payment method, or Stripe could not be reached; the center settles it).
+ * succeeded: Stripe refunded it. failed: Stripe refused or the refund failed; the credit was put
+ * back on the balance.
+ */
+export type RefundStatus = "pending" | "succeeded" | "failed"
+export type Refund = {
+  id: string
+  purchaseId: string
+  status: RefundStatus
+  /**
+   * The purchase's credit the refund accounts for. An app's or the admin's refund took all of it
+   * off the balance (and put it back if it failed). A refund made in Stripe (`initiatedBy:
+   * "stripe"`) takes off only what is left unspent: purchased never goes below zero, so for
+   * credit already spent less (possibly nothing) left the balance.
+   */
+  creditMicros: Micros
+  /** What goes back to the buyer, tax included: pro rata of what was paid, rounded down to the cent. */
+  amountCents: Cents
+  currency: Currency
+  /** app: asked through the API; admin: the admin, for a support request; stripe: made in Stripe itself. */
+  initiatedBy: "app" | "admin" | "stripe"
+  /** Why it failed, in words a user may be shown; null unless failed. */
+  failure: string | null
+  createdAt: IsoTime
+  settledAt: IsoTime | null
 }
 
 export type AutoRefill = {
@@ -663,6 +727,8 @@ export type HistoryEntry =
   | { type: "grant"; at: IsoTime; lot: GrantLot }
   | { type: "expiry"; at: IsoTime; lotId: string; expiredMicros: Micros }
   | { type: "adjustment"; at: IsoTime; micros: Micros; reason: string }
+  /** Added 2026-11-24. A client must skip an entry `type` it does not know. */
+  | { type: "refund"; at: IsoTime; refund: Refund }
 export type HistoryPage = { entries: HistoryEntry[]; nextCursor: string | null }
 
 // ---------------------------------------------------------------------------------------------
@@ -768,9 +834,41 @@ export type GrantExpiredEvent = WebhookEnvelope<
   }
 >
 
+/**
+ * Money went back to the buyer for some of a purchase's credit: an app's or the admin's refund
+ * Stripe confirmed, or one made in Stripe itself. `balance` is after it (for a refund made in
+ * Stripe of credit already spent, less than `refund.creditMicros` left the balance).
+ */
+export type PurchaseRefundedEvent = WebhookEnvelope<
+  "purchase.refunded",
+  {
+    userId: string
+    purchase: Purchase
+    refund: Refund
+    balance: BalanceSummary
+  }
+>
+/**
+ * A refund the app had been told was made, or was pending (a 202, or a refund made in Stripe),
+ * failed after all: the money did not go back, and its credit is back on the balance (`refund`
+ * has `status: "failed"`, `balance` is after). Not sent for a refusal the refund request itself
+ * answered (`refund_refused_by_processor`).
+ */
+export type PurchaseRefundFailedEvent = WebhookEnvelope<
+  "purchase.refund_failed",
+  {
+    userId: string
+    purchase: Purchase
+    refund: Refund
+    balance: BalanceSummary
+  }
+>
+
 export type WebhookEvent =
   | GrantReceivedEvent
   | PurchaseCompletedEvent
+  | PurchaseRefundedEvent
+  | PurchaseRefundFailedEvent
   | BalanceLowEvent
   | BalanceEmptyEvent
   | AutoRefillFailedEvent
@@ -780,6 +878,8 @@ export type WebhookEventType = WebhookEvent["type"]
 export const WEBHOOK_EVENT_TYPES: readonly WebhookEventType[] = [
   "grant.received",
   "purchase.completed",
+  "purchase.refunded",
+  "purchase.refund_failed",
   "balance.low",
   "balance.empty",
   "autorefill.failed",

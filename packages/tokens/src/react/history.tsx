@@ -3,7 +3,7 @@
 import type { AppUnit, HistoryEntry, HistoryPage } from "../types"
 import { formatMoney, formatUnits } from "../units"
 import { useAppInfo, useHistory, useLabels, useLocale } from "./hooks"
-import { type Labels, type LabelOverrides } from "./labels"
+import { fill, type Labels, type LabelOverrides } from "./labels"
 import { Notice, Panel, dateText, part, type Styling } from "./ui"
 
 export type PurchaseHistoryProps = Styling & {
@@ -16,13 +16,16 @@ export type PurchaseHistoryProps = Styling & {
 
 type Line = { key: string; title: string; meta: string; amount: string }
 
-/** One history entry as the lines a row shows. Exported for tests and custom lists. */
+/**
+ * One history entry as the lines a row shows, or `null` for an entry type this version does not
+ * know (the list skips it). Exported for tests and custom lists.
+ */
 export function historyLine(
   entry: HistoryEntry,
   unit: AppUnit,
   labels: Labels,
   locale?: string,
-): Line {
+): Line | null {
   const when = dateText(entry.at, locale)
   const units = (n: number) => formatUnits(n, unit, { locale, bare: true })
   switch (entry.type) {
@@ -60,6 +63,25 @@ export function historyLine(
         meta: `${when} · ${entry.reason}`,
         amount: `${entry.micros >= 0 ? "+" : "−"}${units(Math.abs(entry.micros))}`,
       }
+    case "refund": {
+      const r = entry.refund
+      const status =
+        r.status === "pending"
+          ? ` · ${labels.refundPending}`
+          : r.status === "failed"
+            ? ` · ${labels.refundFailed}`
+            : ""
+      return {
+        key: `refund:${r.id}`,
+        title: labels.refund,
+        meta: `${when} · ${fill(labels.refundMeta, { money: formatMoney(r.amountCents, r.currency, locale) })}${status}`,
+        // A failed refund took nothing in the end: its credit is back.
+        amount: r.status === "failed" ? "—" : `−${units(r.creditMicros)}`,
+      }
+    }
+    default:
+      // An entry type from a newer center: skipped, never an error.
+      return null
   }
 }
 
@@ -94,6 +116,7 @@ export function PurchaseHistory(props: PurchaseHistoryProps) {
         <ul className={part(styling, "list")}>
           {page.entries.map((entry) => {
             const line = historyLine(entry, unit, labels, locale)
+            if (!line) return null
             return (
               <li key={line.key} className={part(styling, "row")}>
                 <span className="tk-row__main">

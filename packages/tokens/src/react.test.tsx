@@ -4,12 +4,14 @@ import { createRoot, type Root } from "react-dom/client"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 
 import type { TokenApi } from "./browser-api"
+import { TokenCenterError, centerUnavailable } from "./errors"
 import {
   AutoRefill,
   BackendOrderSwitch,
   BuyTokens,
   OwnModelForm,
   PurchaseHistory,
+  PurchaseList,
   TokenBalance,
   TokensProvider,
   UsageList,
@@ -21,6 +23,8 @@ import type {
   Balance,
   CallRecord,
   OwnEndpoint,
+  Purchase,
+  Refund,
   SalePrices,
 } from "./types"
 
@@ -536,6 +540,285 @@ describe("PurchaseHistory", () => {
     expect(text).toContain("Drop")
     expect(text).toContain("+8,000,000")
     expect(text).toContain("−500")
+  })
+})
+
+const refund: Refund = {
+  id: "ref_1",
+  purchaseId: "p1",
+  status: "succeeded",
+  creditMicros: 4_000_000,
+  amountCents: 400,
+  currency: "eur",
+  initiatedBy: "app",
+  failure: null,
+  createdAt: "2026-11-24T10:00:00.000Z",
+  settledAt: "2026-11-24T10:00:01.000Z",
+}
+
+describe("PurchaseHistory refunds", () => {
+  it("says a refund, shows a pending and a failed one, and skips an entry type it does not know", async () => {
+    const el = await mount(
+      <PurchaseHistory
+        unit={unit}
+        page={{
+          nextCursor: null,
+          entries: [
+            { type: "refund", at: refund.createdAt, refund },
+            {
+              type: "refund",
+              at: refund.createdAt,
+              refund: { ...refund, id: "ref_2", status: "pending" },
+            },
+            {
+              type: "refund",
+              at: refund.createdAt,
+              refund: { ...refund, id: "ref_3", status: "failed" },
+            },
+            { type: "chargeback", at: refund.createdAt } as never,
+          ],
+        }}
+      />,
+    )
+    const rows = [...el.querySelectorAll("li")]
+    expect(rows).toHaveLength(3)
+    expect(rows[0]!.textContent).toContain("Refund")
+    expect(rows[0]!.textContent).toContain("€4.00 back to your card")
+    expect(rows[0]!.textContent).toContain("−4,000,000")
+    expect(rows[1]!.textContent).toContain("pending")
+    expect(rows[2]!.textContent).toContain("failed")
+    expect(rows[2]!.textContent).toContain("—")
+  })
+})
+
+describe("PurchaseList", () => {
+  const purchase = (over: Partial<Purchase> = {}): Purchase => ({
+    id: "p1",
+    kind: "checkout",
+    status: "paid",
+    currency: "eur",
+    amountCents: 1000,
+    taxCents: 0,
+    totalCents: 1000,
+    creditMicros: 10_000_000,
+    failure: null,
+    createdAt: "2026-11-02T00:00:00.000Z",
+    paidAt: "2026-11-02T00:00:00.000Z",
+    refundableCreditMicros: 4_000_000,
+    refundableCents: 400,
+    refundedCreditMicros: 0,
+    refundedCents: 0,
+    ...over,
+  })
+
+  it("lists purchases with what can be refunded, and offers nothing where nothing is left", async () => {
+    const el = await mount(
+      <PurchaseList
+        unit={unit}
+        page={{
+          nextCursor: null,
+          purchases: [
+            purchase(),
+            purchase({
+              id: "p0",
+              refundableCreditMicros: 0,
+              refundableCents: 0,
+              refundedCents: 600,
+            }),
+          ],
+        }}
+      />,
+    )
+    const rows = [...el.querySelectorAll("li")]
+    expect(rows[0]!.textContent).toContain(
+      "4,000,000 credits can be refunded, €4.00 back to your card.",
+    )
+    expect(byText(rows[0]!, "button", "Refund…")).toBeTruthy()
+    expect(rows[1]!.textContent).toContain("Nothing left to refund.")
+    expect(rows[1]!.textContent).toContain("€6.00 already refunded.")
+    expect(byText(rows[1]!, "button", "Refund…")).toBeUndefined()
+  })
+
+  it("asks first with the money back, and backs out without asking the center anything", async () => {
+    const refundFn = vi.fn(async () => refund)
+    const el = await mount(
+      <TokensProvider api={api({ refund: refundFn } as Partial<TokenApi>)}>
+        <PurchaseList
+          unit={unit}
+          page={{ nextCursor: null, purchases: [purchase()] }}
+        />
+      </TokensProvider>,
+    )
+    await press(byText(el, "button", "Refund…"))
+    expect(el.textContent).toContain("get €4.00 back to the card you paid with")
+    expect(refundFn).not.toHaveBeenCalled()
+    // Keep my tokens backs out without asking the center anything.
+    await press(byText(el, "button", "Keep my tokens"))
+    expect(byText(el, "button", "Refund…")).toBeTruthy()
+    expect(refundFn).not.toHaveBeenCalled()
+  })
+
+  it("sends the confirmed refund through the client with a key, and tells the pending from the settled", async () => {
+    const refundFn = vi.fn(async () => ({
+      ...refund,
+      status: "pending" as const,
+    }))
+    const onRefunded = vi.fn()
+    const el = await mount(
+      <TokensProvider api={api({ refund: refundFn } as Partial<TokenApi>)}>
+        <PurchaseList
+          unit={unit}
+          onRefunded={onRefunded}
+          page={{ nextCursor: null, purchases: [purchase()] }}
+        />
+      </TokensProvider>,
+    )
+    await press(byText(el, "button", "Refund…"))
+    await press(byText(el, "button", "Refund €4.00"))
+    expect(refundFn).toHaveBeenCalledOnce()
+    const [id, input, key] = refundFn.mock.calls[0] as unknown as [
+      string,
+      object,
+      string,
+    ]
+    expect([id, input]).toEqual(["p1", {}])
+    expect(key).toMatch(/\S{8,}/)
+    expect(onRefunded).toHaveBeenCalledOnce()
+    expect(el.textContent).toContain("Refund started")
+  })
+
+  it("says in words what was refused, and keeps the same key for a retry after a network failure", async () => {
+    const keys: string[] = []
+    let n = 0
+    const refundFn = vi.fn(async (_id: string, _input: object, key: string) => {
+      keys.push(key)
+      if (++n === 1) throw centerUnavailable()
+      if (n === 2)
+        throw new TokenCenterError({
+          code: "refund_amount_invalid",
+          message: "x",
+          refundableCreditMicros: 1_000_000,
+        })
+      return refund
+    })
+    const el = await mount(
+      <TokensProvider api={api({ refund: refundFn } as Partial<TokenApi>)}>
+        <PurchaseList
+          unit={unit}
+          page={{ nextCursor: null, purchases: [purchase()] }}
+        />
+      </TokensProvider>,
+    )
+    await press(byText(el, "button", "Refund…"))
+    await press(byText(el, "button", "Refund €4.00"))
+    expect(el.textContent).toContain("unavailable")
+    await press(byText(el, "button", "Refund €4.00"))
+    expect(keys[0]).toBe(keys[1])
+    expect(el.textContent).toContain(
+      "Only 1,000,000 credits can be refunded now.",
+    )
+    // A refusal is a fresh question: the next press is a new refund.
+    await press(byText(el, "button", "Refund €4.00"))
+    expect(keys[2]).not.toBe(keys[1])
+    expect(el.textContent).toContain("Refunded")
+  })
+})
+
+describe("PurchaseList partial refunds", () => {
+  const p: Purchase = {
+    id: "p1",
+    kind: "checkout",
+    status: "paid",
+    currency: "eur",
+    amountCents: 1000,
+    taxCents: 0,
+    totalCents: 1000,
+    creditMicros: 10_000_000,
+    failure: null,
+    createdAt: "2026-11-02T00:00:00.000Z",
+    paidAt: "2026-11-02T00:00:00.000Z",
+    refundableCreditMicros: 8_000_000,
+    refundableCents: 800,
+    refundedCreditMicros: 0,
+    refundedCents: 0,
+  }
+  const mountList = (refundFn: unknown) =>
+    mount(
+      <TokensProvider api={api({ refund: refundFn } as Partial<TokenApi>)}>
+        <PurchaseList unit={unit} page={{ nextCursor: null, purchases: [p] }} />
+      </TokensProvider>,
+    )
+
+  it("refunds a typed amount, showing the money back first, with a fresh key each confirmation", async () => {
+    const refundFn = vi.fn(async (..._a: unknown[]) => refund)
+    const el = await mountList(refundFn)
+    await press(byText(el, "button", "Refund…"))
+    await press(byText(el, "button", "An amount"))
+    await type(
+      el.querySelector("input[type=text]") as HTMLInputElement,
+      "2500000",
+    )
+    expect(el.textContent).toContain("get €2.50 back")
+    await press(byText(el, "button", "Refund €2.50"))
+    expect(refundFn.mock.calls[0]!.slice(0, 2)).toEqual([
+      "p1",
+      { creditMicros: 2_500_000 },
+    ])
+    await press(byText(el, "button", "Refund…"))
+    expect(el.textContent).not.toContain("get €2.50 back")
+    expect(el.textContent).toContain("get €8.00 back")
+    await press(byText(el, "button", "Refund €8.00"))
+    const keys = refundFn.mock.calls.map((c) => (c as unknown[])[2])
+    expect(keys[0]).not.toBe(keys[1])
+    expect(refundFn.mock.calls[1]![1]).toEqual({})
+  })
+
+  it("names a bad amount without asking the center", async () => {
+    const refundFn = vi.fn(async (..._a: unknown[]) => refund)
+    const el = await mountList(refundFn)
+    await press(byText(el, "button", "Refund…"))
+    await press(byText(el, "button", "An amount"))
+    await type(
+      el.querySelector("input[type=text]") as HTMLInputElement,
+      "9000000",
+    )
+    await press(byText(el, "button", /^Refund €/))
+    expect(el.textContent).toContain("between 1 and 8,000,000")
+    expect(refundFn).not.toHaveBeenCalled()
+  })
+
+  it("retries once after the center's hint when a call is running, and points to support when refused", async () => {
+    vi.useFakeTimers()
+    try {
+      let n = 0
+      const refundFn = vi.fn(async (..._a: unknown[]) => {
+        if (++n === 1)
+          throw new TokenCenterError({
+            code: "refund_not_available",
+            message: "x",
+            action: "wait",
+            retryAfterSeconds: 2,
+          })
+        throw new TokenCenterError({
+          code: "refund_refused_by_processor",
+          message: "x",
+        })
+      })
+      const el = await mountList(refundFn)
+      await press(byText(el, "button", "Refund…"))
+      await press(byText(el, "button", /^Refund €/))
+      expect(el.textContent).toContain("Trying again in 2 seconds")
+      expect(refundFn).toHaveBeenCalledOnce()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000)
+      })
+      await settle()
+      expect(refundFn).toHaveBeenCalledTimes(2)
+      expect(refundFn.mock.calls[0]![2]).toBe(refundFn.mock.calls[1]![2])
+      expect(el.textContent).toContain("support@kaperkun.de")
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

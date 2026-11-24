@@ -6,6 +6,7 @@ import {
   formatMoney,
   formatUnits,
   microsOf,
+  refundCentsFor,
   unitsOf,
 } from "./units"
 
@@ -45,5 +46,40 @@ describe("units", () => {
     expect(formatMoney(450, "usd")).toBe("$4.50")
     expect(creditFor(1000, { centsPerDollar: 100 })).toBe(10_000_000)
     expect(creditFor(1000, { centsPerDollar: 120 })).toBe(8_333_333)
+  })
+})
+
+describe("refundCentsFor", () => {
+  const purchase = {
+    amountCents: 1000,
+    totalCents: 1210,
+    creditMicros: 10_000_000,
+  }
+  it("is pro rata of what was paid, tax included, rounded down", () => {
+    expect(refundCentsFor(purchase, 10_000_000)).toBe(1210)
+    expect(refundCentsFor(purchase, 5_000_000)).toBe(605)
+    expect(refundCentsFor(purchase, 3_333_333)).toBe(403)
+  })
+  it("makes the parts add up to the whole", () => {
+    const first = refundCentsFor(purchase, 3_333_333)
+    const second = refundCentsFor(
+      { ...purchase, refundedCreditMicros: 3_333_333, refundedCents: first },
+      6_666_667,
+    )
+    expect(first + second).toBe(1210)
+  })
+  it("falls back to the amount when the total is unknown, and is zero for nothing", () => {
+    expect(refundCentsFor({ ...purchase, totalCents: null }, 10_000_000)).toBe(
+      1000,
+    )
+    expect(refundCentsFor(purchase, 0)).toBe(0)
+  })
+  it("does not overflow on a large purchase", () => {
+    expect(
+      refundCentsFor(
+        { amountCents: 9_000_000, totalCents: 9_000_000, creditMicros: 9e12 },
+        9e12,
+      ),
+    ).toBe(9_000_000)
   })
 })

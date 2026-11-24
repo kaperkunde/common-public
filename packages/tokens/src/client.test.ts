@@ -142,4 +142,89 @@ describe("createTokenCenter", () => {
     ).toThrow()
     expect(() => center(fetch).balance("")).toThrow()
   })
+
+  it("lists purchases and refunds one with the caller's idempotency key", async () => {
+    const refund = {
+      id: "ref_1",
+      purchaseId: "pur 1",
+      status: "pending",
+      creditMicros: 4_000_000,
+      amountCents: 400,
+      currency: "eur",
+      initiatedBy: "app",
+      failure: null,
+      createdAt: "2026-11-24T10:00:00.000Z",
+      settledAt: null,
+    }
+    const fetchImpl = vi.fn(async (url: string) =>
+      url.endsWith("/refund")
+        ? ok(refund, { status: 202 })
+        : ok({ purchases: [], nextCursor: null }),
+    )
+    const c = center(fetchImpl as unknown as typeof fetch)
+    await c.purchases("u1", { limit: 10, cursor: "x" })
+    const made = await c.refund(
+      "u1",
+      "pur 1",
+      { creditMicros: 4_000_000 },
+      { idempotencyKey: "k-1" },
+    )
+    expect(made.status).toBe("pending")
+    const [listUrl] = fetchImpl.mock.calls[0] as unknown as [string]
+    expect(listUrl).toBe(
+      "https://c.test/api/v1/users/u1/purchases?limit=10&cursor=x",
+    )
+    const [url, init] = fetchImpl.mock.calls[1] as unknown as [
+      string,
+      RequestInit,
+    ]
+    expect(url).toBe("https://c.test/api/v1/users/u1/purchases/pur%201/refund")
+    expect(init.method).toBe("POST")
+    expect((init.headers as Record<string, string>)["idempotency-key"]).toBe(
+      "k-1",
+    )
+    expect(JSON.parse(init.body as string)).toEqual({ creditMicros: 4_000_000 })
+    expect(() => c.refund("u1", "p", {}, { idempotencyKey: "" })).toThrow(
+      /idempotencyKey/,
+    )
+  })
+
+  it("throws the refund refusals with what is refundable, typed", async () => {
+    const c = center((async () =>
+      ok(
+        {
+          error: {
+            code: "refund_amount_invalid",
+            message: "Too much.",
+            refundableCreditMicros: 2_500_000,
+          },
+        },
+        { status: 400 },
+      )) as typeof fetch)
+    const e = (await c
+      .refund("u1", "p", { creditMicros: 9 }, { idempotencyKey: "k" })
+      .catch((x) => x)) as TokenCenterError
+    expect(e.code).toBe("refund_amount_invalid")
+    expect(e.status).toBe(400)
+    expect(e.refundableCreditMicros).toBe(2_500_000)
+
+    const wait = center((async () =>
+      ok(
+        {
+          error: {
+            code: "refund_not_available",
+            message: "A call is running.",
+            action: "wait",
+            retryAfterSeconds: 3,
+          },
+        },
+        { status: 409 },
+      )) as typeof fetch)
+    const w = (await wait
+      .refund("u1", "p", {}, { idempotencyKey: "k" })
+      .catch((x) => x)) as TokenCenterError
+    expect(w.code).toBe("refund_not_available")
+    expect(w.action).toBe("wait")
+    expect(w.detail.retryAfterSeconds).toBe(3)
+  })
 })

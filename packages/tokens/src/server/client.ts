@@ -28,6 +28,9 @@ import type {
   OwnEndpointResponse,
   OwnEndpointTest,
   Purchase,
+  PurchasesPage,
+  Refund,
+  RefundRequest,
   RouteDecision,
   RouteRequest,
   SalePrices,
@@ -223,6 +226,42 @@ export function createTokenCenter(options: TokenCenterOptions) {
         "GET",
         `${user(userId)}/purchases/${encodeURIComponent(purchaseId)}`,
       ),
+    /**
+     * The user's paid purchases, newest first, each with what of it is still refundable
+     * (`refundableCreditMicros`, `refundableCents`) and what has been refunded.
+     */
+    purchases: (
+      userId: string,
+      query: { limit?: number; cursor?: string } = {},
+    ) => json<PurchasesPage>("GET", `${user(userId)}/purchases`, { query }),
+    /**
+     * Refund bought credit that is still unspent, to the card it was paid with. Omit
+     * `creditMicros` for all of it. `idempotencyKey` is the caller's and required: it is what
+     * makes a retry after a timeout the same refund rather than a second one. Answers the
+     * `Refund` (201 settled, 202 `pending`); a refusal is a `TokenCenterError` of
+     * `refund_not_available`, `refund_amount_invalid` (both with `refundableCreditMicros`) or
+     * `refund_refused_by_processor`.
+     */
+    refund: (
+      userId: string,
+      purchaseId: string,
+      request: RefundRequest,
+      options: { idempotencyKey: string },
+    ) => {
+      if (!purchaseId) throw new Error("purchaseId is required.")
+      if (!options?.idempotencyKey)
+        throw new Error("refund: an idempotencyKey is required.")
+      return json<Refund>(
+        "POST",
+        `${user(userId)}/purchases/${encodeURIComponent(purchaseId)}/refund`,
+        {
+          body: request,
+          headers: idem(options.idempotencyKey),
+          // Stripe is asked in the middle of it.
+          timeoutMs: defaultTimeout + 20_000,
+        },
+      )
+    },
     autoRefill: (userId: string) =>
       json<AutoRefill>("GET", `${user(userId)}/autorefill`),
     setAutoRefill: (userId: string, input: AutoRefillInput) =>
