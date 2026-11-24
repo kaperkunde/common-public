@@ -760,9 +760,10 @@ describe("PurchaseList partial refunds", () => {
     )
     expect(el.textContent).toContain("get €2.50 back")
     await press(byText(el, "button", "Refund €2.50"))
-    expect(refundFn.mock.calls[0]!.slice(0, 2))
-      .toEqual(["p1", { creditMicros: 2_500_000 }])
-      .toMatchObject(["p1", { creditMicros: 2_500_000 }])
+    expect(refundFn.mock.calls[0]!.slice(0, 2)).toEqual([
+      "p1",
+      { creditMicros: 2_500_000 },
+    ])
     await press(byText(el, "button", "Refund…"))
     expect(el.textContent).not.toContain("get €2.50 back")
     expect(el.textContent).toContain("get €8.00 back")
