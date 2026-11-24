@@ -21,6 +21,10 @@ Token Center refunds of unspent bought credit (contract changes 31-39).
   `historyLine` returns `null`), an unknown webhook type is acknowledged with 200 (`webhookRoute`
   `onUnknown`), and an unknown error code becomes its status class's with the center's own message.
 
+- `PurchaseList` refunds everything or a typed amount in tokens (up to `refundableCreditMicros`), shows
+  the money back before confirming, takes a fresh key per confirmation, retries once after a `wait` hint
+  and points to support when the processor refuses; all copy overrides through `labels`.
+
 **Type-level note:** `verifyWebhook` and `parseWebhookEvent` now return `WebhookEvent |
-UnknownWebhookEvent` instead of throwing for a type they do not know; narrow with
+UnknownWebhookEvent` instead of throwing for a type they do not know; callers that narrow the result may need a guard: use
 `isKnownWebhookEvent(event)` before switching on `event.type`. `webhookRoute` handlers are unchanged.

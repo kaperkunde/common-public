@@ -88,15 +88,20 @@ export const DEFAULT_LABELS = {
   refundConfirm:
     "Refund {tokens} and get {money} back to the card you paid with? The tokens leave your balance now.",
   refundConfirmButton: "Refund {money}",
+  refundAll: "Everything unspent",
+  refundPart: "An amount",
+  refundHow: "Refund",
+  refundAmount: "Amount to refund, in {unit}",
+  refundAmountBad: "Enter an amount between 1 and {max}.",
   refundCancel: "Keep my tokens",
   refunding: "Refunding…",
   refundDone: "Refunded: {money} is on its way back to your card.",
   refundStarted:
     "Refund started: {money} will go back to your card once the payment processor confirms it.",
-  refundWait: "A call is still running. Try again in a few seconds.",
+  refundWait: "A call is still running. Trying again in {seconds} seconds.",
   refundLess: "Only {tokens} can be refunded now.",
   refundRefused:
-    "The payment processor will not refund this payment to its original method any more. Nothing was taken.",
+    "This payment can no longer be refunded to your card. Nothing was taken. Write to support@kaperkun.de and we will look at it.",
   // own model
   ownTitle: "Your own model",
   baseUrl: "Address",

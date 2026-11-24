@@ -724,6 +724,103 @@ describe("PurchaseList", () => {
   })
 })
 
+describe("PurchaseList partial refunds", () => {
+  const p: Purchase = {
+    id: "p1",
+    kind: "checkout",
+    status: "paid",
+    currency: "eur",
+    amountCents: 1000,
+    taxCents: 0,
+    totalCents: 1000,
+    creditMicros: 10_000_000,
+    failure: null,
+    createdAt: "2026-11-02T00:00:00.000Z",
+    paidAt: "2026-11-02T00:00:00.000Z",
+    refundableCreditMicros: 8_000_000,
+    refundableCents: 800,
+    refundedCreditMicros: 0,
+    refundedCents: 0,
+  }
+  const mountList = (refundFn: unknown) =>
+    mount(
+      <TokensProvider api={api({ refund: refundFn } as Partial<TokenApi>)}>
+        <PurchaseList unit={unit} page={{ nextCursor: null, purchases: [p] }} />
+      </TokensProvider>,
+    )
+
+  it("refunds a typed amount, showing the money back first, with a fresh key each confirmation", async () => {
+    const refundFn = vi.fn(async (..._a: unknown[]) => refund)
+    const el = await mountList(refundFn)
+    await press(byText(el, "button", "Refund…"))
+    await press(byText(el, "button", "An amount"))
+    await type(
+      el.querySelector("input[type=text]") as HTMLInputElement,
+      "2500000",
+    )
+    expect(el.textContent).toContain("get €2.50 back")
+    await press(byText(el, "button", "Refund €2.50"))
+    expect(refundFn.mock.calls[0]!.slice(0, 2))
+      .toEqual(["p1", { creditMicros: 2_500_000 }])
+      .toMatchObject(["p1", { creditMicros: 2_500_000 }])
+    await press(byText(el, "button", "Refund…"))
+    expect(el.textContent).not.toContain("get €2.50 back")
+    expect(el.textContent).toContain("get €8.00 back")
+    await press(byText(el, "button", "Refund €8.00"))
+    const keys = refundFn.mock.calls.map((c) => (c as unknown[])[2])
+    expect(keys[0]).not.toBe(keys[1])
+    expect(refundFn.mock.calls[1]![1]).toEqual({})
+  })
+
+  it("names a bad amount without asking the center", async () => {
+    const refundFn = vi.fn(async (..._a: unknown[]) => refund)
+    const el = await mountList(refundFn)
+    await press(byText(el, "button", "Refund…"))
+    await press(byText(el, "button", "An amount"))
+    await type(
+      el.querySelector("input[type=text]") as HTMLInputElement,
+      "9000000",
+    )
+    await press(byText(el, "button", /^Refund €/))
+    expect(el.textContent).toContain("between 1 and 8,000,000")
+    expect(refundFn).not.toHaveBeenCalled()
+  })
+
+  it("retries once after the center's hint when a call is running, and points to support when refused", async () => {
+    vi.useFakeTimers()
+    try {
+      let n = 0
+      const refundFn = vi.fn(async (..._a: unknown[]) => {
+        if (++n === 1)
+          throw new TokenCenterError({
+            code: "refund_not_available",
+            message: "x",
+            action: "wait",
+            retryAfterSeconds: 2,
+          })
+        throw new TokenCenterError({
+          code: "refund_refused_by_processor",
+          message: "x",
+        })
+      })
+      const el = await mountList(refundFn)
+      await press(byText(el, "button", "Refund…"))
+      await press(byText(el, "button", /^Refund €/))
+      expect(el.textContent).toContain("Trying again in 2 seconds")
+      expect(refundFn).toHaveBeenCalledOnce()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000)
+      })
+      await settle()
+      expect(refundFn).toHaveBeenCalledTimes(2)
+      expect(refundFn.mock.calls[0]![2]).toBe(refundFn.mock.calls[1]![2])
+      expect(el.textContent).toContain("support@kaperkun.de")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe("OwnModelForm", () => {
   const saved: OwnEndpoint = {
     baseUrl: "https://llm.example/v1",
