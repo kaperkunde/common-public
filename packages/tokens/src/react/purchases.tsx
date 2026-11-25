@@ -8,6 +8,7 @@ import {
   formatMoney,
   formatUnits,
   microsOf,
+  parseUnits,
   presentmentCentsFor,
   refundCentsFor,
 } from "../units"
@@ -112,11 +113,10 @@ export function PurchaseList(props: PurchaseListProps) {
   const askedFor = (purchase: Purchase): number | null => {
     const left = purchase.refundableCreditMicros ?? 0
     if (mode === "all") return left
-    const typed = Number(amount.trim().replace(",", "."))
+    const typed = parseUnits(amount, locale)
+    if (typed === null) return null
     const micros = microsOf(typed, unit)
-    return Number.isFinite(typed) && typed > 0 && micros > 0 && micros <= left
-      ? micros
-      : null
+    return typed > 0 && micros > 0 && micros <= left ? micros : null
   }
 
   const refund = async (purchase: Purchase, retried = false) => {

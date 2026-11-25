@@ -139,6 +139,28 @@ export function refundCentsFor(
 }
 
 /**
+ * A typed amount of units, read in `locale`: the group separator and spaces
+ * are dropped and the decimal separator is the decimal point, so "250,000" is
+ * 250000 in `en` and 250 in `de`-style locales where "," is the decimal.
+ * Returns `null` for anything that is not a plain number.
+ */
+export function parseUnits(text: string, locale = "en"): number | null {
+  const parts = new Intl.NumberFormat(locale).formatToParts(12345.6)
+  const group = parts.find((p) => p.type === "group")?.value ?? ","
+  const decimal = parts.find((p) => p.type === "decimal")?.value ?? "."
+  const cleaned = text
+    .trim()
+    .replace(/[\s\u00a0\u202f]/g, "")
+    .split(group)
+    .join("")
+    .split(decimal)
+    .join(".")
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null
+  const n = Number(cleaned)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
  * About what `backCents` (in the purchase's currency) comes to in the buyer's own currency, for a
  * purchase paid in one (`presentmentCurrency`): `floor(presentmentTotalCents × backCents /
  * totalCents)`. Approximate, since Stripe refunds the exact amount at the original exchange rate
