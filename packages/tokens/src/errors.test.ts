@@ -190,6 +190,8 @@ describe("provider refusals", () => {
       expect(e.status).toBe(409)
       expect(e.message).toBe("Your wallet is frozen.")
       expect(e.action).toBe("wait")
+      expect(e.centerCode).toBe("wallet_frozen")
+      expect(e.detail.retryAfterSeconds).toBe(5)
       expect(
         errorFromResponse(400, { error: { code: "new_thing" } }).code,
       ).toBe("invalid_request")
@@ -203,6 +205,47 @@ describe("provider refusals", () => {
       expect(errorFromResponse(402, null, { code: "new_thing" }).code).toBe(
         "insufficient_balance",
       )
+    })
+
+    it("keeps the raw code, action, retry hint, refundable credit and message of an unknown code", () => {
+      const e = errorFromResponse(
+        409,
+        {
+          error: {
+            code: "refund_window_closed",
+            message: "Too late.",
+            action: "wait",
+            refundableCreditMicros: 3_000_000,
+          },
+        },
+        { retryAfter: "9", callId: "call_1" },
+      )
+      expect(e.code).toBe("conflict")
+      expect(e.centerCode).toBe("refund_window_closed")
+      expect(e.action).toBe("wait")
+      expect(e.detail.retryAfterSeconds).toBe(9)
+      expect(e.refundableCreditMicros).toBe(3_000_000)
+      expect(e.message).toBe("Too late.")
+      expect(e.callId).toBe("call_1")
+      // A known code reads back as itself.
+      expect(
+        errorFromResponse(402, { error: { code: "insufficient_balance" } })
+          .centerCode,
+      ).toBe("insufficient_balance")
+      // A header-only unknown code, and a 5xx, keep theirs too.
+      const h = errorFromResponse(402, null, { code: "new_thing" })
+      expect(h.centerCode).toBe("new_thing")
+      const down = errorFromResponse(503, {
+        error: {
+          code: "maintenance",
+          message: "Back soon.",
+          retryAfterSeconds: 60,
+        },
+      })
+      expect(down.code).toBe("center_unavailable")
+      expect(down.centerCode).toBe("maintenance")
+      expect(down.message).toBe("Back soon.")
+      expect(down.detail.retryAfterSeconds).toBe(60)
     })
   })
 })

@@ -1,5 +1,59 @@
 # @kaperkunde/tokens
 
+## 0.3.0
+
+### Minor Changes
+
+- 478bf97: The buyer's own currency on refunds, a typed raw error code, and the resume rule (contract changes 40-41).
+
+  - `Purchase` gains optional `presentmentCurrency`, `presentmentTotalCents` and
+    `refundablePresentmentCents`; `Refund` gains `presentmentAmountCents` and `presentmentCurrency`.
+    `PurchaseList` shows the money back in the buyer's own currency, marked approximate, when they are
+    present, and otherwise the purchase currency's figure worded "paid back in the currency you paid
+    in, at the rate you paid". New labels `refundableApprox`, `refundConfirmApprox`,
+    `refundConfirmButtonApprox`, `refundDoneApprox`, `refundStartedApprox`; `refundable` and
+    `refundConfirm` now carry the same-rate wording. `presentmentCentsFor` works out a part refund.
+    `formatMoney` honours a currency's own minor unit. The stub simulates it with
+    `POST /stub/mode {"presentment":{"currency","rate"}}`.
+  - An error code the client does not know keeps the center's own string: `error.centerCode`
+    (`detail.centerCode`), beside the status-class `code`, `action`, `retryAfterSeconds`,
+    `refundableCreditMicros` and the message. A 5xx with such a code stays `center_unavailable` but
+    keeps them too.
+  - `liftsPause(event)` in `@kaperkunde/tokens/server`: `purchase.completed`, `grant.received`, and
+    `purchase.refund_failed` with `data.balance.availableMicros > 0` are the events to resume paused
+    work on.
+
+## 0.2.0
+
+### Minor Changes
+
+- d30dfb0: Token Center refunds of unspent bought credit (contract changes 31-39).
+
+  - `center.purchases(userId, { limit?, cursor? })` lists paid purchases; `Purchase` gains the optional
+    `refundableCreditMicros`, `refundableCents`, `refundedCreditMicros` and `refundedCents`.
+  - `center.refund(userId, purchaseId, { creditMicros? }, { idempotencyKey })` returns a `Refund` (201
+    settled, 202 `pending`). The key is the caller's and required. `refundCentsFor` works out the money
+    back to show before asking.
+  - Error codes `refund_not_available`, `refund_amount_invalid` and `refund_refused_by_processor`;
+    `TokenCenterError.refundableCreditMicros` and `TokenErrorDetail.refundableCreditMicros`.
+  - The `refund` history entry, and the webhooks `purchase.refunded` and `purchase.refund_failed`.
+  - Browser side: `tokenRoutes` serves `GET purchases` and `POST purchases/:id/refund` for the signed-in
+    user only (an `Idempotency-Key` header is required), `createTokenApi` gets `purchases()` and
+    `refund()`, and `/react` gets `PurchaseList` (what is refundable, a confirm step showing the money
+    back), `usePurchases`, `refundProblem` and the `refund` row in `PurchaseHistory`.
+  - The stub simulates purchases listing and refunds (`/stub/mode {"refundRefused"|"refundPending"}`).
+  - Unknown values never throw: an unknown history entry type is skipped by `PurchaseHistory` (and
+    `historyLine` returns `null`), an unknown webhook type is acknowledged with 200 (`webhookRoute`
+    `onUnknown`), and an unknown error code becomes its status class's with the center's own message.
+
+  - `PurchaseList` refunds everything or a typed amount in tokens (up to `refundableCreditMicros`), shows
+    the money back before confirming, takes a fresh key per confirmation, retries once after a `wait` hint
+    and points to support when the processor refuses; all copy overrides through `labels`.
+
+  **Type-level note:** `verifyWebhook` and `parseWebhookEvent` now return `WebhookEvent |
+UnknownWebhookEvent` instead of throwing for a type they do not know; callers that narrow the result may need a guard: use
+  `isKnownWebhookEvent(event)` before switching on `event.type`. `webhookRoute` handlers are unchanged.
+
 ## 0.1.1
 
 ### Patch Changes

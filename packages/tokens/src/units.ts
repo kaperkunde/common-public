@@ -88,10 +88,13 @@ export function formatMoney(
   currency: Currency | string,
   locale = "en",
 ): string {
-  return new Intl.NumberFormat(locale, {
+  const format = new Intl.NumberFormat(locale, {
     style: "currency",
     currency: currency.toUpperCase(),
-  }).format(cents / 100)
+  })
+  // A currency's minor unit is not always a hundredth (yen has none, dinar has three).
+  const digits = format.resolvedOptions().maximumFractionDigits ?? 2
+  return format.format(cents / 10 ** digits)
 }
 
 /**
@@ -155,4 +158,34 @@ export function parseUnits(text: string, locale = "en"): number | null {
   if (!/^(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null
   const n = Number(cleaned)
   return Number.isFinite(n) ? n : null
+}
+
+/**
+ * About what `backCents` (in the purchase's currency) comes to in the buyer's own currency, for a
+ * purchase paid in one (`presentmentCurrency`): `floor(presentmentTotalCents × backCents /
+ * totalCents)`. Approximate, since Stripe refunds the exact amount at the original exchange rate
+ * and rounds it itself. `null` when the purchase has no presentment figures.
+ */
+export function presentmentCentsFor(
+  purchase: Pick<
+    Purchase,
+    | "amountCents"
+    | "totalCents"
+    | "presentmentCurrency"
+    | "presentmentTotalCents"
+  >,
+  backCents: Cents,
+): { cents: Cents; currency: string } | null {
+  if (!purchase.presentmentCurrency || !purchase.presentmentTotalCents)
+    return null
+  const paid = purchase.totalCents ?? purchase.amountCents
+  if (!(paid > 0) || !(backCents > 0))
+    return { cents: 0, currency: purchase.presentmentCurrency }
+  return {
+    cents: Number(
+      (BigInt(purchase.presentmentTotalCents) * BigInt(backCents)) /
+        BigInt(paid),
+    ),
+    currency: purchase.presentmentCurrency,
+  }
 }

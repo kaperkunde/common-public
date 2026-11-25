@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 import {
   signWebhook,
   isKnownWebhookEvent,
+  liftsPause,
   verifyWebhook,
   webhookRoute,
   WebhookVerificationError,
@@ -255,5 +256,32 @@ describe("webhookRoute", () => {
     expect(
       (await failing(post(body, signWebhook(body, secret, now)))).status,
     ).toBe(500)
+  })
+})
+
+describe("liftsPause", () => {
+  const ev = (type: string, availableMicros?: number) =>
+    ({
+      id: "evt_x",
+      type,
+      createdAt: "2026-11-24T10:00:00.000Z",
+      appId: "app_1",
+      livemode: false,
+      data:
+        availableMicros === undefined ? {} : { balance: { availableMicros } },
+    }) as never
+
+  it("resumes on money or a grant, and on a failed refund that put credit back", () => {
+    expect(liftsPause(ev("purchase.completed"))).toBe(true)
+    expect(liftsPause(ev("grant.received"))).toBe(true)
+    expect(liftsPause(ev("purchase.refund_failed", 5_000_000))).toBe(true)
+    expect(liftsPause(ev("purchase.refund_failed", 0))).toBe(false)
+    expect(liftsPause(ev("purchase.refund_failed"))).toBe(false)
+  })
+
+  it("never lifts on anything else, an unknown type included", () => {
+    expect(liftsPause(ev("balance.empty", 0))).toBe(false)
+    expect(liftsPause(ev("purchase.refunded", 9_000_000))).toBe(false)
+    expect(liftsPause(ev("something.new", 9_000_000))).toBe(false)
   })
 })

@@ -9,6 +9,7 @@ import {
   formatUnits,
   microsOf,
   parseUnits,
+  presentmentCentsFor,
   refundCentsFor,
 } from "../units"
 import {
@@ -145,10 +146,23 @@ export function PurchaseList(props: PurchaseListProps) {
       )
       key.current = null
       setConfirming(null)
+      const own =
+        made.presentmentAmountCents !== undefined && made.presentmentCurrency
+      const pendingRefund = made.status === "pending"
       setDone(
         fill(
-          made.status === "pending" ? labels.refundStarted : labels.refundDone,
-          { money: money(made.amountCents, made.currency) },
+          own
+            ? pendingRefund
+              ? labels.refundStartedApprox
+              : labels.refundDoneApprox
+            : pendingRefund
+              ? labels.refundStarted
+              : labels.refundDone,
+          {
+            money: own
+              ? money(made.presentmentAmountCents!, made.presentmentCurrency!)
+              : money(made.amountCents, made.currency),
+          },
         ),
       )
       props.onRefunded?.(made)
@@ -202,6 +216,20 @@ export function PurchaseList(props: PurchaseListProps) {
               mode === "all" || !open
                 ? (p.refundableCents ?? refundCentsFor(p, left))
                 : refundCentsFor(p, asked)
+            // The buyer's own currency, approximate, when they paid in one; else the purchase's.
+            const own =
+              mode === "all" || !open
+                ? p.presentmentCurrency &&
+                  p.refundablePresentmentCents !== undefined
+                  ? {
+                      cents: p.refundablePresentmentCents,
+                      currency: p.presentmentCurrency,
+                    }
+                  : null
+                : presentmentCentsFor(p, back)
+            const backText = own
+              ? money(own.cents, own.currency)
+              : money(back, p.currency)
             return (
               <li key={p.id} className={part(styling, "row")}>
                 <span className="tk-row__main">
@@ -218,10 +246,10 @@ export function PurchaseList(props: PurchaseListProps) {
                   {p.refundableCreditMicros === undefined ? null : (
                     <span className="tk-row__meta">
                       {left > 0
-                        ? fill(labels.refundable, {
-                            tokens: units(left),
-                            money: money(back, p.currency),
-                          })
+                        ? fill(
+                            own ? labels.refundableApprox : labels.refundable,
+                            { tokens: units(left), money: backText },
+                          )
                         : labels.nothingToRefund}
                     </span>
                   )}
@@ -273,10 +301,12 @@ export function PurchaseList(props: PurchaseListProps) {
                         </Field>
                       ) : null}
                       <span role="alertdialog" aria-label={labels.refund}>
-                        {fill(labels.refundConfirm, {
-                          tokens: units(asked),
-                          money: money(back, p.currency),
-                        })}
+                        {fill(
+                          own
+                            ? labels.refundConfirmApprox
+                            : labels.refundConfirm,
+                          { tokens: units(asked), money: backText },
+                        )}
                       </span>
                       {problem ? (
                         <Notice styling={styling}>{problem}</Notice>
@@ -294,9 +324,12 @@ export function PurchaseList(props: PurchaseListProps) {
                         >
                           {pending
                             ? labels.refunding
-                            : fill(labels.refundConfirmButton, {
-                                money: money(back, p.currency),
-                              })}
+                            : fill(
+                                own
+                                  ? labels.refundConfirmButtonApprox
+                                  : labels.refundConfirmButton,
+                                { money: backText },
+                              )}
                         </button>
                         <button
                           type="button"
