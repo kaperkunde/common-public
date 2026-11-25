@@ -1,6 +1,6 @@
 {
   "name": "@kaperkunde/tokens",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "The client for the Token Center: the contract types, a typed server client and gateway config for AI SDK providers, webhook verification, browser-facing route handlers, React components for balance, buying, auto-refill, usage and own models, and a stand-in center for tests.",
   "license": "MIT",
   "type": "module",
