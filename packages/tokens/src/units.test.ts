@@ -6,6 +6,7 @@ import {
   formatMoney,
   formatUnits,
   microsOf,
+  parseUnits,
   refundCentsFor,
   unitsOf,
 } from "./units"
@@ -81,5 +82,22 @@ describe("refundCentsFor", () => {
         9e12,
       ),
     ).toBe(9_000_000)
+  })
+})
+
+describe("parseUnits", () => {
+  it("reads a thousands separator in en", () => {
+    expect(parseUnits("250,000", "en")).toBe(250000)
+    expect(parseUnits("250000", "en")).toBe(250000)
+    expect(parseUnits("1.5", "en")).toBe(1.5)
+  })
+  it("reads nl: dot groups, comma decimals", () => {
+    expect(parseUnits("250.000", "nl")).toBe(250000)
+    expect(parseUnits("1,5", "nl")).toBe(1.5)
+  })
+  it("ignores spaces and rejects garbage", () => {
+    expect(parseUnits(" 250 000 ", "en")).toBe(250000)
+    for (const bad of ["", "abc", "1e3", "-5", "1.2.3", "12abc"])
+      expect(parseUnits(bad, "en")).toBeNull()
   })
 })
