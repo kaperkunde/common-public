@@ -25,10 +25,10 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "peerDependencies": {
-    "stripe": ">=22.0.0"
+    "stripe": ">=22.6.2"
   },
   "devDependencies": {
-    "stripe": "23.0.0"
+    "stripe": "23.2.0"
   },
   "publishConfig": {
     "access": "public",

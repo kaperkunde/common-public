@@ -41,11 +41,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "peerDependencies": {
-    "@playwright/test": ">=1.63.0",
-    "eslint": "^9.39.0",
-    "eslint-config-next": "^16.0.0",
-    "eslint-config-prettier": "^10.0.0",
-    "vitest": "^5.0.0"
+    "@playwright/test": ">=1.65.1",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.6",
+    "eslint-config-prettier": "^10.1.8",
+    "vitest": "^5.1.2"
   },
   "peerDependenciesMeta": {
     "@playwright/test": {
@@ -65,14 +65,14 @@
     }
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0",
+    "@playwright/test": "1.65.1",
     "eslint": "9.39.5",
-    "eslint-config-next": "16.3.6",
+    "eslint-config-next": "16.4.6",
     "eslint-config-prettier": "10.1.8",
-    "next": "16.3.6",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "vitest": "5.0.2"
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "vitest": "5.1.2"
   },
   "publishConfig": {
     "access": "public",
